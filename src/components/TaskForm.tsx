@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,11 +59,21 @@ export function TaskForm({
 }: TaskFormProps) {
   const [form, setForm] = useState<TaskFormData>({ ...defaultValues });
 
+  const serializedInitialValues = useMemo(
+    () => (initialValues ? JSON.stringify(initialValues) : null),
+    [initialValues],
+  );
+
   useEffect(() => {
-    if (open) {
-      setForm({ ...defaultValues, ...initialValues });
+    if (!open) {
+      return;
     }
-  }, [open, initialValues]);
+
+    setForm({
+      ...defaultValues,
+      ...(initialValues ?? {}),
+    });
+  }, [open, serializedInitialValues]);
 
   function handleChange<K extends keyof TaskFormData>(key: K, value: TaskFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

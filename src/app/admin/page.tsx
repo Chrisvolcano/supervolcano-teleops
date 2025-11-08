@@ -170,6 +170,21 @@ export default function AdminDashboardPage() {
     return tasks.filter((task) => task.assignment === "teleoperator").length;
   }, [tasks]);
 
+  const taskFormInitialValues = useMemo(() => {
+    if (!editingTask) {
+      return undefined;
+    }
+
+    return {
+      name: editingTask.name,
+      type: "general",
+      duration: editingTask.duration,
+      priority: editingTask.priority,
+      assignment: editingTask.assignment,
+      status: editingTask.status,
+    } satisfies Partial<TaskFormData>;
+  }, [editingTask]);
+
   function openCreatePropertyModal() {
     const partnerOrgClaim =
       typeof claims?.partner_org_id === "string" ? (claims.partner_org_id as string) : undefined;
@@ -727,24 +742,21 @@ export default function AdminDashboardPage() {
         </DialogContent>
       </Dialog>
 
-      <TaskForm
-        open={taskFormOpen}
-        onOpenChange={setTaskFormOpen}
-        title={editingTask ? "Edit task" : "Add task"}
-        initialValues={
-          editingTask
-            ? {
-                name: editingTask.name,
-                duration: editingTask.duration,
-                assignment: editingTask.assignment,
-                priority: editingTask.priority,
-                status: editingTask.status,
-              }
-            : { assignment: "teleoperator", name: "" }
-        }
-        onSubmit={saveTask}
-        loading={taskFormLoading}
-      />
+      {selectedProperty && (
+        <TaskForm
+          open={taskFormOpen}
+          onOpenChange={setTaskFormOpen}
+          onSubmit={saveTask}
+          loading={taskFormLoading}
+          title={editingTask ? `Edit task: ${editingTask.name}` : "Add new task"}
+          description={
+            editingTask
+              ? `Editing task for ${selectedProperty.name}.`
+              : `Adding new task for ${selectedProperty.name}.`
+          }
+          initialValues={taskFormInitialValues}
+        />
+      )}
     </main>
   );
 }
