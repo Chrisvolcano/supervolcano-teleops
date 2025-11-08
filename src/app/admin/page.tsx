@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -281,11 +282,11 @@ export default function AdminDashboardPage() {
         .concat(uploadedImageUrls);
 
       const payload = {
-        name: propertyFormState.name,
-        address: propertyFormState.address,
-        partnerOrgId: propertyFormState.partnerOrgId,
+        name: propertyFormState.name.trim(),
+        address: propertyFormState.address.trim(),
+        partnerOrgId: propertyFormState.partnerOrgId.trim(),
         status: propertyFormState.status,
-        description: propertyFormState.description,
+        description: propertyFormState.description.trim(),
         images,
         taskCount: selectedProperty ? selectedProperty.taskCount : 0,
         updatedAt: new Date().toISOString(),
@@ -300,7 +301,8 @@ export default function AdminDashboardPage() {
       await setDoc(propertyRef, payload, { merge: true });
 
       setSelectedPropertyId(docId);
-      requestAnimationFrame(() => setPropertyModalOpen(false));
+      setPropertyFormState(EMPTY_FORM);
+      setPropertyModalOpen(false);
     } catch (error) {
       console.error("Failed to save property", error);
       alert("Unable to save property. Check console for details and verify your admin access.");
@@ -471,33 +473,46 @@ export default function AdminDashboardPage() {
               </div>
             ) : properties.length ? (
               properties.map((property) => (
-                <div key={property.id} className="space-y-2">
-                  <PropertyCard property={property} />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={selectedPropertyId === property.id ? "default" : "outline"}
-                      onClick={() => setSelectedPropertyId(property.id)}
-                    >
-                      {selectedPropertyId === property.id ? "Selected" : "Set active"}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => openEditPropertyModal(property)}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTogglePropertyStatus(property)}
-                    >
-                      {property.status === "scheduled" ? "Mark unassigned" : "Mark scheduled"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteProperty(property)}
-                    >
-                      Delete
-                    </Button>
+                <div key={property.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <h3 className="text-base font-semibold text-neutral-900">{property.name}</h3>
+                      <p className="text-xs uppercase tracking-wide text-neutral-500">
+                        Partner org: <span className="font-medium text-neutral-700">{property.partnerOrgId}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={property.status === "scheduled" ? "default" : "secondary"}>
+                        {property.status === "scheduled" ? "Scheduled" : "Unassigned"}
+                      </Badge>
+                      <Switch
+                        checked={property.status === "scheduled"}
+                        onCheckedChange={() => handleTogglePropertyStatus(property)}
+                        aria-label="Toggle scheduled status"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[3fr,2fr]">
+                    <PropertyCard property={property} className="border-none shadow-none" />
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        variant={selectedPropertyId === property.id ? "default" : "outline"}
+                        onClick={() => setSelectedPropertyId(property.id)}
+                      >
+                        {selectedPropertyId === property.id ? "Viewing" : "Preview"}
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => openEditPropertyModal(property)}>
+                        Edit details
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteProperty(property)}
+                      >
+                        Delete property
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -756,14 +771,14 @@ export default function AdminDashboardPage() {
               )}
               {propertyFormState.uploadFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Pending uploads</p>
+                  <p className="text-sm font-medium text-neutral-700">Pending uploads</p>
                   <ul className="space-y-2">
                     {propertyFormState.uploadFiles.map((file, index) => (
                       <li
                         key={`${file.name}-${index}`}
-                        className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
                       >
-                        <span className="truncate pr-3">{file.name}</span>
+                        <span className="truncate pr-3 text-neutral-600">{file.name}</span>
                         <Button
                           type="button"
                           variant="ghost"
