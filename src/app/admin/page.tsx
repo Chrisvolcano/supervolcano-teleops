@@ -171,7 +171,9 @@ export default function AdminDashboardPage() {
   }, [tasks]);
 
   function openCreatePropertyModal() {
-    setPropertyFormState({ ...EMPTY_FORM, partnerOrgId: claims?.partner_org_id ?? "demo-org" });
+    const partnerOrgClaim =
+      typeof claims?.partner_org_id === "string" ? (claims.partner_org_id as string) : undefined;
+    setPropertyFormState({ ...EMPTY_FORM, partnerOrgId: partnerOrgClaim ?? "demo-org" });
     setPropertyModalOpen(true);
   }
 
