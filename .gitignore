@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# build artifacts
+.next/
+out/
+dist/
+
+# environment & secrets
+.env*
+*.env
+firebase-debug.log
+storage-cors.json
+super-volcano-oem-portal-firebase-adminsdk-fbsvc-9afc946529.json
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+
+# macOS
+.DS_Store

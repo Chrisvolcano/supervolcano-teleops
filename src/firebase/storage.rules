@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == "admin";
+    }
+
+    function partnerMatches(partnerOrgId) {
+      return isAdmin() ||
+        (isAuthenticated() && request.auth.token.partner_org_id == partnerOrgId);
+    }
+
+    match /orgs/{partnerOrgId}/{allPaths=**} {
+      allow read, write: if partnerMatches(partnerOrgId);
+    }
+
+    match /public/{allPaths=**} {
+      allow read;
+      allow write: if isAdmin();
+    }
+
+    match /properties/{propertyId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
+
