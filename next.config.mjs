@@ -20,6 +20,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+      {
+        protocol: "https",
+        hostname: "super-volcano-oem-portal.firebasestorage.app",
+      },
     ],
   },
 };
