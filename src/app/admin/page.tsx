@@ -693,7 +693,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <Button
                         type="button"
-                        size="xs"
+                        size="sm"
                         variant={markedForRemoval ? "default" : "outline"}
                         onClick={() => toggleRemoveImage(url)}
                       >
