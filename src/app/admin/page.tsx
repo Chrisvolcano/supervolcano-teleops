@@ -18,7 +18,7 @@ import {
 import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 
 import { TaskForm, type TaskFormData } from "@/components/TaskForm";
-import { PropertyCard, type Property, type PropertyStatus } from "@/components/PropertyCard";
+import type { Property, PropertyStatus } from "@/components/PropertyCard";
 import type { PortalTask } from "@/components/TaskList";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,7 @@ export default function AdminDashboardPage() {
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [propertyModalOpen, setPropertyModalOpen] = useState(false);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [propertyFormState, setPropertyFormState] = useState<PropertyFormState>(
     EMPTY_FORM,
   );
@@ -143,7 +144,15 @@ export default function AdminDashboardPage() {
     }
   }, [properties, selectedPropertyId]);
 
+  useEffect(() => {
+    if (!propertyModalOpen) {
+      setPropertyFormState(EMPTY_FORM);
+      setEditingPropertyId(null);
+    }
+  }, [propertyModalOpen]);
+
   const selectedProperty = properties.find((item) => item.id === selectedPropertyId) ?? null;
+  const isEditingProperty = Boolean(editingPropertyId);
 
   const {
     data: tasks,
@@ -169,12 +178,6 @@ export default function AdminDashboardPage() {
       }) as PortalTask,
   });
 
-  useEffect(() => {
-    if (!propertyModalOpen) {
-      setPropertyFormState(EMPTY_FORM);
-    }
-  }, [propertyModalOpen]);
-
   const operatorTaskCount = useMemo(() => {
     return tasks.filter((task) => task.assignment === "teleoperator").length;
   }, [tasks]);
@@ -197,11 +200,13 @@ export default function AdminDashboardPage() {
   function openCreatePropertyModal() {
     const partnerOrgClaim =
       typeof claims?.partner_org_id === "string" ? (claims.partner_org_id as string) : undefined;
+    setEditingPropertyId(null);
     setPropertyFormState({ ...EMPTY_FORM, partnerOrgId: partnerOrgClaim ?? "demo-org" });
     setPropertyModalOpen(true);
   }
 
   function openEditPropertyModal(property: AdminProperty) {
+    setEditingPropertyId(property.id);
     setPropertyFormState({
       name: property.name,
       address: property.address ?? "",
@@ -246,8 +251,7 @@ export default function AdminDashboardPage() {
 
   async function persistProperty() {
     if (!user) return;
-    const isEditing = Boolean(selectedProperty && propertyModalOpen);
-    const docId = isEditing && selectedProperty ? selectedProperty.id : crypto.randomUUID();
+    const docId = editingPropertyId ?? crypto.randomUUID();
     const propertyRef = doc(firestore, "properties", docId);
 
     setPropertySaving(true);
@@ -301,8 +305,9 @@ export default function AdminDashboardPage() {
       await setDoc(propertyRef, payload, { merge: true });
 
       setSelectedPropertyId(docId);
-      setPropertyFormState(EMPTY_FORM);
       setPropertyModalOpen(false);
+      setEditingPropertyId(null);
+      setPropertyFormState(EMPTY_FORM);
     } catch (error) {
       console.error("Failed to save property", error);
       alert("Unable to save property. Check console for details and verify your admin access.");
@@ -334,8 +339,8 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleTogglePropertyStatus(property: AdminProperty) {
-    const nextStatus: PropertyStatus = property.status === "scheduled" ? "unassigned" : "scheduled";
+  async function handleTogglePropertyStatus(property: AdminProperty, checked: boolean) {
+    const nextStatus: PropertyStatus = checked ? "scheduled" : "unassigned";
     await updateDoc(doc(firestore, "properties", property.id), {
       status: nextStatus,
       updatedAt: new Date().toISOString(),
@@ -473,48 +478,81 @@ export default function AdminDashboardPage() {
               </div>
             ) : properties.length ? (
               properties.map((property) => (
-                <div key={property.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
+                <article
+                  key={property.id}
+                  className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <h3 className="text-base font-semibold text-neutral-900">{property.name}</h3>
-                      <p className="text-xs uppercase tracking-wide text-neutral-500">
-                        Partner org: <span className="font-medium text-neutral-700">{property.partnerOrgId}</span>
+                      <h3 className="text-lg font-semibold text-neutral-900">{property.name}</h3>
+                      {property.address ? (
+                        <p className="text-sm text-neutral-500">{property.address}</p>
+                      ) : (
+                        <p className="text-sm text-neutral-400">No address provided</p>
+                      )}
+                      <p className="text-xs uppercase tracking-wide text-neutral-400">
+                        Partner org: <span className="font-medium text-neutral-600">{property.partnerOrgId}</span>
+                      </p>
+                      <p className="text-xs uppercase tracking-wide text-neutral-400">
+                        Tasks: <span className="font-medium text-neutral-600">{property.taskCount}</span>
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Badge variant={property.status === "scheduled" ? "default" : "secondary"}>
                         {property.status === "scheduled" ? "Scheduled" : "Unassigned"}
                       </Badge>
-                      <Switch
-                        checked={property.status === "scheduled"}
-                        onCheckedChange={() => handleTogglePropertyStatus(property)}
-                        aria-label="Toggle scheduled status"
-                      />
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span>Scheduled</span>
+                        <Switch
+                          checked={property.status === "scheduled"}
+                          onCheckedChange={(checked) => handleTogglePropertyStatus(property, checked)}
+                          aria-label="Toggle scheduled status"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[3fr,2fr]">
-                    <PropertyCard property={property} className="border-none shadow-none" />
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="sm"
-                        variant={selectedPropertyId === property.id ? "default" : "outline"}
-                        onClick={() => setSelectedPropertyId(property.id)}
-                      >
-                        {selectedPropertyId === property.id ? "Viewing" : "Preview"}
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => openEditPropertyModal(property)}>
-                        Edit details
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteProperty(property)}
-                      >
-                        Delete property
-                      </Button>
+
+                  {property.images.length ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {property.images.slice(0, 3).map((url) => (
+                        <div
+                          key={url}
+                          className="relative h-20 w-28 overflow-hidden rounded-lg border border-neutral-200"
+                        >
+                          <Image src={url} alt={`${property.name} thumbnail`} fill className="object-cover" />
+                        </div>
+                      ))}
+                      {property.images.length > 3 && (
+                        <div className="flex h-20 w-24 items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-xs font-medium text-neutral-500">
+                          +{property.images.length - 3}
+                        </div>
+                      )}
                     </div>
+                  ) : null}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={selectedPropertyId === property.id ? "default" : "outline"}
+                      onClick={() => setSelectedPropertyId(property.id)}
+                    >
+                      {selectedPropertyId === property.id ? "Viewing" : "View overview"}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => openEditPropertyModal(property)}>
+                      Edit details
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/property/${property.id}`}>Open property page</Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteProperty(property)}
+                    >
+                      Delete property
+                    </Button>
                   </div>
-                </div>
+                </article>
               ))
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -649,9 +687,9 @@ export default function AdminDashboardPage() {
       <Dialog open={propertyModalOpen} onOpenChange={setPropertyModalOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{selectedProperty ? "Edit property" : "Create property"}</DialogTitle>
+            <DialogTitle>{isEditingProperty ? "Edit property" : "Create property"}</DialogTitle>
             <DialogDescription>
-              {selectedProperty
+              {isEditingProperty
                 ? "Update property details, address, and images."
                 : "Define a new property for teleoperator assignments."}
             </DialogDescription>
@@ -799,7 +837,7 @@ export default function AdminDashboardPage() {
               <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button onClick={persistProperty} disabled={propertySaving}>
-              {propertySaving ? "Saving…" : "Save property"}
+              {propertySaving ? "Saving…" : isEditingProperty ? "Save changes" : "Create property"}
             </Button>
           </DialogFooter>
         </DialogContent>
