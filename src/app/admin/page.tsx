@@ -61,6 +61,19 @@ function normalizeStatus(value: unknown): PropertyStatus {
   return lower === "scheduled" ? "scheduled" : "unassigned";
 }
 
+function buildEmptyForm(partnerOrgId?: string): PropertyFormState {
+  return {
+    name: "",
+    address: "",
+    partnerOrgId: partnerOrgId ?? "demo-org",
+    status: "unassigned",
+    description: "",
+    existingImages: [],
+    removedImages: [],
+    uploadFiles: [],
+  };
+}
+
 type AdminProperty = Property & {
   description?: string;
   partnerOrgId: string;
@@ -97,6 +110,8 @@ export default function AdminDashboardPage() {
   const { user, claims, loading: authLoading } = useAuth();
 
   const role = (claims?.role as string | undefined) ?? "operator";
+  const partnerOrgClaim =
+    typeof claims?.partner_org_id === "string" ? (claims.partner_org_id as string) : undefined;
   const isAdmin = role === "admin";
 
   const {
@@ -123,10 +138,11 @@ export default function AdminDashboardPage() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [propertyModalOpen, setPropertyModalOpen] = useState(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
-  const [propertyFormState, setPropertyFormState] = useState<PropertyFormState>(
-    EMPTY_FORM,
+  const [propertyFormState, setPropertyFormState] = useState<PropertyFormState>(() =>
+    buildEmptyForm(partnerOrgClaim),
   );
   const [propertySaving, setPropertySaving] = useState(false);
+  const [propertyFormError, setPropertyFormError] = useState<string | null>(null);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [taskFormLoading, setTaskFormLoading] = useState(false);
   const [editingTask, setEditingTask] = useState<PortalTask | null>(null);
@@ -145,13 +161,16 @@ export default function AdminDashboardPage() {
   }, [properties, selectedPropertyId]);
 
   useEffect(() => {
-    if (!propertyModalOpen) {
-      setPropertyFormState(EMPTY_FORM);
-      setEditingPropertyId(null);
+    if (!propertyModalOpen && !editingPropertyId) {
+      setPropertyFormState(buildEmptyForm(partnerOrgClaim));
+      setPropertyFormError(null);
     }
-  }, [propertyModalOpen]);
+  }, [propertyModalOpen, editingPropertyId, partnerOrgClaim]);
 
   const selectedProperty = properties.find((item) => item.id === selectedPropertyId) ?? null;
+  const editingProperty = editingPropertyId
+    ? properties.find((item) => item.id === editingPropertyId) ?? null
+    : null;
   const isEditingProperty = Boolean(editingPropertyId);
 
   const {
@@ -198,15 +217,15 @@ export default function AdminDashboardPage() {
   }, [editingTask]);
 
   function openCreatePropertyModal() {
-    const partnerOrgClaim =
-      typeof claims?.partner_org_id === "string" ? (claims.partner_org_id as string) : undefined;
     setEditingPropertyId(null);
-    setPropertyFormState({ ...EMPTY_FORM, partnerOrgId: partnerOrgClaim ?? "demo-org" });
+    setPropertyFormState(buildEmptyForm(partnerOrgClaim));
+    setPropertyFormError(null);
     setPropertyModalOpen(true);
   }
 
   function openEditPropertyModal(property: AdminProperty) {
     setEditingPropertyId(property.id);
+    setPropertyFormError(null);
     setPropertyFormState({
       name: property.name,
       address: property.address ?? "",
@@ -251,10 +270,15 @@ export default function AdminDashboardPage() {
 
   async function persistProperty() {
     if (!user) return;
-    const docId = editingPropertyId ?? crypto.randomUUID();
-    const propertyRef = doc(firestore, "properties", docId);
+
+    const basePartnerOrgId = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
+    const propertyRef = editingPropertyId
+      ? doc(firestore, "properties", editingPropertyId)
+      : doc(collection(firestore, "properties"));
+    const docId = propertyRef.id;
 
     setPropertySaving(true);
+    setPropertyFormError(null);
     try {
       await user.getIdToken?.(true);
 
@@ -288,13 +312,13 @@ export default function AdminDashboardPage() {
       const payload = {
         name: propertyFormState.name.trim(),
         address: propertyFormState.address.trim(),
-        partnerOrgId: propertyFormState.partnerOrgId.trim(),
+        partnerOrgId: basePartnerOrgId,
         status: propertyFormState.status,
         description: propertyFormState.description.trim(),
         images,
-        taskCount: selectedProperty ? selectedProperty.taskCount : 0,
+        taskCount: editingProperty?.taskCount ?? 0,
         updatedAt: new Date().toISOString(),
-        ...(selectedProperty
+        ...(editingProperty
           ? {}
           : {
               createdAt: new Date().toISOString(),
@@ -302,15 +326,19 @@ export default function AdminDashboardPage() {
             }),
       };
 
-      await setDoc(propertyRef, payload, { merge: true });
+      await setDoc(propertyRef, payload, { merge: Boolean(editingProperty) });
 
+      console.info("[admin] property saved", docId);
       setSelectedPropertyId(docId);
       setPropertyModalOpen(false);
+      setTimeout(() => setPropertyModalOpen(false), 0);
       setEditingPropertyId(null);
-      setPropertyFormState(EMPTY_FORM);
+      setPropertyFormState(buildEmptyForm(partnerOrgClaim));
     } catch (error) {
-      console.error("Failed to save property", error);
-      alert("Unable to save property. Check console for details and verify your admin access.");
+      console.error("[admin] failed to save property", error);
+      const message =
+        error instanceof Error ? error.message : "Unable to save property. Verify your admin access.";
+      setPropertyFormError(message);
     } finally {
       setPropertySaving(false);
     }
@@ -695,6 +723,11 @@ export default function AdminDashboardPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {propertyFormError && (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {propertyFormError}
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="property-name">Name</Label>
