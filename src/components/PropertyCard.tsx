@@ -25,7 +25,7 @@ export type Property = {
   taskCount?: number;
 };
 
-export type PropertyStatus = "online" | "offline" | "maintenance";
+export type PropertyStatus = "scheduled" | "unassigned";
 
 type PropertyCardProps = {
   property: Property;
@@ -33,15 +33,13 @@ type PropertyCardProps = {
 };
 
 const statusCopy: Record<PropertyStatus, string> = {
-  online: "Online",
-  offline: "Offline",
-  maintenance: "Maintenance",
+  scheduled: "Scheduled",
+  unassigned: "Unassigned",
 };
 
 const statusVariant: Record<PropertyStatus, "default" | "secondary" | "destructive"> = {
-  online: "default",
-  offline: "destructive",
-  maintenance: "secondary",
+  scheduled: "default",
+  unassigned: "secondary",
 };
 
 export function PropertyCard({ property, className }: PropertyCardProps) {

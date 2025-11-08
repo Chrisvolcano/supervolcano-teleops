@@ -14,12 +14,25 @@ import { useCollection } from "@/hooks/useCollection";
 import { firestore } from "@/lib/firebaseClient";
 import { TaskState, TASK_TERMINAL_STATES, canTransition } from "@/lib/taskMachine";
 
+function normalizeStatus(value: unknown): "scheduled" | "unassigned" {
+  if (typeof value !== "string") {
+    return "unassigned";
+  }
+  const lower = value.toLowerCase();
+  return lower === "scheduled" ? "scheduled" : "unassigned";
+}
+
+const statusCopy: Record<"scheduled" | "unassigned", string> = {
+  scheduled: "Scheduled",
+  unassigned: "Unassigned",
+};
+
 type PropertyDoc = {
   id: string;
   name: string;
   partnerOrgId: string;
   address?: string;
-  status?: string;
+  status: "scheduled" | "unassigned";
   description?: string;
   images?: string[];
   activeSessionId?: string | null;
@@ -50,7 +63,7 @@ export default function PropertyDetailPage() {
         description: doc.description ?? undefined,
         address: doc.address ?? doc.location ?? undefined,
         partnerOrgId: doc.partnerOrgId ?? "unknown",
-        status: doc.status ?? "offline",
+        status: normalizeStatus(doc.status),
         images: doc.images ?? [],
         activeSessionId: doc.activeSessionId ?? null,
       }) as PropertyDoc,
@@ -164,7 +177,7 @@ export default function PropertyDetailPage() {
           <>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-semibold">{property.name}</h1>
-              {property.status && <Badge>{property.status}</Badge>}
+              {property.status && <Badge>{statusCopy[property.status]}</Badge>}
             </div>
             <p className="text-sm text-muted-foreground">
               Partner org: {property.partnerOrgId}

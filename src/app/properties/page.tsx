@@ -12,6 +12,14 @@ import { useCollection } from "@/hooks/useCollection";
 import { firestore } from "@/lib/firebaseClient";
 import { TASK_TERMINAL_STATES, canTransition } from "@/lib/taskMachine";
 
+function normalizeStatus(value: unknown): Property["status"] {
+  if (typeof value !== "string") {
+    return "unassigned";
+  }
+  const lower = value.toLowerCase();
+  return lower === "scheduled" ? "scheduled" : "unassigned";
+}
+
 export default function PropertiesPage() {
   const { user, claims, loading: authLoading } = useAuth();
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -37,7 +45,7 @@ export default function PropertiesPage() {
         name: doc.name ?? "Untitled property",
         partnerOrgId: doc.partnerOrgId ?? "unknown",
         address: doc.address ?? doc.location ?? undefined,
-        status: doc.status ?? undefined,
+        status: normalizeStatus(doc.status),
         images: doc.images ?? [],
         taskCount: doc.taskCount ?? doc.activeTasks ?? 0,
       }) as Property,

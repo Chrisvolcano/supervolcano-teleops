@@ -45,12 +45,20 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useCollection } from "@/hooks/useCollection";
 import { firestore, storage } from "@/lib/firebaseClient";
+import { cn } from "@/lib/utils";
 
 const PROPERTY_STATUS_OPTIONS: PropertyStatus[] = [
-  "online",
-  "maintenance",
-  "offline",
+  "scheduled",
+  "unassigned",
 ];
+
+function normalizeStatus(value: unknown): PropertyStatus {
+  if (typeof value !== "string") {
+    return "unassigned";
+  }
+  const lower = value.toLowerCase();
+  return lower === "scheduled" ? "scheduled" : "unassigned";
+}
 
 type AdminProperty = Property & {
   description?: string;
@@ -76,7 +84,7 @@ const EMPTY_FORM: PropertyFormState = {
   name: "",
   address: "",
   partnerOrgId: "demo-org",
-  status: "online",
+  status: "unassigned",
   description: "",
   existingImages: [],
   removedImages: [],
@@ -103,7 +111,7 @@ export default function AdminDashboardPage() {
         name: doc.name ?? "Untitled property",
         partnerOrgId: doc.partnerOrgId ?? "demo-org",
         address: doc.address ?? doc.location ?? "",
-        status: doc.status ?? "online",
+        status: normalizeStatus(doc.status),
         images: doc.images ?? [],
         taskCount: doc.taskCount ?? doc.activeTasks ?? 0,
         description: doc.description ?? "",
@@ -197,7 +205,7 @@ export default function AdminDashboardPage() {
       name: property.name,
       address: property.address ?? "",
       partnerOrgId: property.partnerOrgId,
-      status: property.status ?? "online",
+      status: normalizeStatus(property.status),
       description: property.description ?? "",
       existingImages: property.images ?? [],
       removedImages: [],
@@ -213,6 +221,13 @@ export default function AdminDashboardPage() {
     setPropertyFormState((prev) => ({
       ...prev,
       uploadFiles: [...prev.uploadFiles, ...Array.from(files)],
+    }));
+  }
+
+  function removePendingUpload(index: number) {
+    setPropertyFormState((prev) => ({
+      ...prev,
+      uploadFiles: prev.uploadFiles.filter((_, fileIndex) => fileIndex !== index),
     }));
   }
 
@@ -284,9 +299,8 @@ export default function AdminDashboardPage() {
 
       await setDoc(propertyRef, payload, { merge: true });
 
-      setPropertyModalOpen(false);
-      setPropertyFormState(EMPTY_FORM);
       setSelectedPropertyId(docId);
+      requestAnimationFrame(() => setPropertyModalOpen(false));
     } catch (error) {
       console.error("Failed to save property", error);
       alert("Unable to save property. Check console for details and verify your admin access.");
@@ -316,6 +330,14 @@ export default function AdminDashboardPage() {
     if (selectedPropertyId === property.id) {
       setSelectedPropertyId(null);
     }
+  }
+
+  async function handleTogglePropertyStatus(property: AdminProperty) {
+    const nextStatus: PropertyStatus = property.status === "scheduled" ? "unassigned" : "scheduled";
+    await updateDoc(doc(firestore, "properties", property.id), {
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   function openCreateTask() {
@@ -461,6 +483,13 @@ export default function AdminDashboardPage() {
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => openEditPropertyModal(property)}>
                       Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTogglePropertyStatus(property)}
+                    >
+                      {property.status === "scheduled" ? "Mark unassigned" : "Mark scheduled"}
                     </Button>
                     <Button
                       size="sm"
@@ -654,25 +683,24 @@ export default function AdminDashboardPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
-              <div className="flex flex-wrap gap-2">
+              <Label htmlFor="property-status">Status</Label>
+              <select
+                id="property-status"
+                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                value={propertyFormState.status}
+                onChange={(e) =>
+                  setPropertyFormState((prev) => ({
+                    ...prev,
+                    status: e.target.value as PropertyStatus,
+                  }))
+                }
+              >
                 {PROPERTY_STATUS_OPTIONS.map((status) => (
-                  <Button
-                    key={status}
-                    type="button"
-                    size="sm"
-                    variant={propertyFormState.status === status ? "default" : "outline"}
-                    onClick={() =>
-                      setPropertyFormState((prev) => ({
-                        ...prev,
-                        status,
-                      }))
-                    }
-                  >
-                    {status}
-                  </Button>
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="property-description">Description</Label>
@@ -688,47 +716,67 @@ export default function AdminDashboardPage() {
                 }
               />
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Images</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePropertyFileChange}
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {propertyFormState.existingImages.map((url) => {
-                  const markedForRemoval = propertyFormState.removedImages.includes(url);
-                  return (
-                    <div key={url} className="space-y-2">
-                      <div className="relative h-28 w-full overflow-hidden rounded-lg border">
-                        <Image src={url} alt="Property" fill className="object-cover" />
+            <div className="space-y-2">
+              <Label htmlFor="property-images">Images</Label>
+              <Input
+                id="property-images"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handlePropertyFileChange}
+              />
+              {propertyFormState.existingImages.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {propertyFormState.existingImages.map((url) => {
+                    const markedForRemoval = propertyFormState.removedImages.includes(url);
+                    return (
+                      <div key={url} className="relative h-36 w-full overflow-hidden rounded-lg">
+                        <Image
+                          src={url}
+                          alt="Property image"
+                          fill
+                          className={cn("object-cover", markedForRemoval && "opacity-50 grayscale")}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={markedForRemoval ? "default" : "outline"}
+                          onClick={() => toggleRemoveImage(url)}
+                          className="absolute right-2 top-2 h-8 w-8 rounded-full"
+                        >
+                          <span className="sr-only">
+                            {markedForRemoval ? "Undo remove image" : "Remove image"}
+                          </span>
+                          {markedForRemoval ? "↩" : "✕"}
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={markedForRemoval ? "default" : "outline"}
-                        onClick={() => toggleRemoveImage(url)}
+                    );
+                  })}
+                </div>
+              )}
+              {propertyFormState.uploadFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Pending uploads</p>
+                  <ul className="space-y-2">
+                    {propertyFormState.uploadFiles.map((file, index) => (
+                      <li
+                        key={`${file.name}-${index}`}
+                        className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
                       >
-                        {markedForRemoval ? "Keep" : "Remove"}
-                      </Button>
-                    </div>
-                  );
-                })}
-                {propertyFormState.uploadFiles.map((file) => {
-                  const preview = URL.createObjectURL(file);
-                  return (
-                    <div key={preview} className="space-y-2">
-                      <div className="relative h-28 w-full overflow-hidden rounded-lg border">
-                        <Image src={preview} alt={file.name} fill className="object-cover" />
-                      </div>
-                      <p className="truncate text-xs text-neutral-500">{file.name}</p>
-                    </div>
-                  );
-                })}
-              </div>
+                        <span className="truncate pr-3">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePendingUpload(index)}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
