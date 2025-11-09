@@ -29,7 +29,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md border-neutral-200 bg-white shadow-xl">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-semibold text-neutral-900">
-              You're already signed in
+              You&apos;re already signed in
             </CardTitle>
             <CardDescription className="text-neutral-500">
               Signed in as {user.email ?? "your account"}.

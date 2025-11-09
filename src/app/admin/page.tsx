@@ -188,7 +188,7 @@ export default function AdminPropertiesPage() {
     const queryText = searchValue.trim().toLowerCase();
     return properties.filter((property) =>
       [property.name, property.partnerOrgId, property.address]
-        .filter(Boolean)
+        .filter((value): value is string => Boolean(value))
         .some((value) => value.toLowerCase().includes(queryText)),
     );
   }, [properties, searchValue]);
@@ -763,7 +763,7 @@ export default function AdminPropertiesPage() {
       </section>
 
       <Sheet open={propertyDrawerOpen} onOpenChange={(open) => (open ? setPropertyDrawerOpen(true) : closePropertyDrawer())}>
-        <SheetContent side="right" className="w-full max-w-xl border-l border-neutral-200">
+        <SheetContent className="w-full max-w-xl border-l border-neutral-200">
           <div className="flex h-full flex-col pt-16">
             <div className="flex-1 overflow-y-auto px-6">
               <SheetHeader className="space-y-2">

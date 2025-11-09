@@ -73,7 +73,7 @@ export function TaskForm({
       ...defaultValues,
       ...(initialValues ?? {}),
     });
-  }, [open, serializedInitialValues]);
+  }, [open, serializedInitialValues, initialValues]);
 
   function handleChange<K extends keyof TaskFormData>(key: K, value: TaskFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

@@ -69,6 +69,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /propertyNotes/{noteId} {
+      allow read: if partnerMatches(resource.data.partnerOrgId);
+      allow create: if isAuthenticated()
+        && partnerMatches(request.resource.data.partnerOrgId)
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.content is string;
+      allow delete: if isAdmin() || request.auth.uid == resource.data.authorId;
+    }
+
     match /auditLogs/{document=**} {
       allow read: if isAdmin();
       allow create: if isAdmin();
