@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Building2,
   ClipboardList,
-  FileText,
   LayoutDashboard,
-  ShieldCheck,
+  Settings,
   Users,
 } from "lucide-react";
 
@@ -15,36 +14,36 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Properties", href: "/admin?section=properties", icon: Building2 },
-  { label: "Tasks", href: "/admin?section=tasks", icon: ClipboardList },
-  { label: "Sessions", href: "/admin?section=sessions", icon: Users },
-  { label: "Audit", href: "/admin?section=audit", icon: FileText },
-  { label: "Settings", href: "/admin?section=settings", icon: ShieldCheck },
+  { label: "Properties", href: "/admin/properties", icon: Building2 },
+  { label: "Tasks", href: "/admin/tasks", icon: ClipboardList },
+  { label: "Sessions", href: "/admin/sessions", icon: Users },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 
 export function AdminNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const section = searchParams?.get("section") ?? "properties";
 
   return (
-    <nav className="hidden w-56 flex-shrink-0 lg:block">
+    <nav role="navigation" aria-label="Admin" className="hidden w-56 flex-shrink-0 lg:block">
       <ul className="space-y-1 text-sm">
         {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-          const isRoot = href === "/admin";
-          const isActive = isRoot
-            ? pathname === "/admin" && section === "properties"
-            : pathname === "/admin" && href.includes(`section=${section}`);
+          const isDashboard = href === "/admin";
+          const isActive = isDashboard
+            ? pathname === "/admin"
+            : pathname.startsWith(href);
+
           return (
             <li key={href}>
               <Link
                 href={href}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-neutral-100",
+                  "group flex items-center gap-2 rounded-lg px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+                  "hover:translate-x-0.5 hover:bg-neutral-100",
                   isActive && "bg-neutral-900 text-white hover:bg-neutral-900",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 transition group-hover:scale-105" />
                 <span>{label}</span>
               </Link>
             </li>

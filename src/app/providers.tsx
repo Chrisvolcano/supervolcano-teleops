@@ -1,5 +1,6 @@
 "use client";
 
+import { Toaster } from "@/components/common/Toaster";
 import { AuthProvider } from "@/hooks/useAuth";
 
 type ProvidersProps = {
@@ -7,6 +8,11 @@ type ProvidersProps = {
 };
 
 export function Providers({ children }: ProvidersProps) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      {children}
+      <Toaster />
+    </AuthProvider>
+  );
 }
 

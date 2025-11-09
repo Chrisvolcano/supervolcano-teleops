@@ -17,6 +17,7 @@ import {
   TaskState,
 } from "@/lib/taskMachine";
 import { firestore } from "@/lib/firebaseClient";
+import { incrementTemplateCompletion } from "@/lib/templates";
 
 type TaskDoc = {
   id: string;
@@ -31,6 +32,7 @@ type TaskDoc = {
   assignedToUserId?: string | null;
   priority?: "low" | "medium" | "high";
   metadata?: Record<string, unknown>;
+  templateId?: string;
 };
 
 type AuditLogDoc = {
@@ -74,6 +76,7 @@ export default function TaskDetailPage() {
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
         priority: doc.priority ?? undefined,
         metadata: doc.metadata ?? undefined,
+        templateId: doc.templateId ?? undefined,
       }) as TaskDoc,
   });
 
@@ -130,6 +133,9 @@ export default function TaskDetailPage() {
       updatedAt: new Date().toISOString(),
       assignedToUserId: user?.uid ?? null,
     });
+    if (next === "completed") {
+      await incrementTemplateCompletion(task.templateId, task.assignment);
+    }
   }
 
   const transitions = task

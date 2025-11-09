@@ -75,20 +75,21 @@ Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Bui
 ### Feature Overview
 
 - `/login` — email/password sign-in for teleoperators, with password visibility toggle and contextual messaging when already authenticated.
-- `/admin` — admin dashboard for managing properties, uploading imagery, and assigning tasks between teleoperators and human cleaners.
+- `/admin` — admin dashboard for at-a-glance metrics and quick navigation.
+- `/admin/properties` — manage property profiles, imagery, and template-driven tasks (with property notes and usage counters).
+- `/admin/tasks` — govern task templates with difficulty tags, assignment mix, usage counters, and property-level drill-downs.
+- `/admin/sessions` — review teleoperation sessions with filters, QC editing, and robot vs human time split visualizations.
+- `/admin/settings` — configure roles, taxonomy colors, operational defaults, storage details, and run dangerous maintenance actions.
 - `/properties` — operator dashboard filtered by role/partner; displays `PropertyCard` components and teleoperator task queues with in-app status updates.
-- `/property/[id]` — property overview with gallery, SessionHUD, and scoped tasks respecting assignment type.
+- `/property/[id]` — property overview with gallery, SessionHUD, scoped tasks, task history, and note-taking workspace.
 - `/task/[id]` — detailed view with task metadata, state-machine transitions, and audit log timeline.
 - Hooks:
-  - `useAuth()` — wraps Firebase Auth with role claims and navigation helpers.
+  - `useAuth()` — wraps Firebase Auth with role claims, navigation helpers, and access to fresh ID tokens for privileged calls.
   - `useCollection()`/`useDoc()` — typed Firestore listeners with partner scoping.
+  - `useTaskTemplates()`, `useTemplateUsage()` — task template data and property usage utilities.
+  - `useSessions()` — enriched session feed with property/task names.
 - Components:
-  - `PropertyCard`, `TaskList`, `SessionHUD`, `TaskForm`.
-- API routes (require `ADMIN_BEARER_TOKEN` header):
-  - `POST /api/admin/promote` — `{ email, role, partner_org_id }`
-  - `POST /api/admin/seed` — idempotent demo data bootstrap
-  - `POST /api/session/start` — create session, enforce `allowed_hours`
-  - `POST /api/session/stop` — end session (optional `result_state`)
+  - `PropertyCard`, `TaskList`, `SessionHUD`, `TaskForm` (now template-aware), `ConfirmDialog`, `EmptyState`, `TaskTemplatesTable`, `TaskTemplateDrawer`, `TaskTemplateForm`, `SessionsTable`, `SessionDetail`, `SettingsForms`.
 
 ### Running Admin Endpoints
 

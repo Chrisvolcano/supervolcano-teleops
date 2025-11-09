@@ -18,6 +18,7 @@ import { useDoc } from "@/hooks/useDoc";
 import { useCollection } from "@/hooks/useCollection";
 import { firestore } from "@/lib/firebaseClient";
 import { TaskState, TASK_TERMINAL_STATES, canTransition } from "@/lib/taskMachine";
+import { incrementTemplateCompletion } from "@/lib/templates";
 
 function normalizeStatus(value: unknown): "scheduled" | "unassigned" {
   if (typeof value !== "string") {
@@ -191,6 +192,9 @@ export default function PropertyDetailPage() {
       updatedAt: new Date().toISOString(),
       assignedToUserId: user?.uid ?? null,
     });
+    if (next === "completed") {
+      await incrementTemplateCompletion(task.templateId, task.assignment);
+    }
   }
 
   async function saveNote() {

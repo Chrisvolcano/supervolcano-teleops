@@ -18,6 +18,8 @@ export type PortalTask = {
   priority?: "low" | "medium" | "high";
   assignedToUserId?: string | null;
   updatedAt?: string;
+  templateId?: string;
+  templateDifficulty?: "easy" | "mid" | "high";
 };
 
 const stateVariant: Record<TaskState, "default" | "secondary" | "destructive"> =

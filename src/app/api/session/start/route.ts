@@ -13,7 +13,7 @@ type StartSessionPayload = {
 };
 
 export async function POST(request: NextRequest) {
-  const authResponse = requireAdminAuth(request);
+  const authResponse = await requireAdminAuth(request);
   if (authResponse) {
     return authResponse;
   }

@@ -26,6 +26,7 @@ type AuthContextValue = {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  getIdToken: () => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -92,6 +93,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.replace("/login");
   }, [router]);
 
+  const getIdToken = useCallback(async () => {
+    const current = firebaseAuth.currentUser;
+    if (!current) return null;
+    return current.getIdToken(true);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -100,8 +107,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       error,
       login,
       logout,
+      getIdToken,
     }),
-    [user, claims, loading, error, login, logout],
+    [user, claims, loading, error, login, logout, getIdToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

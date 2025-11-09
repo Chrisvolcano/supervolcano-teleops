@@ -60,6 +60,11 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow delete: if isAdmin();
       allow update: if isAdmin() || teleoperatorStatusUpdateAllowed();
+
+      match /media/{mediaId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAdmin();
+      }
     }
 
     match /sessions/{sessionId} {
