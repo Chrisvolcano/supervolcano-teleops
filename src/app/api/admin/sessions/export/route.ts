@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAdminAuth } from "@/lib/apiAuth";
+import { requireAdmin } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 function toDate(value: string | null) {
@@ -10,9 +10,12 @@ function toDate(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const authResponse = await requireAdminAuth(request);
-  if (authResponse) {
-    return authResponse;
+  const authorized = await requireAdmin(request);
+  if (!authorized) {
+    return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const fromParam = request.nextUrl.searchParams.get("from");

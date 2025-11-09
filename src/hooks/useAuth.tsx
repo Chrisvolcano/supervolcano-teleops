@@ -27,6 +27,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
+  refreshClaims: (force?: boolean) => Promise<Record<string, unknown> | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -108,6 +109,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       logout,
       getIdToken,
+      refreshClaims: async (force = true) => {
+        const current = firebaseAuth.currentUser;
+        if (!current) return null;
+        try {
+          const token = await getIdTokenResult(current, force);
+          setClaims(token.claims ?? null);
+          return token.claims ?? null;
+        } catch (error) {
+          console.error("Failed to refresh claims", error);
+          return null;
+        }
+      },
     }),
     [user, claims, loading, error, login, logout, getIdToken],
   );

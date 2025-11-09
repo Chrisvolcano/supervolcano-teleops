@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { adminAuth } from "@/lib/firebaseAdmin";
-import { requireAdminAuth } from "@/lib/apiAuth";
+import { requireAdmin } from "@/lib/apiAuth";
 
 type PromotePayload = {
   email?: string;
@@ -10,9 +10,9 @@ type PromotePayload = {
 };
 
 export async function POST(request: NextRequest) {
-  const authResponse = await requireAdminAuth(request);
-  if (authResponse) {
-    return authResponse;
+  const authorized = await requireAdmin(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   let payload: PromotePayload;

@@ -1,48 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { adminAuth } from "@/lib/firebaseAdmin";
 
-const ADMIN_TOKEN = process.env.ADMIN_BEARER_TOKEN;
+const ADMIN_TOKEN = process.env.ADMIN_BEARER_TOKEN ?? "";
 
-export async function requireAdminAuth(request: NextRequest) {
-  const headerToken =
-    request.headers.get("admin_bearer_token") ??
-    request.headers.get("ADMIN_BEARER_TOKEN") ??
-    request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "")
-      .trim();
+function matchesSharedSecret(value: string | null) {
+  if (!value) return false;
+  return ADMIN_TOKEN ? value === ADMIN_TOKEN : false;
+}
 
-  if (!ADMIN_TOKEN) {
-    return NextResponse.json(
-      { error: "Server misconfigured: missing ADMIN_BEARER_TOKEN env var." },
-      { status: 500 },
-    );
+export async function requireAdmin(req: NextRequest) {
+  const directHeader = req.headers.get("admin_bearer_token") ?? req.headers.get("ADMIN_BEARER_TOKEN");
+  if (matchesSharedSecret(directHeader)) {
+    return true;
   }
 
-  if (!headerToken) {
-    return NextResponse.json(
-      { error: "Unauthorized. ADMIN_BEARER_TOKEN header or admin ID token required." },
-      { status: 401 },
-    );
+  const authorization = req.headers.get("authorization") ?? "";
+  const normalized = authorization.toLowerCase();
+
+  if (normalized.startsWith("bearer ")) {
+    const sharedToken = authorization.split(/\s+/)[1] ?? "";
+    if (matchesSharedSecret(sharedToken)) {
+      return true;
+    }
   }
 
-  if (headerToken === ADMIN_TOKEN) {
-    return null;
+  let firebaseToken = req.headers.get("x-firebase-token") ?? "";
+  if (!firebaseToken && normalized.startsWith("firebase ")) {
+    firebaseToken = authorization.split(/\s+/)[1] ?? "";
+  }
+
+  if (!firebaseToken) {
+    return false;
   }
 
   try {
-    const decoded = await adminAuth.verifyIdToken(headerToken);
-    if (decoded.role !== "admin") {
-      return NextResponse.json({ error: "Admin role required." }, { status: 403 });
-    }
-    return null;
+    const decoded = await adminAuth.verifyIdToken(firebaseToken);
+    return decoded?.role === "admin";
   } catch (error) {
-    console.error("Failed to verify admin token", error);
-    return NextResponse.json(
-      { error: "Unauthorized. Provide admin bearer token or admin ID token." },
-      { status: 401 },
-    );
+    console.error("Failed to verify Firebase token", error);
+    return false;
   }
 }
 

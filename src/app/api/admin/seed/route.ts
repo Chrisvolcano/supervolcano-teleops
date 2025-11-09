@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
-import { requireAdminAuth } from "@/lib/apiAuth";
+import { requireAdmin } from "@/lib/apiAuth";
 
 async function seedOrganizations() {
   const orgRef = adminDb.collection("organizations").doc("demo-org");
@@ -232,9 +232,9 @@ async function seedAuditLogs() {
 }
 
 export async function POST(request: NextRequest) {
-  const authResponse = await requireAdminAuth(request);
-  if (authResponse) {
-    return authResponse;
+  const authorized = await requireAdmin(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

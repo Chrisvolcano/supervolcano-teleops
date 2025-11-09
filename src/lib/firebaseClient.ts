@@ -39,6 +39,8 @@ function getFirebaseApp(): FirebaseApp {
 
 export const firebaseApp = getFirebaseApp();
 export const firebaseAuth = getAuth(firebaseApp);
+export const auth = firebaseAuth;
 export const firestore = getFirestore(firebaseApp);
+export const db = firestore;
 export const storage = getStorage(firebaseApp);
 

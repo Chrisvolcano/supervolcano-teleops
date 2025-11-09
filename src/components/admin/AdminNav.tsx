@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -22,15 +23,30 @@ const NAV_ITEMS = [
 
 export function AdminNav() {
   const pathname = usePathname();
+  const { claims, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <nav className="hidden w-56 flex-shrink-0 lg:block">
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-10 animate-pulse rounded-lg bg-neutral-100" />
+          ))}
+        </div>
+      </nav>
+    );
+  }
+
+  if ((claims?.role as string | undefined) !== "admin") {
+    return null;
+  }
 
   return (
     <nav role="navigation" aria-label="Admin" className="hidden w-56 flex-shrink-0 lg:block">
       <ul className="space-y-1 text-sm">
         {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
           const isDashboard = href === "/admin";
-          const isActive = isDashboard
-            ? pathname === "/admin"
-            : pathname.startsWith(href);
+          const isActive = isDashboard ? pathname === "/admin" : pathname.startsWith(href);
 
           return (
             <li key={href}>

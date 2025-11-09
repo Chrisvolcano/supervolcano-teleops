@@ -111,17 +111,18 @@ curl -X POST http://localhost:3000/api/session/start \
   -d '{"operatorId":"operator@demo.org","partnerOrgId":"demo-org","propertyId":"demo-property-1","taskId":"task-available-1","allowed_hours":4}'
 ```
 
+### Firestore indexes
+
+Composite indexes for properties, tasks, templates, and sessions live in `firestore.indexes.json`. Deploy them using whichever workflow you prefer:
+
+- **Firebase Console**: when a query throws “index required”, follow the link in the error toast and click **Create index**. This is the fastest path during development.
+- **Firebase CLI**: if you maintain infrastructure-as-code, run `firebase deploy --only firestore:indexes` (requires `firebase.json` and an authenticated CLI session).
+
+The JSON file includes the indexes currently required by the admin dashboards. If new queries surface additional requirements, add the generated definitions to the file so the entire team can deploy them consistently.
+
 ### Deployment (Vercel)
 
 1. Push the repository to GitHub/GitLab.
 2. Import the project into Vercel.
 3. Set the environment variables in Vercel → Settings → Environment Variables.
-4. Configure a secret for `ADMIN_BEARER_TOKEN`.
-5. Deploy; Vercel detects Next.js automatically.
-
-### Development Notes
-
-- Tailwind + shadcn/ui styles live in `src/app/globals.css` and `src/components/ui`.
-- Firebase client code is isolated in `src/lib/firebaseClient.ts`; admin-only code in `src/lib/firebaseAdmin.ts`.
-- Task state machine definitions are in `src/lib/taskMachine.ts`.
-- Update rules alongside schema changes and redeploy via Firebase CLI.
+4. Configure a secret for `

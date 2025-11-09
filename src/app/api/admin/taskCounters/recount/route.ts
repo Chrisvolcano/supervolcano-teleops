@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAdminAuth } from "@/lib/apiAuth";
+import { requireAdmin } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function POST(request: NextRequest) {
-  const authResponse = await requireAdminAuth(request);
-  if (authResponse) {
-    return authResponse;
+  const authorized = await requireAdmin(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const templateId = request.nextUrl.searchParams.get("templateId");

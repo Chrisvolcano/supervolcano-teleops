@@ -19,9 +19,11 @@ export function AdminHeader() {
             <Link href="/properties" className="transition hover:text-neutral-900">
               Operator
             </Link>
-            <Link href="/admin" className="font-medium text-neutral-900">
-              Admin
-            </Link>
+            {role === "admin" && (
+              <Link href="/admin" className="font-medium text-neutral-900">
+                Admin
+              </Link>
+            )}
             <Link href="/docs" className="transition hover:text-neutral-900">
               Docs
             </Link>
