@@ -1129,11 +1129,18 @@ export default function AdminPropertiesPage() {
       />
 
       <ConfirmDialog
-        open={!!deletingTaskId}
-        onClose={() => setDeletingTaskId(null)}
+        open={deletingTaskId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingTaskId(null);
+          }
+        }}
         onConfirm={() => {
-          if (editingTask) {
-            deleteTask(editingTask);
+          if (deletingTaskId) {
+            const task = tasks.find((item) => item.id === deletingTaskId);
+            if (task) {
+              void deleteTask(task);
+            }
           }
           setDeletingTaskId(null);
         }}
@@ -1141,7 +1148,9 @@ export default function AdminPropertiesPage() {
         description="This removes the task from the property."
         confirmLabel="Delete"
         destructive
-      />
+      >
+        <span className="hidden" />
+      </ConfirmDialog>
     </div>
   );
 }

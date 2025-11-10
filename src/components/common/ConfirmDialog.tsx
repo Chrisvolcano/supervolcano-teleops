@@ -24,6 +24,8 @@ type ConfirmDialogProps = {
   onConfirm: () => void | Promise<void>;
   children: ReactNode;
   destructive?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function ConfirmDialog({
@@ -34,10 +36,12 @@ export function ConfirmDialog({
   onConfirm,
   destructive,
   children,
+  open,
+  onOpenChange,
 }: ConfirmDialogProps) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {children ? <AlertDialogTrigger asChild>{children}</AlertDialogTrigger> : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
