@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebaseClient";
+import { toTimestampLike } from "@/lib/format";
 import type { SVTask, TaskAssignment, TaskState } from "@/lib/types";
 
 const collectionRef = () => collection(db, "tasks");
@@ -197,8 +198,8 @@ function normalize(id: string, data: Record<string, unknown>): SVTask {
       typeof data.createdBy === "string"
         ? data.createdBy
         : (data.created_by as string | undefined),
-    createdAt: (data.createdAt ?? data.created_at) as unknown,
-    updatedAt: (data.updatedAt ?? data.updated_at) as unknown,
+    createdAt: toTimestampLike(data.createdAt ?? data.created_at),
+    updatedAt: toTimestampLike(data.updatedAt ?? data.updated_at),
     assignedToUserId:
       typeof data.assignedToUserId === "string"
         ? data.assignedToUserId

@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebaseClient";
+import { toTimestampLike } from "@/lib/format";
 import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types";
 
 const collectionRef = () => collection(db, "properties");
@@ -230,7 +231,7 @@ function normalizeMedia(data: DocumentData): PropertyMediaItem[] {
       type,
       storagePath: typeof candidate.storagePath === "string" ? candidate.storagePath : undefined,
       contentType: typeof candidate.contentType === "string" ? candidate.contentType : null,
-      createdAt: extractTimestamp(candidate.createdAt ?? candidate.created_at),
+      createdAt: toTimestampLike(candidate.createdAt ?? candidate.created_at),
     });
   }
 
@@ -239,24 +240,4 @@ function normalizeMedia(data: DocumentData): PropertyMediaItem[] {
   }
 
   return normalized;
-}
-
-function extractTimestamp(value: unknown) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  if ("toDate" in (value as Record<string, unknown>) && typeof (value as { toDate?: unknown }).toDate === "function") {
-    return value as { toDate: () => Date };
-  }
-  if ("seconds" in (value as Record<string, unknown>) && typeof (value as { seconds?: unknown }).seconds === "number") {
-    const candidate = value as { seconds: number; nanoseconds?: number };
-    return {
-      seconds: candidate.seconds,
-      nanoseconds: typeof candidate.nanoseconds === "number" ? candidate.nanoseconds : 0,
-    };
-  }
-  if (value instanceof Date) {
-    return value;
-  }
-  return null;
 }

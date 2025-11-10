@@ -27,6 +27,24 @@ function resolveTimestamp(value: TimestampLike | string | number | Date | undefi
   return undefined;
 }
 
+export function toTimestampLike(value: unknown): TimestampLike | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "object") {
+    if ("toDate" in value && typeof (value as { toDate?: unknown }).toDate === "function") {
+      return value as { toDate: () => Date };
+    }
+    if ("seconds" in value && typeof (value as { seconds?: unknown }).seconds === "number") {
+      const candidate = value as { seconds: number; nanoseconds?: number };
+      return {
+        seconds: candidate.seconds,
+        nanoseconds: typeof candidate.nanoseconds === "number" ? candidate.nanoseconds : 0,
+      };
+    }
+  }
+  return null;
+}
+
 export function formatDateTime(value: TimestampLike | string | number | Date | undefined | null) {
   const date = resolveTimestamp(value);
   if (!date) return "–";
