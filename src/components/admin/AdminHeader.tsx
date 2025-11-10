@@ -16,9 +16,6 @@ export function AdminHeader() {
             SuperVolcano
           </Link>
           <nav className="hidden items-center gap-4 text-sm text-neutral-500 md:flex">
-            <Link href="/properties" className="transition hover:text-neutral-900">
-              Operator
-            </Link>
             {role === "admin" && (
               <Link href="/admin" className="font-medium text-neutral-900">
                 Admin

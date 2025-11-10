@@ -4,24 +4,20 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { doc, updateDoc } from "firebase/firestore";
 import { Search } from "lucide-react";
+import toast from "react-hot-toast";
 
-import { PropertyCard, type Property } from "@/components/PropertyCard";
+import { PropertyCard } from "@/components/PropertyCard";
 import { TaskList, type PortalTask } from "@/components/TaskList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCollection } from "@/hooks/useCollection";
+import { useProperties } from "@/hooks/useProperties";
 import { firestore } from "@/lib/firebaseClient";
 import { TASK_TERMINAL_STATES, canTransition } from "@/lib/taskMachine";
 import { incrementTemplateCompletion } from "@/lib/templates";
-
-function normalizeStatus(value: unknown): Property["status"] {
-  if (typeof value !== "string") {
-    return "unassigned";
-  }
-  const lower = value.toLowerCase();
-  return lower === "scheduled" ? "scheduled" : "unassigned";
-}
+import { formatDateTime } from "@/lib/format";
 
 export default function PropertiesPage() {
   const { user, claims, loading: authLoading } = useAuth();
@@ -33,28 +29,20 @@ export default function PropertiesPage() {
   const isAdmin = role === "admin";
 
   const {
-    data: properties,
+    properties: rawProperties,
     loading: propertiesLoading,
     error: propertiesError,
-  } = useCollection<Property>({
-    path: "properties",
+  } = useProperties({
     enabled: Boolean(user) && (isAdmin || Boolean(partnerOrgId)),
-    whereEqual:
-      !isAdmin && partnerOrgId
-        ? [{ field: "partnerOrgId", value: partnerOrgId }]
-        : undefined,
-    orderByField: { field: "name", direction: "asc" },
-    parse: (doc) =>
-      ({
-        id: doc.id,
-        name: doc.name ?? "Untitled property",
-        partnerOrgId: doc.partnerOrgId ?? "unknown",
-        address: doc.address ?? doc.location ?? undefined,
-        status: normalizeStatus(doc.status),
-        images: doc.images ?? [],
-        taskCount: doc.taskCount ?? doc.activeTasks ?? 0,
-      }) as Property,
+    partnerOrgId: isAdmin ? undefined : partnerOrgId,
   });
+
+  const properties = rawProperties;
+
+  const propertyNameMap = useMemo(
+    () => new Map(properties.map((property) => [property.id, property.name])),
+    [properties],
+  );
 
   const {
     data: tasks,
@@ -83,26 +71,40 @@ export default function PropertiesPage() {
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
         updatedAt: doc.updatedAt ?? undefined,
+        partnerOrgId: doc.partnerOrgId ?? doc.partner_org_id ?? undefined,
       }) as PortalTask,
   });
+
+  const teleopTasks = useMemo(() => tasks.filter((task) => task.assignment === "teleoperator"), [tasks]);
+
+  const propertyIdsByTaskQuery = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    if (!query) return new Set<string>();
+    return new Set(
+      teleopTasks
+        .filter((task) => (task.name ?? "").toLowerCase().includes(query))
+        .map((task) => task.propertyId),
+    );
+  }, [searchValue, teleopTasks]);
 
   const filteredProperties = useMemo(() => {
     if (!searchValue.trim()) return properties;
     const queryText = searchValue.trim().toLowerCase();
-    return properties.filter((property) =>
-      [property.name, property.partnerOrgId, property.address]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(queryText)),
-    );
-  }, [properties, searchValue]);
+    return properties.filter((property) => {
+      const matchesPropertyName = (property.name ?? "").toLowerCase().includes(queryText);
+      return matchesPropertyName || propertyIdsByTaskQuery.has(property.id);
+    });
+  }, [properties, propertyIdsByTaskQuery, searchValue]);
 
   const recentTasks = useMemo(() => {
     return tasks
-      .slice(0, 6)
-      .map((task) => ({
-        ...task,
-        updatedAt: task.updatedAt ?? new Date().toISOString(),
-      }));
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 6);
   }, [tasks]);
 
   async function updateTaskStatus(task: PortalTask, next: PortalTask["status"]) {
@@ -115,6 +117,7 @@ export default function PropertiesPage() {
       (task.status === "in_progress" && next === "completed");
 
     if (!allowedDirectTransition && !canTransition(task.status, next)) {
+      toast.error("That transition isn’t allowed for this task.");
       return;
     }
 
@@ -130,6 +133,14 @@ export default function PropertiesPage() {
       if (next === "completed") {
         await incrementTemplateCompletion(task.templateId, task.assignment);
       }
+      toast.success(
+        next === "in_progress"
+          ? `Task “${task.name}” started.`
+          : `Task “${task.name}” marked complete.`,
+      );
+    } catch (error) {
+      console.error("[operator] failed to update task", error);
+      toast.error("Unable to update task status. Try again.");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -168,19 +179,24 @@ export default function PropertiesPage() {
                   : "No partner assigned to your account yet."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="relative block w-full min-w-[220px]">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <label className="relative block w-full min-w-[220px] sm:max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <Input
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
-                placeholder="Search by name or partner…"
+                placeholder="Search tasks or properties…"
                 className="pl-9"
               />
             </label>
             {isAdmin && (
               <Button asChild variant="outline">
-                <Link href="/admin">Go to admin</Link>
+                <Link href="/admin">Go to admin dashboard</Link>
+              </Button>
+            )}
+            {!isAdmin && (
+              <Button asChild variant="outline">
+                <Link href="/tasks">View completed tasks</Link>
               </Button>
             )}
           </div>
@@ -201,10 +217,8 @@ export default function PropertiesPage() {
                 filteredProperties.map((property) => <PropertyCard key={property.id} property={property} />)
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-neutral-500">
-                  <p className="text-sm font-medium">No properties match your search.</p>
-                  <p className="mt-1 text-xs">
-                    Clear the filter or reach out to your admin if you expect to see a location here.
-                  </p>
+                  <p className="text-sm font-medium">No assigned properties at this time.</p>
+                  <p className="mt-1 text-xs">Reach out to your admin if you expect to see a location here.</p>
                 </div>
               )}
         </div>
@@ -216,9 +230,6 @@ export default function PropertiesPage() {
             <h2 className="text-xl font-semibold text-neutral-900">Task queue</h2>
             <p className="text-sm text-neutral-500">Start or complete tasks assigned to teleoperators.</p>
           </div>
-          <Button asChild variant="outline">
-            <Link href="/properties">Refresh list</Link>
-          </Button>
         </div>
         {tasksError ? (
           <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -231,10 +242,10 @@ export default function PropertiesPage() {
               <div key={index} className="h-16 animate-pulse rounded-md bg-neutral-100" />
             ))}
           </div>
-        ) : tasks.length ? (
+        ) : teleopTasks.length ? (
           <div className="mt-6">
             <TaskList
-              tasks={tasks}
+              tasks={teleopTasks}
               showActions={!isAdmin}
               busyTaskId={updatingTaskId}
               onStartTask={(task) => updateTaskStatus(task, "in_progress")}
@@ -260,15 +271,17 @@ export default function PropertiesPage() {
             recentTasks.map((task) => (
               <div
                 key={task.id}
-                className="flex flex-col gap-1 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-100 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-100 md:flex-row md:items-center md:justify-between"
               >
-                <div>
+                <div className="space-y-1">
                   <p className="font-medium text-neutral-800">{task.name}</p>
-                  <p className="text-xs text-neutral-500">Updated {new Date(task.updatedAt).toLocaleString()}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                    <Badge variant="secondary">{task.status}</Badge>
+                    <span>{formatDateTime(task.updatedAt)}</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-neutral-500">
-                  <span>Status: {task.status}</span>
-                  <span>Property: {task.propertyId}</span>
+                  <span>Property: {propertyNameMap.get(task.propertyId) || task.propertyId}</span>
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/task/${task.id}`}>View</Link>
                   </Button>

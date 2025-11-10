@@ -17,11 +17,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
-  const { user, login, logout, loading, error } = useAuth();
+  const { user, login, logout, loading, initializing, error } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   if (user) {
     return (
@@ -44,7 +45,7 @@ export default function LoginPage() {
               variant="outline"
               className="w-full"
               onClick={() => logout().catch(() => undefined)}
-              disabled={loading}
+              disabled={loading || submitting}
             >
               Sign out
             </Button>
@@ -57,12 +58,15 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setSubmitting(true);
     try {
       await login(email, password);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to sign in. Try again.";
       setFormError(message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -81,6 +85,9 @@ export default function LoginPage() {
           <CardDescription className="text-neutral-500">
             Sign in to view properties, review session logs, and review tasks.
           </CardDescription>
+          {initializing && (
+            <p className="text-xs text-neutral-400">Checking your session…</p>
+          )}
         </CardHeader>
         <CardContent>
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -94,6 +101,7 @@ export default function LoginPage() {
                 placeholder="you@supervolcano.ai"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                disabled={submitting}
               />
             </div>
             <div className="space-y-2">
@@ -107,6 +115,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  disabled={submitting}
                 />
                 <button
                   type="button"
@@ -126,9 +135,9 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full bg-neutral-900 text-white hover:bg-neutral-800"
-              disabled={loading}
+              disabled={submitting}
             >
-              {loading ? "Signing in…" : "Sign in"}
+              {submitting ? "Signing in…" : "Sign in"}
             </Button>
           </form>
         </CardContent>

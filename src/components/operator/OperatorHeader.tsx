@@ -17,14 +17,18 @@ export function OperatorHeader() {
             SuperVolcano
           </Link>
           <nav className="hidden items-center gap-4 text-sm text-neutral-500 md:flex">
-            <Link href="/properties" className="font-medium text-neutral-900">
-              Properties
-            </Link>
-            <Link href="/admin" className="transition hover:text-neutral-900">
-              Admin
-            </Link>
+            {role === "admin" && (
+              <Link href="/admin" className="font-medium text-neutral-900">
+                Admin
+              </Link>
+            )}
+            {role !== "admin" && (
+              <Link href="/tasks" className="transition hover:text-neutral-900">
+                Tasks
+              </Link>
+            )}
             <Link href="mailto:tony@supervolcano.ai" className="transition hover:text-neutral-900">
-              Support
+              Contact Support
             </Link>
           </nav>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   QueryConstraint,
   collection,
@@ -33,6 +33,8 @@ export function useCollection<T = DocumentData>({
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const parseRef = useRef<typeof parse>();
+  parseRef.current = parse;
 
   const builtQuery = useMemo(() => {
     const colRef = collection(firestore, path);
@@ -62,25 +64,36 @@ export function useCollection<T = DocumentData>({
     }
 
     setLoading(true);
+    let isActive = true;
     const unsubscribe = onSnapshot(
       builtQuery,
       (snapshot) => {
+        if (!isActive) {
+          return;
+        }
         const next = snapshot.docs.map((doc) => {
           const payload: DocumentData = { id: doc.id, ...doc.data() };
-          return parse ? parse(payload) : (payload as T);
+          const parser = parseRef.current;
+          return parser ? parser(payload) : (payload as T);
         });
         setData(next);
         setLoading(false);
         setError(null);
       },
       (err) => {
+        if (!isActive) {
+          return;
+        }
         setError(err.message);
         setLoading(false);
       },
     );
 
-    return () => unsubscribe();
-  }, [builtQuery, enabled, parse]);
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [builtQuery, enabled]);
 
   return { data, loading, error };
 }

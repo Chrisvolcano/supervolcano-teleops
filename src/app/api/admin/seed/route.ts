@@ -61,6 +61,25 @@ async function seedProperties() {
         "https://images.unsplash.com/photo-1529429617124-aee11bad5112?auto=format&fit=crop&w=960&q=80",
         "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=960&q=80",
       ],
+      media: [
+        {
+          id: "demo-property-1-image-1",
+          url: "https://images.unsplash.com/photo-1529429617124-aee11bad5112?auto=format&fit=crop&w=960&q=80",
+          type: "image" as const,
+        },
+        {
+          id: "demo-property-1-image-2",
+          url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=960&q=80",
+          type: "image" as const,
+        },
+        {
+          id: "demo-property-1-video-1",
+          url: "https://storage.googleapis.com/coverr-main/mp4/Mt_Baker.mp4",
+          type: "video" as const,
+        },
+      ],
+      imageCount: 2,
+      videoCount: 1,
     },
     {
       id: "demo-property-2",
@@ -71,6 +90,15 @@ async function seedProperties() {
       images: [
         "https://images.unsplash.com/photo-1529429617124-aee11bad5112?auto=format&fit=crop&w=960&q=80",
       ],
+      media: [
+        {
+          id: "demo-property-2-image-1",
+          url: "https://images.unsplash.com/photo-1529429617124-aee11bad5112?auto=format&fit=crop&w=960&q=80",
+          type: "image" as const,
+        },
+      ],
+      imageCount: 1,
+      videoCount: 0,
     },
   ];
 

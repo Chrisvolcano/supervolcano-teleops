@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, setLogLevel } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const fallbackConfig = {
@@ -38,6 +38,15 @@ function getFirebaseApp(): FirebaseApp {
 }
 
 export const firebaseApp = getFirebaseApp();
+
+if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_FIRESTORE_DEBUG === "true") {
+  try {
+    setLogLevel("debug");
+  } catch (error) {
+    console.warn("Failed to set Firestore log level", error);
+  }
+}
+
 export const firebaseAuth = getAuth(firebaseApp);
 export const auth = firebaseAuth;
 export const firestore = getFirestore(firebaseApp);

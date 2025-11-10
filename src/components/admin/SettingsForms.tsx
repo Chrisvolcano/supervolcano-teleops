@@ -41,7 +41,8 @@ type UserRecord = {
 };
 
 export function SettingsForms() {
-  const { getIdToken } = useAuth();
+  const { getIdToken, refreshClaims, user } = useAuth();
+  const [roleChangeLoading, setRoleChangeLoading] = useState<string | null>(null);
 
   const {
     data: users,
@@ -99,6 +100,7 @@ export function SettingsForms() {
 
   async function handleRoleChange(email: string, role: string, partnerOrgId: string | null) {
     try {
+      setRoleChangeLoading(email);
       const token = await getIdToken();
       if (!token) throw new Error("Auth token missing");
       const response = await fetch("/api/admin/promote", {
@@ -114,8 +116,13 @@ export function SettingsForms() {
         throw new Error(payload.error ?? "Unable to update role");
       }
       toast.success(`Role updated to ${role}`);
+      if (user?.email === email) {
+        await refreshClaims(true);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update role");
+    } finally {
+      setRoleChangeLoading(null);
     }
   }
 
@@ -200,20 +207,29 @@ export function SettingsForms() {
               <p className="text-sm text-neutral-500">Loading users…</p>
             ) : users.length ? (
               <div className="space-y-2 text-sm">
-                {users.map((user) => (
+                {users.map((account) => (
                   <div
-                    key={user.id}
+                    key={account.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3"
                   >
                     <div>
-                      <p className="font-medium text-neutral-900">{user.email}</p>
-                      <p className="text-xs text-neutral-500">Role: {user.role}</p>
+                      <p className="font-medium text-neutral-900">{account.email}</p>
+                      <p className="text-xs text-neutral-500">Role: {account.role}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handleRoleChange(user.email, "operator", user.partnerOrgId ?? null)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRoleChange(account.email, "operator", account.partnerOrgId ?? null)}
+                        disabled={roleChangeLoading === account.email || account.role === "operator"}
+                      >
                         Make operator
                       </Button>
-                      <Button size="sm" onClick={() => handleRoleChange(user.email, "admin", user.partnerOrgId ?? null)}>
+                      <Button
+                        size="sm"
+                        onClick={() => handleRoleChange(account.email, "admin", account.partnerOrgId ?? null)}
+                        disabled={roleChangeLoading === account.email || account.role === "admin"}
+                      >
                         Promote to admin
                       </Button>
                     </div>

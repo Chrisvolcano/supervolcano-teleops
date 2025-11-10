@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:debug": "NEXT_PUBLIC_FIRESTORE_DEBUG=true next dev",
+    "lint": "next lint",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {

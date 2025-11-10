@@ -23,9 +23,9 @@ const NAV_ITEMS = [
 
 export function AdminNav() {
   const pathname = usePathname();
-  const { claims, loading } = useAuth();
+  const { claims, loading, initializing } = useAuth();
 
-  if (loading) {
+  if (loading || initializing) {
     return (
       <nav className="hidden w-56 flex-shrink-0 lg:block">
         <div className="space-y-2">

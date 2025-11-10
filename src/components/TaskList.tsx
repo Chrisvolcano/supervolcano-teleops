@@ -20,6 +20,7 @@ export type PortalTask = {
   updatedAt?: string;
   templateId?: string;
   templateDifficulty?: "easy" | "mid" | "high";
+  partnerOrgId?: string;
 };
 
 const stateVariant: Record<TaskState, "default" | "secondary" | "destructive"> =

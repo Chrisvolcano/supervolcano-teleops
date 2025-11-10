@@ -10,7 +10,8 @@ import { TaskTemplateDrawer } from "@/components/admin/TaskTemplateDrawer";
 import { TaskTemplateForm } from "@/components/admin/TaskTemplateForm";
 import { TaskTemplatesTable } from "@/components/admin/TaskTemplatesTable";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { PortalTask } from "@/components/TaskList";
@@ -18,6 +19,8 @@ import { useTaskTemplates, type TaskTemplate } from "@/hooks/useTaskTemplates";
 import { useTemplateUsage } from "@/hooks/useTemplateUsage";
 import { useCollection } from "@/hooks/useCollection";
 import { firestore } from "@/lib/firebaseClient";
+import { formatDateTime } from "@/lib/format";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const difficultyOptions = ["all", "easy", "mid", "high"] as const;
 const assignmentOptions = ["all", "teleoperator", "human"] as const;
@@ -41,7 +44,23 @@ export default function AdminTasksPage() {
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         templateId: doc.templateId ?? undefined,
+        partnerOrgId: doc.partnerOrgId ?? doc.partner_org_id ?? undefined,
+        assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
+        updatedAt: doc.updatedAt ?? undefined,
       }) as PortalTask,
+  });
+
+  const {
+    data: properties,
+    loading: propertiesLoading,
+  } = useCollection<{ id: string; name: string; partnerOrgId?: string }>({
+    path: "properties",
+    enabled: true,
+    parse: (doc) => ({
+      id: doc.id,
+      name: doc.name ?? "Untitled property",
+      partnerOrgId: doc.partnerOrgId ?? doc.partner_org_id ?? undefined,
+    }),
   });
 
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
@@ -62,6 +81,65 @@ export default function AdminTasksPage() {
       Object.entries(counts).map(([templateId, propertySet]) => [templateId, propertySet.size]),
     );
   }, [tasks]);
+
+  const propertyNameMap = useMemo(
+    () => new Map(properties.map((property) => [property.id, property.name])),
+    [properties],
+  );
+
+  const teleopCompletedTasks = useMemo(
+    () => tasks.filter((task) => task.assignment === "teleoperator" && task.status === "completed"),
+    [tasks],
+  );
+
+  const humanCompletedTasks = useMemo(
+    () => tasks.filter((task) => task.assignment === "human" && task.status === "completed"),
+    [tasks],
+  );
+
+  const completionsByOrg = useMemo(() => {
+    const entries = new Map<string, { count: number; lastCompleted?: string }>();
+    teleopCompletedTasks.forEach((task) => {
+      const orgId = task.partnerOrgId ?? "unknown";
+      const record = entries.get(orgId) ?? { count: 0, lastCompleted: undefined };
+      record.count += 1;
+      if (task.updatedAt && (!record.lastCompleted || task.updatedAt > record.lastCompleted)) {
+        record.lastCompleted = task.updatedAt;
+      }
+      entries.set(orgId, record);
+    });
+    return Array.from(entries.entries()).sort((a, b) => b[1].count - a[1].count);
+  }, [teleopCompletedTasks]);
+
+  const completionsByProperty = useMemo(() => {
+    const entries = new Map<string, { count: number; orgId?: string; lastCompleted?: string }>();
+    teleopCompletedTasks.forEach((task) => {
+      const record = entries.get(task.propertyId) ?? {
+        count: 0,
+        orgId: task.partnerOrgId,
+        lastCompleted: undefined,
+      };
+      record.count += 1;
+      if (task.updatedAt && (!record.lastCompleted || task.updatedAt > record.lastCompleted)) {
+        record.lastCompleted = task.updatedAt;
+      }
+      entries.set(task.propertyId, record);
+    });
+    return Array.from(entries.entries()).sort((a, b) => b[1].count - a[1].count);
+  }, [teleopCompletedTasks]);
+
+  const latestTeleopCompletions = useMemo(() => {
+    return teleopCompletedTasks
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 8);
+  }, [teleopCompletedTasks]);
+
+  const partnerCount = completionsByOrg.length;
 
   const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
@@ -147,6 +225,173 @@ export default function AdminTasksPage() {
           </Button>
         </div>
       </header>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="border-neutral-200">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-neutral-500">Teleoperator completions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold text-neutral-900">{teleopCompletedTasks.length}</p>
+            <p className="text-xs text-neutral-500">Completed tasks assigned to teleoperators across all partners.</p>
+          </CardContent>
+        </Card>
+        <Card className="border-neutral-200">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-neutral-500">Human cleaner completions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold text-neutral-900">{humanCompletedTasks.length}</p>
+            <p className="text-xs text-neutral-500">Completed tasks assigned to human cleaners.</p>
+          </CardContent>
+        </Card>
+        <Card className="border-neutral-200">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-neutral-500">Active partner orgs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold text-neutral-900">{partnerCount}</p>
+            <p className="text-xs text-neutral-500">Partners with at least one teleoperator task completion.</p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card className="border-neutral-200">
+        <CardHeader className="pb-0">
+          <CardTitle className="text-lg font-semibold text-neutral-900">Completions by partner organization</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-6">
+          {tasksLoading || propertiesLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="h-12 animate-pulse rounded-md bg-neutral-100" />
+              ))}
+            </div>
+          ) : completionsByOrg.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Partner</TableHead>
+                  <TableHead className="text-right">Teleoperator completions</TableHead>
+                  <TableHead className="text-right">Most recent</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {completionsByOrg.map(([orgId, record]) => (
+                  <TableRow key={orgId}>
+                    <TableCell>
+                      <Badge variant="secondary">{orgId}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-medium text-neutral-800">{record.count}</TableCell>
+                    <TableCell className="text-right text-sm text-neutral-600">
+                      {formatDateTime(record.lastCompleted)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <EmptyState
+              title="No teleoperator completions yet"
+              description="Task activity will display here once teleoperators complete assignments."
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-neutral-200">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-lg font-semibold text-neutral-900">Top properties by teleoperator output</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6">
+            {tasksLoading || propertiesLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-12 animate-pulse rounded-md bg-neutral-100" />
+                ))}
+              </div>
+            ) : completionsByProperty.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Partner</TableHead>
+                    <TableHead className="text-right">Completions</TableHead>
+                    <TableHead className="text-right">Most recent</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completionsByProperty.slice(0, 8).map(([propertyId, record]) => (
+                    <TableRow key={propertyId}>
+                      <TableCell className="text-sm font-medium text-neutral-800">
+                        {propertyNameMap.get(propertyId) ?? propertyId}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{record.orgId ?? "unknown"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium text-neutral-800">{record.count}</TableCell>
+                      <TableCell className="text-right text-sm text-neutral-600">
+                        {formatDateTime(record.lastCompleted)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <EmptyState
+                title="No teleoperator completions yet"
+                description="Once tasks are completed these properties will appear here."
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-neutral-200">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-lg font-semibold text-neutral-900">Recent teleoperator completions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6">
+            {tasksLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-12 animate-pulse rounded-md bg-neutral-100" />
+                ))}
+              </div>
+            ) : latestTeleopCompletions.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Partner</TableHead>
+                    <TableHead className="text-right">Completed</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {latestTeleopCompletions.map((task) => (
+                    <TableRow key={task.id}>
+                      <TableCell className="text-sm font-medium text-neutral-800">{task.name}</TableCell>
+                      <TableCell className="text-sm text-neutral-600">
+                        {propertyNameMap.get(task.propertyId) ?? task.propertyId}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{task.partnerOrgId ?? "unknown"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-neutral-600">{formatDateTime(task.updatedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <EmptyState
+                title="No teleoperator completions yet"
+                description="Once teleoperators complete tasks they will show here."
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="border-neutral-200">
         <CardContent className="space-y-4 p-6">

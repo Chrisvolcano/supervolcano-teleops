@@ -17,12 +17,34 @@ import {
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
-import { firebaseAuth } from "@/lib/firebaseClient";
+import { firebaseAuth, firebaseApp } from "@/lib/firebaseClient";
+
+if (typeof window !== "undefined") {
+  const globalObject = window as typeof window & {
+    firebaseApp?: typeof firebaseApp;
+    firebaseAuth?: typeof firebaseAuth;
+    debugClaims?: () => Promise<Record<string, unknown> | null>;
+  };
+
+  globalObject.firebaseApp = firebaseApp;
+  globalObject.firebaseAuth = firebaseAuth;
+  globalObject.debugClaims = async () => {
+    const current = firebaseAuth.currentUser;
+    if (!current) {
+      console.warn("[debugClaims] No current user");
+      return null;
+    }
+    const token = await current.getIdTokenResult();
+    console.log("[debugClaims]", token.claims);
+    return token.claims;
+  };
+}
 
 type AuthContextValue = {
   user: User | null;
   claims: Record<string, unknown> | null;
   loading: boolean;
+  initializing: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -40,6 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [claims, setClaims] = useState<Record<string, unknown> | null>(null);
 
@@ -52,33 +75,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setLoading(false);
           setError(null);
           if (authUser) {
-            const token = await getIdTokenResult(authUser, true).catch(() => null);
+            const token = await getIdTokenResult(authUser).catch(() => null);
             setClaims(token?.claims ?? null);
           } else {
             setClaims(null);
           }
+          setInitializing(false);
         }
         void handleAuth();
       },
       (err) => {
         setError(err.message);
         setLoading(false);
+        setInitializing(false);
       },
     );
 
     return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {
       setLoading(true);
       setError(null);
+      console.info("[auth] attempting login", email);
       try {
         await signInWithEmailAndPassword(firebaseAuth, email, password);
+        console.info("[auth] login succeeded", email);
         router.replace("/properties");
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unexpected authentication error.";
+        console.error("[auth] login failed", email, err);
         setError(message);
         setLoading(false);
         throw err;
@@ -94,10 +122,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.replace("/login");
   }, [router]);
 
-  const getIdToken = useCallback(async () => {
+  const getIdToken = useCallback(async (force?: boolean) => {
     const current = firebaseAuth.currentUser;
     if (!current) return null;
-    return current.getIdToken(true);
+    return current.getIdToken(force ?? false);
   }, []);
 
   const value = useMemo(
@@ -105,11 +133,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user,
       claims,
       loading,
+      initializing,
       error,
       login,
       logout,
       getIdToken,
-      refreshClaims: async (force = true) => {
+      refreshClaims: async (force = false) => {
         const current = firebaseAuth.currentUser;
         if (!current) return null;
         try {
@@ -122,7 +151,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       },
     }),
-    [user, claims, loading, error, login, logout, getIdToken],
+    [user, claims, loading, initializing, error, login, logout, getIdToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

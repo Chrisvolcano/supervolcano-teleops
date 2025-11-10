@@ -48,6 +48,14 @@ Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Bui
 
    Visit [http://localhost:3000](http://localhost:3000) and sign in on `/login`.
 
+   Need to inspect verbose Firestore output? Use the debug variant (runs on a custom port and writes `firebase-debug.log` at the repo root):
+
+   ```
+   pnpm dev:debug -- --port 3050
+   ```
+
+   After reproducing an issue (e.g. a stuck write), share both the browser console logs and the generated `firebase-debug.log` with Firebase support.
+
 ### Firebase Configuration
 
 1. **Enable services**
@@ -76,7 +84,7 @@ Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Bui
 
 - `/login` — email/password sign-in for teleoperators, with password visibility toggle and contextual messaging when already authenticated.
 - `/admin` — admin dashboard for at-a-glance metrics and quick navigation.
-- `/admin/properties` — manage property profiles, imagery, and template-driven tasks (with property notes and usage counters).
+- `/admin/properties` — manage property profiles, imagery, and video walkthroughs alongside template-driven tasks (with property notes and usage counters).
 - `/admin/tasks` — govern task templates with difficulty tags, assignment mix, usage counters, and property-level drill-downs.
 - `/admin/sessions` — review teleoperation sessions with filters, QC editing, and robot vs human time split visualizations.
 - `/admin/settings` — configure roles, taxonomy colors, operational defaults, storage details, and run dangerous maintenance actions.

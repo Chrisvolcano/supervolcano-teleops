@@ -12,6 +12,7 @@ import {
   getDocs,
   increment,
   query,
+  serverTimestamp,
   setDoc,
   updateDoc,
   where,
@@ -51,9 +52,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useCollection } from "@/hooks/useCollection";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
+import { useProperties } from "@/hooks/useProperties";
+import { useSaveTask } from "@/hooks/useSaveTask";
 import { firestore, storage } from "@/lib/firebaseClient";
 import { cn } from "@/lib/utils";
 import { incrementTemplateAssignment } from "@/lib/templates";
+import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types";
 
 const DETAIL_TABS = ["summary", "media", "tasks"] as const;
 const FORM_STEPS = ["Basics", "Details", "Media"] as const;
@@ -61,20 +65,7 @@ const FORM_STEPS = ["Basics", "Details", "Media"] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 type FormStep = (typeof FORM_STEPS)[number];
 
-type PropertyStatus = "scheduled" | "unassigned";
-
-type AdminProperty = {
-  id: string;
-  name: string;
-  partnerOrgId: string;
-  address?: string;
-  status: PropertyStatus;
-  description?: string;
-  images: string[];
-  taskCount: number;
-  createdBy?: string | null;
-  updatedAt?: string;
-};
+type AdminProperty = SVProperty;
 
 type PropertyFormState = {
   name: string;
@@ -82,9 +73,10 @@ type PropertyFormState = {
   partnerOrgId: string;
   status: PropertyStatus;
   description: string;
-  existingImages: string[];
-  removedImages: string[];
+  existingMedia: PropertyMediaItem[];
+  removedMediaIds: string[];
   uploadFiles: File[];
+  isActive: boolean;
 };
 
 function normalizeStatus(value: unknown): PropertyStatus {
@@ -99,10 +91,46 @@ function buildEmptyForm(defaultPartnerOrg?: string): PropertyFormState {
     partnerOrgId: defaultPartnerOrg ?? "demo-org",
     status: "unassigned",
     description: "",
-    existingImages: [],
-    removedImages: [],
+    existingMedia: [],
+    removedMediaIds: [],
     uploadFiles: [],
+    isActive: true,
   };
+}
+
+function mapPropertyMediaForForm(property?: AdminProperty | null): PropertyMediaItem[] {
+  if (!property) return [];
+  if (Array.isArray(property.media) && property.media.length) {
+    return property.media.map((item) => ({
+      ...item,
+      id: item.id || item.url,
+    }));
+  }
+  if (Array.isArray(property.images) && property.images.length) {
+    return property.images.map((url) => ({
+      id: url,
+      url,
+      type: "image" as const,
+    }));
+  }
+  return [];
+}
+
+function createMediaId(fallback: string) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${fallback}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function inferMediaType(file: File): PropertyMediaItem["type"] {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("image/")) return "image";
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension && ["mp4", "mov", "m4v", "webm", "avi", "mkv"].includes(extension)) {
+    return "video";
+  }
+  return "image";
 }
 
 export default function AdminPropertiesPage() {
@@ -115,33 +143,16 @@ export default function AdminPropertiesPage() {
   const isAdmin = role === "admin";
 
   const {
-    data: properties,
+    properties,
     loading: propertiesLoading,
     error: propertiesError,
-  } = useCollection<AdminProperty>({
-    path: "properties",
-    enabled: isAdmin,
-    orderByField: { field: "name", direction: "asc" },
-    parse: (doc) =>
-      ({
-        id: doc.id,
-        name: doc.name ?? "Untitled property",
-        partnerOrgId: doc.partnerOrgId ?? "demo-org",
-        address: doc.address ?? doc.location ?? "",
-        status: normalizeStatus(doc.status),
-        description: doc.description ?? "",
-        images: Array.isArray(doc.images) ? doc.images : [],
-        taskCount: Number.isFinite(doc.taskCount) ? doc.taskCount : 0,
-        createdBy: doc.createdBy ?? null,
-        updatedAt: doc.updatedAt ?? undefined,
-      }) as AdminProperty,
-  });
+  } = useProperties({ enabled: isAdmin, includeInactive: true });
 
   const [searchValue, setSearchValue] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
 
-  const [propertyDrawerOpen, setPropertyDrawerOpen] = useState(false);
+  const [propertyDrawerOpen, setPropertyDrawerOpen] = useState(true);
   const [propertyFormState, setPropertyFormState] = useState<PropertyFormState>(() =>
     buildEmptyForm(partnerOrgClaim),
   );
@@ -150,8 +161,14 @@ export default function AdminPropertiesPage() {
   const [propertySaving, setPropertySaving] = useState(false);
   const [propertyError, setPropertyError] = useState<string | null>(null);
 
+  const {
+    create: createTaskMutation,
+    update: updateTaskMutation,
+    remove: deleteTaskMutation,
+    loading: taskMutationLoading,
+  } = useSaveTask();
+
   const [taskFormOpen, setTaskFormOpen] = useState(false);
-  const [taskFormLoading, setTaskFormLoading] = useState(false);
   const [editingTask, setEditingTask] = useState<PortalTask | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
@@ -234,9 +251,10 @@ export default function AdminPropertiesPage() {
         partnerOrgId: property.partnerOrgId,
         status: property.status,
         description: property.description ?? "",
-        existingImages: property.images ?? [],
-        removedImages: [],
+        existingMedia: mapPropertyMediaForForm(property),
+        removedMediaIds: [],
         uploadFiles: [],
+        isActive: property.isActive !== false,
       });
       setPropertyFormStepIndex(0);
       setPropertyError(null);
@@ -274,34 +292,63 @@ export default function AdminPropertiesPage() {
     setPropertyError(null);
 
     try {
-      await user.getIdToken?.(true);
+      console.time("persistProperty");
+      console.log("[admin] persistProperty:start", { propertyId, editingPropertyId, trimmedPartnerOrg });
+      try {
+        await user.getIdToken?.();
+        console.log("[admin] persistProperty:token ok");
+      } catch (tokenError) {
+        console.warn("[admin] token refresh skipped", tokenError);
+      }
 
-      if (propertyFormState.removedImages.length) {
+      const removedMediaItems = propertyFormState.existingMedia.filter((item) =>
+        propertyFormState.removedMediaIds.includes(item.id),
+      );
+      if (removedMediaItems.length) {
+        console.log("[admin] persistProperty:removing media", removedMediaItems.map((item) => item.id));
         await Promise.all(
-          propertyFormState.removedImages.map(async (url) => {
+          removedMediaItems.map(async (item) => {
             try {
-              const parsed = new URL(url);
+              if (item.storagePath) {
+                await deleteObject(ref(storage, item.storagePath));
+                return;
+              }
+              const parsed = new URL(item.url);
               const objectRef = ref(storage, decodeURIComponent(parsed.pathname.replace(/^\//, "")));
               await deleteObject(objectRef);
             } catch (error) {
-              console.warn("[admin] failed to remove image", url, error);
+              console.warn("[admin] failed to remove media", item.url, error);
             }
           }),
         );
       }
 
-      const uploadedImageUrls: string[] = [];
+      const retainedMedia = propertyFormState.existingMedia.filter(
+        (item) => !propertyFormState.removedMediaIds.includes(item.id),
+      );
+
+      const uploadedMediaItems: PropertyMediaItem[] = [];
       for (const file of propertyFormState.uploadFiles) {
-        const path = `properties/${propertyId}/${crypto.randomUUID()}-${file.name}`;
+        console.log("[admin] persistProperty:upload", file.name, file.size);
+        const type = inferMediaType(file);
+        const mediaId = createMediaId(file.name);
+        const path = `properties/${propertyId}/media/${mediaId}-${file.name}`;
         const storageRef = ref(storage, path);
-        const snapshot = await uploadBytes(storageRef, file);
+        const snapshot = await uploadBytes(storageRef, file, { contentType: file.type });
         const url = await getDownloadURL(snapshot.ref);
-        uploadedImageUrls.push(url);
+        uploadedMediaItems.push({
+          id: mediaId,
+          url,
+          type,
+          storagePath: snapshot.ref.fullPath ?? path,
+          contentType: snapshot.metadata.contentType ?? file.type,
+          createdAt: new Date(),
+        });
       }
 
-      const images = propertyFormState.existingImages
-        .filter((url) => !propertyFormState.removedImages.includes(url))
-        .concat(uploadedImageUrls);
+      const media = [...retainedMedia, ...uploadedMediaItems];
+      const images = media.filter((item) => item.type === "image").map((item) => item.url);
+      const videoCount = media.filter((item) => item.type === "video").length;
 
       const payload = {
         name: propertyFormState.name.trim(),
@@ -310,113 +357,135 @@ export default function AdminPropertiesPage() {
         status: propertyFormState.status,
         description: propertyFormState.description.trim(),
         images,
+        media,
+        imageCount: images.length,
+        videoCount,
+        isActive: propertyFormState.isActive,
         taskCount: editingProperty?.taskCount ?? 0,
-        updatedAt: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
         ...(editingProperty
           ? {}
           : {
-              createdAt: new Date().toISOString(),
+              createdAt: serverTimestamp(),
               createdBy: user.uid,
             }),
       };
 
-      await setDoc(baseRef, payload, { merge: Boolean(editingProperty) });
+      console.log("[admin] persistProperty:setDoc", payload);
+      try {
+        if (editingProperty) {
+          await setDoc(baseRef, payload, { merge: true }).then(() => {
+            console.log("[admin] setDoc merge resolved");
+          });
+        } else {
+          await setDoc(baseRef, payload).then(() => {
+            console.log("[admin] setDoc create resolved");
+          });
+        }
+      } catch (setDocError) {
+        console.error("[admin] setDoc failed", setDocError);
+        throw setDocError;
+      }
 
       console.info("[admin] property saved", propertyId);
       setSelectedPropertyId(propertyId);
       closePropertyDrawer();
       toast.success(editingProperty ? "Property updated" : "Property created");
     } catch (error) {
-      console.error("[admin] failed to save property", error);
+      console.error("[admin] persistProperty:error", error);
       const message =
         error instanceof Error ? error.message : "Unable to save property. Verify your admin access.";
       setPropertyError(message);
       toast.error(message);
     } finally {
       setPropertySaving(false);
+      console.log("[admin] persistProperty:end");
+      console.timeEnd("persistProperty");
     }
   }
 
   async function handleDeleteProperty(property: AdminProperty) {
-    const propertyRef = doc(firestore, "properties", property.id);
-    const tasksQuery = query(collection(firestore, "tasks"), where("propertyId", "==", property.id));
-    const snapshot = await getDocs(tasksQuery);
+    try {
+      const propertyRef = doc(firestore, "properties", property.id);
+      const tasksQuery = query(collection(firestore, "tasks"), where("propertyId", "==", property.id));
+      const snapshot = await getDocs(tasksQuery);
 
-    await Promise.all(snapshot.docs.map((taskDoc) => deleteDoc(doc(firestore, "tasks", taskDoc.id))));
-    await deleteDoc(propertyRef);
+      await Promise.all(snapshot.docs.map((taskDoc) => deleteDoc(doc(firestore, "tasks", taskDoc.id))));
+      await deleteDoc(propertyRef);
 
-    if (selectedPropertyId === property.id) {
-      setSelectedPropertyId(null);
+      if (selectedPropertyId === property.id) {
+        setSelectedPropertyId(null);
+      }
+      toast.success("Property deleted");
+    } catch (error) {
+      console.error("[admin] failed to delete property", error);
+      const message = error instanceof Error ? error.message : "Unable to delete property.";
+      toast.error(message);
     }
-    toast.success("Property deleted");
   }
 
   async function handleTogglePropertyStatus(property: AdminProperty, checked: boolean) {
     const nextStatus: PropertyStatus = checked ? "scheduled" : "unassigned";
     await updateDoc(doc(firestore, "properties", property.id), {
       status: nextStatus,
-      updatedAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
     });
+    toast.success(`Property "${property.name}" marked ${nextStatus === "scheduled" ? "scheduled" : "unassigned"}.`);
   }
 
   function openTaskDrawer(task?: PortalTask) {
-    if (task) {
-      setEditingTask(task);
-      setTaskFormOpen(true);
-    } else {
-      setEditingTask(null);
-    }
+    setEditingTask(task ?? null);
+    setTaskFormOpen(true);
   }
 
   async function saveTask(form: TaskFormData) {
-    if (!selectedProperty) return;
+    if (!selectedProperty || !user) return;
 
-    setTaskFormLoading(true);
     try {
       if (editingTask) {
-        const taskRef = doc(firestore, "tasks", editingTask.id);
-        await updateDoc(taskRef, {
+        await updateTaskMutation({
+          id: editingTask.id,
           name: form.name,
-          type: form.type ?? "general",
+          assignment: form.assignment,
           duration: form.duration ?? null,
           priority: form.priority ?? null,
-          assigned_to: form.assignment,
-          assignment: form.assignment,
-          status: form.status,
-          state: form.status,
           templateId: form.templateId ?? null,
-          updatedAt: new Date().toISOString(),
+          status: form.status,
         });
+
         if (form.templateId && form.assignment !== editingTask.assignment) {
           await incrementTemplateAssignment(form.templateId, form.assignment);
         }
+
         toast.success("Task updated");
       } else {
-        const taskRef = doc(collection(firestore, "tasks"));
-        await setDoc(taskRef, {
-          name: form.name,
-          type: form.type ?? "general",
-          duration: form.duration ?? null,
-          priority: form.priority ?? null,
-          assigned_to: form.assignment,
-          assignment: form.assignment,
-          status: form.status,
-          state: form.status,
+        const taskId = await createTaskMutation({
           propertyId: selectedProperty.id,
           partnerOrgId: selectedProperty.partnerOrgId,
+          name: form.name,
+          assignment: form.assignment,
+          duration: form.duration ?? null,
+          priority: form.priority ?? null,
           templateId: form.templateId ?? null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          assignedToUserId: null,
+          status: form.status,
+          createdBy: user.uid,
         });
+
         await updateDoc(doc(firestore, "properties", selectedProperty.id), {
           taskCount: increment(1),
         });
+
         await incrementTemplateAssignment(form.templateId, form.assignment);
+        console.info("[admin] task created", taskId);
         toast.success("Task added");
       }
+    } catch (error) {
+      console.error("[admin] failed to save task", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to save task. Check your admin access.";
+      toast.error(message);
+      return;
     } finally {
-      setTaskFormLoading(false);
       setTaskFormOpen(false);
       setEditingTask(null);
     }
@@ -427,11 +496,15 @@ export default function AdminPropertiesPage() {
 
     setDeletingTaskId(task.id);
     try {
-      await deleteDoc(doc(firestore, "tasks", task.id));
+      await deleteTaskMutation(task.id);
       await updateDoc(doc(firestore, "properties", selectedProperty.id), {
         taskCount: increment(-1),
       });
       toast.success("Task deleted");
+    } catch (error) {
+      console.error("[admin] failed to delete task", error);
+      const message = error instanceof Error ? error.message : "Unable to delete task.";
+      toast.error(message);
     } finally {
       setDeletingTaskId(null);
     }
@@ -677,17 +750,32 @@ export default function AdminPropertiesPage() {
                           <UploadCloud className="mr-2 h-4 w-4" /> Manage media
                         </Button>
                       </div>
-                      {selectedProperty.images.length ? (
+                      {selectedProperty.media.length ? (
                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {selectedProperty.images.map((url) => (
-                            <div key={url} className="relative h-40 w-full overflow-hidden rounded-xl border border-neutral-200">
-                              <Image src={url} alt={selectedProperty.name} fill className="object-cover" />
+                          {selectedProperty.media.map((item) => (
+                            <div
+                              key={item.id}
+                              className="relative h-40 w-full overflow-hidden rounded-xl border border-neutral-200"
+                            >
+                              {item.type === "image" ? (
+                                <Image src={item.url} alt={selectedProperty.name} fill className="object-cover" />
+                              ) : (
+                                <video
+                                  src={item.url}
+                                  className="h-full w-full object-cover"
+                                  controls
+                                  playsInline
+                                />
+                              )}
+                              <span className="absolute right-3 top-3 rounded-full bg-neutral-900/70 px-2 py-1 text-xs font-medium uppercase tracking-wide text-white">
+                                {item.type === "image" ? "Image" : "Video"}
+                              </span>
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center text-sm text-neutral-500">
-                          No media uploaded yet. Add imagery so operators know what to expect on site.
+                          No media uploaded yet. Add imagery or walkthrough videos so operators know what to expect on site.
                         </div>
                       )}
                     </div>
@@ -786,14 +874,20 @@ export default function AdminPropertiesPage() {
         <SheetContent className="w-full max-w-xl border-l border-neutral-200">
           <div className="flex h-full flex-col pt-16">
             <div className="flex-1 overflow-y-auto px-6">
-              <SheetHeader className="space-y-2">
+              <SheetHeader>
                 <SheetTitle>{editingProperty ? "Edit property" : "Create property"}</SheetTitle>
                 <SheetDescription>
                   {editingProperty
-                    ? "Update the essentials, details, and media for this property."
-                    : "Add a new location for teleoperators with clear context and visual references."}
+                    ? `Update core details, media, and tasks for ${editingProperty.name}.`
+                    : "Define a new property for teleoperators and human cleaners."}
                 </SheetDescription>
               </SheetHeader>
+
+              {propertyError ? (
+                <p className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                  {propertyError}
+                </p>
+              ) : null}
 
               <div className="mt-4 space-y-4">
                 <div className="flex items-center justify-between text-xs font-medium text-neutral-500">
@@ -894,12 +988,12 @@ export default function AdminPropertiesPage() {
                 {propertyFormStepIndex === 2 ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="property-images">Upload imagery</Label>
+                      <Label htmlFor="property-media">Upload media</Label>
                       <Input
-                        id="property-images"
+                        id="property-media"
                         type="file"
                         multiple
-                        accept="image/*"
+                        accept="image/*,video/*"
                         onChange={(event) => {
                           const files = event.target.files;
                           if (!files) return;
@@ -909,31 +1003,53 @@ export default function AdminPropertiesPage() {
                           }));
                         }}
                       />
+                      <p className="text-xs text-neutral-500">
+                        Upload reference photos (JPG, PNG, HEIC) or short video walkthroughs (MP4, MOV).
+                      </p>
                     </div>
-                    {propertyFormState.existingImages.length ? (
+                    {propertyFormState.existingMedia.length ? (
                       <div>
-                        <p className="text-xs font-medium text-neutral-500">Attached imagery</p>
+                        <p className="text-xs font-medium text-neutral-500">Existing media</p>
                         <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                          {propertyFormState.existingImages.map((url) => {
-                            const markedForRemoval = propertyFormState.removedImages.includes(url);
+                          {propertyFormState.existingMedia.map((item) => {
+                            const markedForRemoval = propertyFormState.removedMediaIds.includes(item.id);
                             return (
                               <div
-                                key={url}
+                                key={item.id}
                                 className={cn(
                                   "relative h-32 w-full overflow-hidden rounded-lg border border-neutral-200",
                                   markedForRemoval && "border-red-300",
                                 )}
                               >
-                                <Image src={url} alt="Property media" fill className="object-cover" />
+                                {item.type === "image" ? (
+                                  <Image src={item.url} alt="Property media" fill className="object-cover" />
+                                ) : (
+                                  <video
+                                    src={item.url}
+                                    className="h-full w-full object-cover"
+                                    controls
+                                    playsInline
+                                  />
+                                )}
+                                <div className="absolute left-2 top-2 flex items-center gap-2">
+                                  <Badge variant={item.type === "image" ? "secondary" : "default"} className="uppercase">
+                                    {item.type === "image" ? "Image" : "Video"}
+                                  </Badge>
+                                  {markedForRemoval ? (
+                                    <span className="rounded bg-red-500/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                      Removing
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <Button
                                   size="sm"
                                   variant={markedForRemoval ? "default" : "secondary"}
                                   onClick={() =>
                                     setPropertyFormState((prev) => ({
                                       ...prev,
-                                      removedImages: markedForRemoval
-                                        ? prev.removedImages.filter((item) => item !== url)
-                                        : [...prev.removedImages, url],
+                                      removedMediaIds: markedForRemoval
+                                        ? prev.removedMediaIds.filter((id) => id !== item.id)
+                                        : [...prev.removedMediaIds, item.id],
                                     }))
                                   }
                                   className="absolute left-2 top-2"
@@ -951,21 +1067,13 @@ export default function AdminPropertiesPage() {
                         <p className="text-xs font-medium text-neutral-500">Pending uploads</p>
                         <ul className="mt-2 space-y-2 text-sm text-neutral-600">
                           {propertyFormState.uploadFiles.map((file, index) => (
-                            <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
-                              <span className="truncate pr-2">{file.name}</span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  setPropertyFormState((prev) => ({
-                                    ...prev,
-                                    uploadFiles: prev.uploadFiles.filter((_, fileIndex) => fileIndex !== index),
-                                  }))
-                                }
-                              >
-                                Remove
-                              </Button>
+                            <li key={`${file.name}-${index}`}>
+                              <span className="truncate pr-2">
+                                {file.name}
+                                <span className="ml-2 text-xs uppercase text-neutral-400">
+                                  {inferMediaType(file) === "video" ? "Video" : "Image"}
+                                </span>
+                              </span>
                             </li>
                           ))}
                         </ul>
@@ -974,64 +1082,45 @@ export default function AdminPropertiesPage() {
                   </div>
                 ) : null}
               </div>
+
+              <SheetFooter>
+                <Button variant="outline" onClick={previousFormStep} disabled={propertyFormStepIndex === 0}>
+                  Previous
+                </Button>
+                <Button onClick={nextFormStep} disabled={propertyFormStepIndex === FORM_STEPS.length - 1}>
+                  Next
+                </Button>
+                <Button onClick={persistProperty} disabled={propertySaving}>
+                  {propertySaving ? "Saving..." : "Save property"}
+                </Button>
+              </SheetFooter>
             </div>
-            <SheetFooter className="border-t border-neutral-200 px-6 py-4">
-              <div className="flex flex-1 items-center gap-2 text-xs text-neutral-500">
-                <span>{FORM_STEPS[propertyFormStepIndex]}</span>
-              </div>
-              <div className="flex gap-2">
-                {propertyFormStepIndex > 0 && (
-                  <Button variant="outline" type="button" onClick={previousFormStep} disabled={propertySaving}>
-                    Back
-                  </Button>
-                )}
-                {propertyFormStepIndex < FORM_STEPS.length - 1 ? (
-                  <Button
-                    type="button"
-                    onClick={nextFormStep}
-                    disabled={propertySaving || !propertyFormState.name.trim()}
-                  >
-                    Continue
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={persistProperty} disabled={propertySaving}>
-                    {propertySaving ? "Saving…" : editingProperty ? "Save changes" : "Create property"}
-                  </Button>
-                )}
-              </div>
-            </SheetFooter>
           </div>
         </SheetContent>
       </Sheet>
 
-      {selectedProperty && (
-        <TaskForm
-          open={taskFormOpen}
-          onOpenChange={setTaskFormOpen}
-          onSubmit={saveTask}
-          loading={taskFormLoading}
-          title={editingTask ? `Edit task: ${editingTask.name}` : "Add new task"}
-          description={
-            editingTask
-              ? `Editing task for ${selectedProperty.name}.`
-              : `Create a task for ${selectedProperty.name}.`
+      <TaskForm
+        open={taskFormOpen}
+        onClose={() => setTaskFormOpen(false)}
+        onSave={saveTask}
+        editingTask={editingTask}
+        templates={activeTemplates}
+      />
+
+      <ConfirmDialog
+        open={!!deletingTaskId}
+        onClose={() => setDeletingTaskId(null)}
+        onConfirm={() => {
+          if (editingTask) {
+            deleteTask(editingTask);
           }
-          initialValues={
-            editingTask
-              ? {
-                  name: editingTask.name,
-                  type: "general",
-                  duration: editingTask.duration,
-                  priority: editingTask.priority,
-                  assignment: editingTask.assignment,
-                  status: editingTask.status,
-                  templateId: editingTask.templateId,
-                }
-              : undefined
-          }
-          templates={activeTemplates}
-        />
-      )}
+          setDeletingTaskId(null);
+        }}
+        title="Delete task"
+        description="This removes the task from the property."
+        confirmLabel="Delete"
+        destructive
+      />
     </div>
   );
 }

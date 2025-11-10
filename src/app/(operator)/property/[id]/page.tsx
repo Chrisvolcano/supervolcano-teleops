@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { collection, doc, setDoc, updateDoc } from "firebase/firestore";
+import toast from "react-hot-toast";
 
 import { SessionHUD, type Session } from "@/components/SessionHUD";
 import { TaskList, type PortalTask } from "@/components/TaskList";
@@ -17,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDoc } from "@/hooks/useDoc";
 import { useCollection } from "@/hooks/useCollection";
 import { firestore } from "@/lib/firebaseClient";
+import type { PropertyMediaItem } from "@/lib/types";
 import { TaskState, TASK_TERMINAL_STATES, canTransition } from "@/lib/taskMachine";
 import { incrementTemplateCompletion } from "@/lib/templates";
 
@@ -40,9 +42,50 @@ type PropertyDoc = {
   address?: string;
   status: "scheduled" | "unassigned";
   description?: string;
-  images?: string[];
+  images: string[];
+  media: PropertyMediaItem[];
+  imageCount: number;
+  videoCount: number;
   activeSessionId?: string | null;
 };
+
+function normalizePropertyMedia(doc: Record<string, unknown>): PropertyMediaItem[] {
+  const media = Array.isArray(doc.media)
+    ? (doc.media as unknown[])
+        .map((item) => {
+          if (typeof item !== "object" || item === null) return null;
+          const record = item as Record<string, unknown>;
+          const url = typeof record.url === "string" ? record.url : undefined;
+          const type = record.type === "video" ? "video" : record.type === "image" ? "image" : undefined;
+          if (!url || !type) return null;
+          return {
+            id: typeof record.id === "string" && record.id.length ? record.id : url,
+            url,
+            type,
+            storagePath: typeof record.storagePath === "string" ? record.storagePath : undefined,
+            contentType: typeof record.contentType === "string" ? record.contentType : null,
+            createdAt: (record.createdAt ?? record.created_at) as PropertyMediaItem["createdAt"],
+          } satisfies PropertyMediaItem;
+        })
+        .filter(Boolean) as PropertyMediaItem[]
+    : [];
+
+  if (media.length) {
+    return media;
+  }
+
+  if (Array.isArray(doc.images)) {
+    return (doc.images as unknown[])
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .map((url) => ({
+        id: url,
+        url,
+        type: "image" as const,
+      }));
+  }
+
+  return [];
+}
 
 type PropertyNote = {
   id: string;
@@ -72,18 +115,40 @@ export default function PropertyDetailPage() {
     path: "properties",
     docId: propertyId!,
     enabled: Boolean(propertyId),
-    parse: (doc) =>
-      ({
+    parse: (doc) => {
+      const media = normalizePropertyMedia(doc);
+      const images = Array.isArray(doc.images)
+        ? (doc.images as string[])
+        : media.filter((item) => item.type === "image").map((item) => item.url);
+      const imageCount =
+        typeof doc.imageCount === "number" ? doc.imageCount : media.filter((item) => item.type === "image").length;
+      const videoCount =
+        typeof doc.videoCount === "number" ? doc.videoCount : media.filter((item) => item.type === "video").length;
+
+      return {
         id: doc.id,
         name: doc.name ?? "Unnamed property",
         description: doc.description ?? undefined,
         address: doc.address ?? doc.location ?? undefined,
         partnerOrgId: doc.partnerOrgId ?? "unknown",
         status: normalizeStatus(doc.status),
-        images: doc.images ?? [],
+        media,
+        images,
+        imageCount,
+        videoCount,
         activeSessionId: doc.activeSessionId ?? null,
-      }) as PropertyDoc,
+      } as PropertyDoc;
+    },
   });
+
+  const mediaCounts = useMemo(() => {
+    if (!property) {
+      return { imageCount: 0, videoCount: 0 };
+    }
+    const imageCount = property.imageCount ?? property.media.filter((item) => item.type === "image").length;
+    const videoCount = property.videoCount ?? property.media.filter((item) => item.type === "video").length;
+    return { imageCount, videoCount };
+  }, [property]);
 
   const {
     data: tasks,
@@ -113,6 +178,7 @@ export default function PropertyDetailPage() {
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
         updatedAt: doc.updatedAt ?? undefined,
+        partnerOrgId: doc.partnerOrgId ?? doc.partner_org_id ?? undefined,
       }) as PortalTask,
   });
 
@@ -182,18 +248,29 @@ export default function PropertyDetailPage() {
       (task.status === "in_progress" && next === "completed");
 
     if (!allowedDirectTransition && !canTransition(task.status, next)) {
+      toast.error("That transition isn’t allowed for this task.");
       return;
     }
 
-    const taskRef = doc(firestore, "tasks", task.id);
-    await updateDoc(taskRef, {
-      status: next,
-      state: next,
-      updatedAt: new Date().toISOString(),
-      assignedToUserId: user?.uid ?? null,
-    });
-    if (next === "completed") {
-      await incrementTemplateCompletion(task.templateId, task.assignment);
+    try {
+      const taskRef = doc(firestore, "tasks", task.id);
+      await updateDoc(taskRef, {
+        status: next,
+        state: next,
+        updatedAt: new Date().toISOString(),
+        assignedToUserId: user?.uid ?? null,
+      });
+      if (next === "completed") {
+        await incrementTemplateCompletion(task.templateId, task.assignment);
+      }
+      toast.success(
+        next === "in_progress"
+          ? `Task “${task.name}” started.`
+          : `Task “${task.name}” marked complete.`,
+      );
+    } catch (error) {
+      console.error("[operator] failed to update task", error);
+      toast.error("Unable to update task. Try again.");
     }
   }
 
@@ -204,7 +281,7 @@ export default function PropertyDetailPage() {
 
     setSavingNote(true);
     try {
-      const noteRef = doc(firestore, "propertyNotes");
+      const noteRef = doc(collection(firestore, "propertyNotes"));
       await setDoc(noteRef, {
         propertyId: property.id,
         partnerOrgId: property.partnerOrgId,
@@ -214,6 +291,10 @@ export default function PropertyDetailPage() {
         createdAt: new Date().toISOString(),
       });
       setNoteDraft("");
+      toast.success("Note saved.");
+    } catch (error) {
+      console.error("[operator] failed to save note", error);
+      toast.error("Unable to save note. Try again.");
     } finally {
       setSavingNote(false);
     }
@@ -266,13 +347,32 @@ export default function PropertyDetailPage() {
             </Badge>
           </div>
 
-          {property.images && property.images.length ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {property.images.map((imageUrl) => (
-                <div key={imageUrl} className="relative h-48 w-full overflow-hidden rounded-xl border border-neutral-200">
-                  <Image src={imageUrl} alt={`${property.name} image`} fill className="object-cover" />
-                </div>
-              ))}
+          {property.media.length ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3 text-xs uppercase tracking-wide text-neutral-500">
+                <span>{mediaCounts.imageCount} images</span>
+                <span>•</span>
+                <span>{mediaCounts.videoCount} videos</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {property.media.map((item) => (
+                  <div key={item.id} className="relative h-48 w-full overflow-hidden rounded-xl border border-neutral-200">
+                    {item.type === "image" ? (
+                      <Image src={item.url} alt={`${property.name} media`} fill className="object-cover" />
+                    ) : (
+                      <video
+                        src={item.url}
+                        className="h-full w-full object-cover"
+                        controls
+                        playsInline
+                      />
+                    )}
+                    <span className="absolute right-3 top-3 rounded-full bg-neutral-900/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      {item.type === "image" ? "Image" : "Video"}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center text-sm text-neutral-500">
