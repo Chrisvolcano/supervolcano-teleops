@@ -434,6 +434,18 @@ export default function AdminPropertiesPage() {
     toast.success(`Property "${property.name}" marked ${nextStatus === "scheduled" ? "scheduled" : "unassigned"}.`);
   }
 
+  const taskFormInitialValues = useMemo<Partial<TaskFormData> | undefined>(() => {
+    if (!editingTask) return undefined;
+    return {
+      name: editingTask.name,
+      assignment: editingTask.assignment,
+      duration: editingTask.duration ?? undefined,
+      priority: editingTask.priority ?? undefined,
+      status: editingTask.status,
+      templateId: editingTask.templateId ?? undefined,
+    };
+  }, [editingTask]);
+
   function openTaskDrawer(task?: PortalTask) {
     setEditingTask(task ?? null);
     setTaskFormOpen(true);
@@ -1102,9 +1114,17 @@ export default function AdminPropertiesPage() {
 
       <TaskForm
         open={taskFormOpen}
-        onClose={() => setTaskFormOpen(false)}
-        onSave={saveTask}
-        editingTask={editingTask}
+        onOpenChange={(open) => {
+          setTaskFormOpen(open);
+          if (!open) {
+            setEditingTask(null);
+          }
+        }}
+        onSubmit={saveTask}
+        title={editingTask ? "Edit task" : "Create task"}
+        submitLabel={editingTask ? "Save changes" : "Add task"}
+        initialValues={taskFormInitialValues}
+        loading={taskMutationLoading}
         templates={activeTemplates}
       />
 
