@@ -1,3 +1,5 @@
+import type { TimestampLike } from "@/lib/types";
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
   month: "short",
@@ -6,10 +8,28 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-export function formatDateTime(value: string | number | Date | undefined | null) {
-  if (!value) return "–";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "–";
+function resolveTimestamp(value: TimestampLike | string | number | Date | undefined | null) {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  if (typeof value === "object") {
+    if ("toDate" in value && typeof value.toDate === "function") {
+      return value.toDate();
+    }
+    if ("seconds" in value && typeof value.seconds === "number") {
+      const milliseconds = value.seconds * 1000 + Math.floor((value.nanoseconds ?? 0) / 1_000_000);
+      return new Date(milliseconds);
+    }
+  }
+  return undefined;
+}
+
+export function formatDateTime(value: TimestampLike | string | number | Date | undefined | null) {
+  const date = resolveTimestamp(value);
+  if (!date) return "–";
   return dateFormatter.format(date);
 }
 

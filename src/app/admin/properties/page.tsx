@@ -55,6 +55,7 @@ import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 import { useProperties } from "@/hooks/useProperties";
 import { useSaveTask } from "@/hooks/useSaveTask";
 import { firestore, storage } from "@/lib/firebaseClient";
+import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { incrementTemplateAssignment } from "@/lib/templates";
 import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types";
@@ -679,7 +680,7 @@ export default function AdminPropertiesPage() {
                     <p className="text-xs uppercase text-neutral-500">Last updated</p>
                     <p className="mt-1 text-sm text-neutral-700">
                       {selectedProperty.updatedAt
-                        ? new Date(selectedProperty.updatedAt).toLocaleString()
+                        ? formatDateTime(selectedProperty.updatedAt)
                         : "Not yet updated"}
                     </p>
                   </div>
