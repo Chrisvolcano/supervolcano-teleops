@@ -14,14 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types";
+import type { PropertyMediaItem, PropertyStatus as PropertyStatusType, SVProperty } from "@/lib/types";
 
 export type Property = Pick<
   SVProperty,
   "id" | "name" | "partnerOrgId" | "address" | "status" | "media" | "images" | "taskCount" | "imageCount" | "videoCount"
 >;
 
-export type PropertyStatus = "scheduled" | "unassigned";
+type PropertyStatus = PropertyStatusType;
 
 type PropertyCardProps = {
   property: Property;
