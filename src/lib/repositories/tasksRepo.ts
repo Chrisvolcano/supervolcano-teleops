@@ -69,9 +69,16 @@ export async function createTask(input: {
   priority?: "low" | "medium" | "high" | null;
   createdBy: string;
 }) {
-  const payload = buildPayload(input);
-  const docRef = await addDoc(collectionRef(), payload);
-  return docRef.id;
+  // Log the payload for debugging purposes
+  try {
+    const payload = buildPayload(input);
+    console.log('Creating task with payload:', payload);
+    const docRef = await addDoc(collectionRef(), payload);
+    return docRef.id;
+  } catch (error) {
+    console.error('Firebase error details:', error);
+    throw error;
+  }
 }
 
 export async function updateTask(
