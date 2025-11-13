@@ -83,7 +83,7 @@ export default function LoginPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-neutral-500">
-            Sign in to view properties, review session logs, and review tasks.
+            Sign in to view properties, review session logs, and&nbsp;review&nbsp;tasks.
           </CardDescription>
           {initializing && (
             <p className="text-xs text-neutral-400">Checking your session…</p>
