@@ -11,7 +11,8 @@
     "start": "next start",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "migrate:locations": "tsx scripts/migrate-to-locations.ts",
-    "set-admin": "tsx scripts/set-admin-role.ts"
+    "set-admin": "tsx scripts/set-admin-role.ts",
+    "list-users": "tsx scripts/list-users.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
