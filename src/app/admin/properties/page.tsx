@@ -312,9 +312,24 @@ export default function AdminPropertiesPage() {
         trimmedPartnerOrg,
         userId: user.uid,
         userEmail: user.email,
+        role,
+        isAdmin,
       });
       try {
-        await user.getIdToken?.();
+        const token = await user.getIdToken?.();
+        if (token) {
+          // Decode token to check claims (just for debugging - don't use in production)
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            console.log("[admin] persistProperty:token claims", {
+              role: payload.role,
+              partner_org_id: payload.partner_org_id,
+              email: payload.email,
+            });
+          } catch {
+            // Token decode failed, that's ok
+          }
+        }
         console.log("[admin] persistProperty:token ok");
       } catch (tokenError) {
         console.warn("[admin] token refresh skipped", tokenError);
