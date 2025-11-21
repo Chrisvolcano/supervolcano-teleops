@@ -68,10 +68,13 @@ export async function createProperty(input: {
 }) {
   const payload = buildPayload(input);
   if (input.id) {
+    // If ID is provided, use it (for migrations or specific ID requirements)
     const ref = doc(db, "locations", input.id);
     await setDoc(ref, payload);
     return input.id;
   }
+  // Use addDoc to generate a unique Firestore UUID and save with admin's createdBy field
+  // This ensures every location has a unique UUID and is associated with the creating admin
   const docRef = await addDoc(collectionRef(), payload);
   return docRef.id;
 }
@@ -122,8 +125,8 @@ function buildPayload(input: {
     status: input.status ?? "unassigned",
     isActive: true,
     taskCount: 0,
-    createdBy: input.createdBy,
-    createdAt: serverTimestamp(),
+    createdBy: input.createdBy, // Admin's UID - associates this location with the creating admin
+    createdAt: serverTimestamp(), // Firestore server timestamp for accurate creation time
     updatedAt: serverTimestamp(),
   };
 }
