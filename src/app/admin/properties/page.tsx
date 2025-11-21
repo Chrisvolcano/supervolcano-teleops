@@ -323,18 +323,26 @@ export default function AdminPropertiesPage() {
           // Decode token to check claims (just for debugging - don't use in production)
           try {
             const payload = JSON.parse(atob(token.split('.')[1]));
+            const tokenRole = payload.role;
             console.log("[admin] persistProperty:token claims", {
-              role: payload.role,
+              role: tokenRole,
               partner_org_id: payload.partner_org_id,
               email: payload.email,
+              fullPayload: payload, // Show all claims for debugging
             });
             
-            if (payload.role !== "admin") {
-              console.error("[admin] WARNING: Token does not have admin role!", {
-                tokenRole: payload.role,
+            if (tokenRole !== "admin") {
+              console.error("[admin] ❌ CRITICAL: Token does not have admin role!", {
+                tokenRole: tokenRole,
                 expectedRole: "admin",
+                hasRole: !!tokenRole,
+                roleType: typeof tokenRole,
               });
-              throw new Error("Your account does not have admin role. Please sign out and sign back in, or contact an administrator.");
+              const errorMsg = `Permission denied: Your account role is "${tokenRole || 'undefined'}" but "admin" is required. Please sign out and sign back in to refresh your token, or contact an administrator.`;
+              toast.error(errorMsg);
+              throw new Error(errorMsg);
+            } else {
+              console.log("[admin] ✅ Token has admin role - proceeding with save");
             }
           } catch (decodeError) {
             if (decodeError instanceof Error && decodeError.message.includes("admin role")) {

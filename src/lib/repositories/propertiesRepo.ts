@@ -105,13 +105,11 @@ export async function createProperty(input: {
     
     try {
       console.log("[repo] createProperty:awaiting addDoc...");
-      // Add timeout to catch hanging requests
-      const addDocPromise = addDoc(collection, payload);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("addDoc timed out after 10 seconds")), 10000)
-      );
+      console.log("[repo] createProperty:collection path", collection.path);
+      console.log("[repo] createProperty:db instance", db.app.name);
       
-      const docRef = await Promise.race([addDocPromise, timeoutPromise]) as Awaited<ReturnType<typeof addDoc>>;
+      // Call addDoc directly - if it hangs, it's likely a permission issue
+      const docRef = await addDoc(collection, payload);
       console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
       return docRef.id;
     } catch (addDocError) {
