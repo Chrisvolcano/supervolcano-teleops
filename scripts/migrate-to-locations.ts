@@ -53,16 +53,19 @@ if (!serviceAccount) {
 }
 
 if (getApps().length === 0) {
+  // ServiceAccount type uses projectId, but JSON has project_id
+  const projectId = (serviceAccount as any).projectId || (serviceAccount as any).project_id;
   initializeApp({
     credential: cert(serviceAccount),
-    projectId: serviceAccount.project_id,
+    projectId,
   });
 }
 
 const db = getFirestore();
 const storage = getStorage();
 
-console.log(`📎 Connected to Firestore project: ${serviceAccount.project_id}`);
+const projectId = (serviceAccount as any).projectId || (serviceAccount as any).project_id;
+console.log(`📎 Connected to Firestore project: ${projectId}`);
 
 interface MigrationStats {
   locationsMigrated: number;

@@ -43,6 +43,7 @@ export type SVProperty = {
   isActive: boolean;
   taskCount: number;
   createdBy?: string | null;
+  updatedBy?: string | null;
   createdAt?: TimestampLike;
   updatedAt?: TimestampLike;
 };
@@ -78,6 +79,7 @@ export type SVTask = {
   duration?: number | null;
   priority?: "low" | "medium" | "high" | null;
   createdBy?: string | null;
+  updatedBy?: string | null;
   createdAt?: TimestampLike;
   updatedAt?: TimestampLike;
   assignedToUserId?: string | null;

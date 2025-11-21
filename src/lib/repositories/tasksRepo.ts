@@ -84,10 +84,15 @@ export async function createTask(input: {
 export async function updateTask(
   id: string,
   patch: Partial<Omit<SVTask, "id">>,
+  updatedBy?: string,
 ) {
   const ref = doc(db, "tasks", id);
   const payload = sanitizePatch(patch);
-  await setDoc(ref, { ...payload, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(ref, { 
+    ...payload, 
+    updatedAt: serverTimestamp(),
+    ...(updatedBy ? { updatedBy } : {}),
+  }, { merge: true });
 }
 
 export async function deleteTask(id: string) {
@@ -206,7 +211,11 @@ function normalize(id: string, data: Record<string, unknown>): SVTask {
     createdBy:
       typeof data.createdBy === "string"
         ? data.createdBy
-        : (data.created_by as string | undefined),
+        : (data.created_by as string | undefined) ?? null,
+    updatedBy:
+      typeof data.updatedBy === "string"
+        ? data.updatedBy
+        : (data.updated_by as string | undefined) ?? null,
     createdAt: toTimestampLike(data.createdAt ?? data.created_at),
     updatedAt: toTimestampLike(data.updatedAt ?? data.updated_at),
     assignedToUserId:

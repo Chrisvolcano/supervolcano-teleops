@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -280,14 +281,21 @@ export default function AdminPropertiesPage() {
     setPropertyFormStepIndex((index) => Math.max(index - 1, 0));
   }, []);
 
+  function generateLocationId(): string {
+    // Use crypto.randomUUID() if available (browser/Node 16+), otherwise fallback
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    // Fallback: generate a UUID-like string
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 15)}-${Math.random().toString(36).slice(2, 15)}`;
+  }
+
   async function persistProperty() {
     if (!user) return;
 
     const trimmedPartnerOrg = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
-    const baseRef = editingPropertyId
-      ? doc(firestore, "locations", editingPropertyId)
-      : doc(collection(firestore, "locations"));
-    const propertyId = baseRef.id;
+    // Generate UUID for new documents, use existing ID for edits
+    const propertyId = editingPropertyId || generateLocationId();
 
     setPropertySaving(true);
     setPropertyError(null);
@@ -333,7 +341,7 @@ export default function AdminPropertiesPage() {
         console.log("[admin] persistProperty:upload", file.name, file.size);
         const type = inferMediaType(file);
         const mediaId = createMediaId(file.name);
-        const path = `properties/${propertyId}/media/${mediaId}-${file.name}`;
+        const path = `locations/${propertyId}/media/${mediaId}-${file.name}`;
         const storageRef = ref(storage, path);
         const snapshot = await uploadBytes(storageRef, file, { contentType: file.type });
         const url = await getDownloadURL(snapshot.ref);
@@ -365,27 +373,32 @@ export default function AdminPropertiesPage() {
         taskCount: editingProperty?.taskCount ?? 0,
         updatedAt: serverTimestamp(),
         ...(editingProperty
-          ? {}
+          ? {
+              updatedBy: user.uid,
+            }
           : {
               createdAt: serverTimestamp(),
               createdBy: user.uid,
             }),
       };
 
-      console.log("[admin] persistProperty:setDoc", payload);
+      console.log("[admin] persistProperty:save", { editingProperty: !!editingProperty, propertyId });
       try {
-        if (editingProperty) {
-          await setDoc(baseRef, payload, { merge: true }).then(() => {
-            console.log("[admin] setDoc merge resolved");
-          });
+        if (editingProperty && editingPropertyId) {
+          // Update existing document
+          const propertyRef = doc(firestore, "locations", editingPropertyId);
+          await setDoc(propertyRef, payload, { merge: true });
+          console.log("[admin] setDoc merge resolved");
         } else {
-          await setDoc(baseRef, payload).then(() => {
-            console.log("[admin] setDoc create resolved");
-          });
+          // Create new document with proper UUID using addDoc for Firestore-generated IDs
+          // But we need the ID for storage paths, so we'll use setDoc with our generated UUID
+          const propertyRef = doc(firestore, "locations", propertyId);
+          await setDoc(propertyRef, payload);
+          console.log("[admin] Location created with ID:", propertyId);
         }
-      } catch (setDocError) {
-        console.error("[admin] setDoc failed", setDocError);
-        throw setDocError;
+      } catch (saveError) {
+        console.error("[admin] save failed", saveError);
+        throw saveError;
       }
 
       console.info("[admin] property saved", propertyId);

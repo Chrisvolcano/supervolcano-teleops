@@ -79,10 +79,15 @@ export async function createProperty(input: {
 export async function updateProperty(
   id: string,
   patch: Partial<Omit<SVProperty, "id">>,
+  updatedBy?: string,
 ) {
   const ref = doc(db, "locations", id);
   const payload = sanitizePatch(patch);
-  await setDoc(ref, { ...payload, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(ref, { 
+    ...payload, 
+    updatedAt: serverTimestamp(),
+    ...(updatedBy ? { updatedBy } : {}),
+  }, { merge: true });
 }
 
 export async function updatePropertyTaskCount(id: string, delta: number) {
@@ -167,6 +172,9 @@ function sanitizePatch(patch: Partial<Omit<SVProperty, "id">>) {
   if (patch.updatedAt !== undefined) {
     data.updatedAt = patch.updatedAt;
   }
+  if (patch.updatedBy !== undefined) {
+    data.updatedBy = patch.updatedBy;
+  }
   return data;
 }
 
@@ -193,6 +201,7 @@ function normalize(id: string, data: DocumentData): SVProperty {
     isActive: typeof data.isActive === "boolean" ? data.isActive : true,
     taskCount: Number.isFinite(data.taskCount) ? Number(data.taskCount) : 0,
     createdBy: typeof data.createdBy === "string" ? data.createdBy : data.created_by ?? null,
+    updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : data.updated_by ?? null,
     createdAt: data.createdAt ?? data.created_at ?? null,
     updatedAt: data.updatedAt ?? data.updated_at ?? null,
   };
