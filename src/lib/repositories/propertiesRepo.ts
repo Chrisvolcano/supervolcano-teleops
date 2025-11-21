@@ -109,6 +109,25 @@ export async function createProperty(input: {
       console.log("[repo] createProperty:db instance", db.app.name);
       console.log("[repo] createProperty:db project", db.app.options.projectId);
       
+      // Verify auth state before attempting write
+      const { getAuth } = await import("firebase/auth");
+      const { auth } = await import("@/lib/firebaseClient");
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No authenticated user - cannot create location");
+      }
+      console.log("[repo] createProperty:auth user verified", {
+        uid: currentUser.uid,
+        email: currentUser.email,
+      });
+      
+      // Get fresh token to ensure it's included in the request
+      const freshToken = await currentUser.getIdToken(true);
+      console.log("[repo] createProperty:got fresh token", {
+        tokenLength: freshToken.length,
+        tokenPreview: freshToken.substring(0, 20) + "...",
+      });
+      
       // Try addDoc with a longer timeout to see if it's just slow
       // Also log when the promise actually starts
       console.log("[repo] createProperty:starting addDoc promise...");
