@@ -120,17 +120,30 @@ export async function createProperty(input: {
       console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
       return docRef.id;
     } catch (addDocError) {
+      const firestoreError = addDocError as any;
       console.error("[repo] createProperty:addDoc FAILED", {
         error: addDocError,
-        errorCode: (addDocError as any)?.code,
+        errorCode: firestoreError?.code,
         errorMessage: addDocError instanceof Error ? addDocError.message : String(addDocError),
         errorStack: addDocError instanceof Error ? addDocError.stack : undefined,
+        firestoreCode: firestoreError?.code,
+        firestoreMessage: firestoreError?.message,
+        // Firestore permission errors have specific codes
+        isPermissionError: firestoreError?.code === 'permission-denied' || 
+                          firestoreError?.code === 7 ||
+                          (addDocError instanceof Error && addDocError.message.includes('permission')),
         payload: {
           name: payload.name,
           partnerOrgId: payload.partnerOrgId,
           createdBy: payload.createdBy,
         },
       });
+      
+      // If it's a permission error, provide more helpful message
+      if (firestoreError?.code === 'permission-denied' || firestoreError?.code === 7) {
+        throw new Error(`Firestore permission denied. Check: 1) Rules are published (not just saved), 2) Token has admin role, 3) Rules allow create on /locations. Original: ${firestoreError?.message || String(addDocError)}`);
+      }
+      
       throw addDocError;
     }
   } catch (error) {
