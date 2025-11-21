@@ -37,7 +37,7 @@ export default function AdminSessionsPage() {
   }, [selectedRange]);
 
   const uniqueProperties = useMemo(() => {
-    return Array.from(new Set(sessions.map((session) => session.propertyName)));
+    return Array.from(new Set(sessions.map((session) => session.locationName)));
   }, [sessions]);
 
   const filteredSessions = useMemo(() => {
@@ -46,12 +46,12 @@ export default function AdminSessionsPage() {
         const started = new Date(session.startedAt);
         if (started < cutoffDate) return false;
       }
-      if (propertyFilter !== "all" && session.propertyName !== propertyFilter) return false;
+      if (propertyFilter !== "all" && session.locationName !== propertyFilter) return false;
       if (outcomeFilter !== "all" && session.outcome !== outcomeFilter) return false;
       if (session.qc.rating < minRating) return false;
       if (search.trim()) {
         const query = search.toLowerCase();
-        if (!session.taskName.toLowerCase().includes(query) && !session.propertyName.toLowerCase().includes(query)) {
+        if (!session.taskName.toLowerCase().includes(query) && !session.locationName.toLowerCase().includes(query)) {
           return false;
         }
       }

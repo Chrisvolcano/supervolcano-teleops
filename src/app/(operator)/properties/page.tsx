@@ -184,7 +184,7 @@ export default function PropertiesPage() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <Input
                 value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearchValue(event.currentTarget.value)}
                 placeholder="Search tasks or properties…"
                 className="pl-9"
               />
