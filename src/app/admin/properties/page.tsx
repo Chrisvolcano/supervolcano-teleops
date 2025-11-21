@@ -283,6 +283,17 @@ export default function AdminPropertiesPage() {
   }, []);
 
   async function persistProperty() {
+    console.log("[admin] persistProperty: CALLED", {
+      hasUser: !!user,
+      userId: user?.uid,
+      propertySaving,
+      editingPropertyId,
+      formState: {
+        name: propertyFormState.name,
+        partnerOrgId: propertyFormState.partnerOrgId,
+      },
+    });
+    
     if (!user) {
       console.error("[admin] persistProperty: no user");
       toast.error("You must be logged in to save properties");
@@ -1181,7 +1192,13 @@ export default function AdminPropertiesPage() {
                 <Button onClick={nextFormStep} disabled={propertyFormStepIndex === FORM_STEPS.length - 1}>
                   Next
                 </Button>
-                <Button onClick={persistProperty} disabled={propertySaving}>
+                <Button 
+                  onClick={() => {
+                    console.log("[admin] Save button clicked");
+                    void persistProperty();
+                  }} 
+                  disabled={propertySaving}
+                >
                   {propertySaving ? "Saving..." : "Save property"}
                 </Button>
               </SheetFooter>
