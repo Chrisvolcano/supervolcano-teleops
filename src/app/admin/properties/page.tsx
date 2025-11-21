@@ -283,7 +283,11 @@ export default function AdminPropertiesPage() {
   }, []);
 
   async function persistProperty() {
-    if (!user) return;
+    if (!user) {
+      console.error("[admin] persistProperty: no user");
+      toast.error("You must be logged in to save properties");
+      return;
+    }
 
     const trimmedPartnerOrg = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
 
@@ -292,7 +296,12 @@ export default function AdminPropertiesPage() {
 
     try {
       console.time("persistProperty");
-      console.log("[admin] persistProperty:start", { editingPropertyId, trimmedPartnerOrg });
+      console.log("[admin] persistProperty:start", { 
+        editingPropertyId, 
+        trimmedPartnerOrg,
+        userId: user.uid,
+        userEmail: user.email,
+      });
       try {
         await user.getIdToken?.();
         console.log("[admin] persistProperty:token ok");
@@ -377,18 +386,28 @@ export default function AdminPropertiesPage() {
         console.log("[admin] Location updated:", propertyId);
       } else {
         // Create new document FIRST to get proper Firestore UUID
-        propertyId = await createProperty({
+        console.log("[admin] Creating new location...", {
           name: propertyFormState.name.trim(),
-          address: propertyFormState.address.trim(),
           partnerOrgId: trimmedPartnerOrg,
-          status: propertyFormState.status,
-          description: propertyFormState.description.trim(),
-          images: [],
-          media: [],
           createdBy: user.uid,
         });
-
-        console.log("[admin] Location created with Firestore UUID:", propertyId);
+        
+        try {
+          propertyId = await createProperty({
+            name: propertyFormState.name.trim(),
+            address: propertyFormState.address.trim(),
+            partnerOrgId: trimmedPartnerOrg,
+            status: propertyFormState.status,
+            description: propertyFormState.description.trim(),
+            images: [],
+            media: [],
+            createdBy: user.uid,
+          });
+          console.log("[admin] Location created with Firestore UUID:", propertyId);
+        } catch (createError) {
+          console.error("[admin] Failed to create location:", createError);
+          throw new Error(`Failed to create location: ${createError instanceof Error ? createError.message : String(createError)}`);
+        }
 
         // Now upload media files using the proper UUID
         for (const file of propertyFormState.uploadFiles) {
@@ -414,18 +433,31 @@ export default function AdminPropertiesPage() {
         const images = media.filter((item) => item.type === "image").map((item) => item.url);
         const videoCount = media.filter((item) => item.type === "video").length;
 
-        await updateProperty(
-          propertyId,
-          {
-            images,
-            media,
+        if (uploadedMediaItems.length > 0 || retainedMedia.length > 0) {
+          console.log("[admin] Updating location with media...", {
+            propertyId,
+            mediaCount: media.length,
             imageCount: images.length,
             videoCount,
-          },
-          user.uid,
-        );
-
-        console.log("[admin] Location media updated:", propertyId);
+          });
+          try {
+            await updateProperty(
+              propertyId,
+              {
+                images,
+                media,
+                imageCount: images.length,
+                videoCount,
+              },
+              user.uid,
+            );
+            console.log("[admin] Location media updated:", propertyId);
+          } catch (updateError) {
+            console.error("[admin] Failed to update location media:", updateError);
+            // Don't throw - the location was created successfully, media update can fail
+            toast("Location created but media upload failed. You can add media later.", { icon: "⚠️" });
+          }
+        }
       }
 
       console.info("[admin] property saved", propertyId);
@@ -434,10 +466,16 @@ export default function AdminPropertiesPage() {
       toast.success(editingProperty ? "Property updated" : "Property created");
     } catch (error) {
       console.error("[admin] persistProperty:error", error);
+      console.error("[admin] persistProperty:error details", {
+        error,
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       const message =
         error instanceof Error ? error.message : "Unable to save property. Verify your admin access.";
       setPropertyError(message);
-      toast.error(message);
+      toast.error(`Failed to save: ${message}`);
     } finally {
       setPropertySaving(false);
       console.log("[admin] persistProperty:end");
