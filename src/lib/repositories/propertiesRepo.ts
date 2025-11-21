@@ -66,17 +66,51 @@ export async function createProperty(input: {
   status?: PropertyStatus;
   createdBy: string;
 }) {
-  const payload = buildPayload(input);
-  if (input.id) {
-    // If ID is provided, use it (for migrations or specific ID requirements)
-    const ref = doc(db, "locations", input.id);
-    await setDoc(ref, payload);
-    return input.id;
+  try {
+    console.log("[repo] createProperty:start", { 
+      name: input.name, 
+      partnerOrgId: input.partnerOrgId,
+      createdBy: input.createdBy,
+      hasId: !!input.id,
+    });
+    
+    const payload = buildPayload(input);
+    console.log("[repo] createProperty:payload built", { 
+      hasName: !!payload.name,
+      hasPartnerOrgId: !!payload.partnerOrgId,
+      hasCreatedBy: !!payload.createdBy,
+    });
+    
+    if (input.id) {
+      // If ID is provided, use it (for migrations or specific ID requirements)
+      console.log("[repo] createProperty:using provided ID", input.id);
+      const ref = doc(db, "locations", input.id);
+      await setDoc(ref, payload);
+      console.log("[repo] createProperty:setDoc completed", input.id);
+      return input.id;
+    }
+    
+    // Use addDoc to generate a unique Firestore UUID and save with admin's createdBy field
+    // This ensures every location has a unique UUID and is associated with the creating admin
+    console.log("[repo] createProperty:calling addDoc...");
+    const collection = collectionRef();
+    console.log("[repo] createProperty:collection ref obtained", collection.path);
+    const docRef = await addDoc(collection, payload);
+    console.log("[repo] createProperty:addDoc completed", { id: docRef.id, path: docRef.path });
+    return docRef.id;
+  } catch (error) {
+    console.error("[repo] createProperty:error", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      input: {
+        name: input.name,
+        partnerOrgId: input.partnerOrgId,
+        createdBy: input.createdBy,
+      },
+    });
+    throw error;
   }
-  // Use addDoc to generate a unique Firestore UUID and save with admin's createdBy field
-  // This ensures every location has a unique UUID and is associated with the creating admin
-  const docRef = await addDoc(collectionRef(), payload);
-  return docRef.id;
 }
 
 export async function updateProperty(
