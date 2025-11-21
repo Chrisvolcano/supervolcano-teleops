@@ -91,6 +91,9 @@ async function migratePropertiesToLocations(): Promise<MigrationStats> {
   // Skip connection test - just proceed with migration and handle errors as we go
   console.log("ℹ️  Proceeding with migration. Collections will be migrated if they exist.\n");
 
+  // Firestore batch limit is 500 operations
+  const maxBatchSize = 500;
+
   try {
     // Step 1: Migrate properties collection to locations
     console.log("📦 Step 1: Migrating properties → locations...");
@@ -111,7 +114,6 @@ async function migratePropertiesToLocations(): Promise<MigrationStats> {
     } else {
       const batch = db.batch();
       let batchCount = 0;
-      const maxBatchSize = 500;
 
       for (const doc of propertiesSnapshot.docs) {
         try {
