@@ -95,9 +95,33 @@ export async function createProperty(input: {
     console.log("[repo] createProperty:calling addDoc...");
     const collection = collectionRef();
     console.log("[repo] createProperty:collection ref obtained", collection.path);
-    const docRef = await addDoc(collection, payload);
-    console.log("[repo] createProperty:addDoc completed", { id: docRef.id, path: docRef.path });
-    return docRef.id;
+    console.log("[repo] createProperty:payload to save", {
+      name: payload.name,
+      partnerOrgId: payload.partnerOrgId,
+      hasCreatedBy: !!payload.createdBy,
+      createdBy: payload.createdBy,
+      hasCreatedAt: !!payload.createdAt,
+    });
+    
+    try {
+      console.log("[repo] createProperty:awaiting addDoc...");
+      const docRef = await addDoc(collection, payload);
+      console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
+      return docRef.id;
+    } catch (addDocError) {
+      console.error("[repo] createProperty:addDoc FAILED", {
+        error: addDocError,
+        errorCode: (addDocError as any)?.code,
+        errorMessage: addDocError instanceof Error ? addDocError.message : String(addDocError),
+        errorStack: addDocError instanceof Error ? addDocError.stack : undefined,
+        payload: {
+          name: payload.name,
+          partnerOrgId: payload.partnerOrgId,
+          createdBy: payload.createdBy,
+        },
+      });
+      throw addDocError;
+    }
   } catch (error) {
     console.error("[repo] createProperty:error", {
       error,
