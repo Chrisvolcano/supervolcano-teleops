@@ -89,7 +89,7 @@ function normalizePropertyMedia(doc: Record<string, unknown>): PropertyMediaItem
 
 type PropertyNote = {
   id: string;
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   authorId: string;
   authorEmail: string;
