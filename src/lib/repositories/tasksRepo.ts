@@ -20,7 +20,7 @@ import type { SVTask, TaskAssignment, TaskState } from "@/lib/types";
 const collectionRef = () => collection(db, "tasks");
 
 type WatchTasksOptions = {
-  propertyId?: string;
+  locationId?: string;
   partnerOrgId?: string;
   assignment?: TaskAssignment;
   enabled?: boolean;
@@ -36,8 +36,8 @@ export function watchTasks(
   }
 
   const constraints = [];
-  if (options.propertyId) {
-    constraints.push(where("propertyId", "==", options.propertyId));
+  if (options.locationId) {
+    constraints.push(where("locationId", "==", options.locationId));
   }
   if (options.partnerOrgId) {
     constraints.push(where("partnerOrgId", "==", options.partnerOrgId));
@@ -59,7 +59,7 @@ export function watchTasks(
 }
 
 export async function createTask(input: {
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   templateId?: string | null;
   name: string;
@@ -96,7 +96,7 @@ export async function deleteTask(id: string) {
 }
 
 function buildPayload(input: {
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   templateId?: string | null;
   name: string;
@@ -107,7 +107,7 @@ function buildPayload(input: {
   createdBy: string;
 }) {
   return {
-    propertyId: input.propertyId,
+    locationId: input.locationId,
     partnerOrgId: input.partnerOrgId,
     templateId: input.templateId ?? null,
     name: input.name.trim(),
@@ -149,8 +149,8 @@ function sanitizePatch(patch: Partial<Omit<SVTask, "id">>) {
   if (patch.partnerOrgId !== undefined) {
     data.partnerOrgId = patch.partnerOrgId;
   }
-  if (patch.propertyId !== undefined) {
-    data.propertyId = patch.propertyId;
+  if (patch.locationId !== undefined) {
+    data.locationId = patch.locationId;
   }
   if (patch.assignedToUserId !== undefined) {
     data.assignedToUserId = patch.assignedToUserId;
@@ -161,10 +161,12 @@ function sanitizePatch(patch: Partial<Omit<SVTask, "id">>) {
 function normalize(id: string, data: Record<string, unknown>): SVTask {
   return {
     id,
-    propertyId:
-      typeof data.propertyId === "string"
-        ? data.propertyId
-        : (data.property_id as string),
+    locationId:
+      typeof data.locationId === "string"
+        ? data.locationId
+        : typeof data.propertyId === "string"
+          ? data.propertyId
+          : (data.location_id as string) ?? (data.property_id as string),
     partnerOrgId:
       typeof data.partnerOrgId === "string"
         ? data.partnerOrgId

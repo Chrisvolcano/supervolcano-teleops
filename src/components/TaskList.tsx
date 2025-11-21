@@ -11,7 +11,7 @@ import { TaskAssignment } from "./TaskForm";
 export type PortalTask = {
   id: string;
   name: string;
-  propertyId: string;
+  locationId: string;
   status: TaskState;
   assignment: TaskAssignment;
   duration?: number;
@@ -91,7 +91,7 @@ export function TaskList({
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Property: {task.propertyId}
+                Location: {task.locationId}
                 {task.assignedToUserId && ` • Claimed by ${task.assignedToUserId}`}
               </p>
               {task.duration ? (

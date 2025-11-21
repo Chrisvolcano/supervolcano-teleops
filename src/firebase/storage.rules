@@ -23,7 +23,7 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
-    match /properties/{propertyId}/{allPaths=**} {
+    match /locations/{locationId}/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

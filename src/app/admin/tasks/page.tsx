@@ -40,7 +40,7 @@ export default function AdminTasksPage() {
       ({
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         templateId: doc.templateId ?? undefined,
@@ -54,7 +54,7 @@ export default function AdminTasksPage() {
     data: properties,
     loading: propertiesLoading,
   } = useCollection<{ id: string; name: string; partnerOrgId?: string }>({
-    path: "properties",
+    path: "locations",
     enabled: true,
     parse: (doc) => ({
       id: doc.id,
@@ -75,7 +75,7 @@ export default function AdminTasksPage() {
       if (!counts[task.templateId]) {
         counts[task.templateId] = new Set();
       }
-      counts[task.templateId]?.add(task.propertyId);
+      counts[task.templateId]?.add(task.locationId);
     });
     return Object.fromEntries(
       Object.entries(counts).map(([templateId, propertySet]) => [templateId, propertySet.size]),
@@ -114,7 +114,7 @@ export default function AdminTasksPage() {
   const completionsByProperty = useMemo(() => {
     const entries = new Map<string, { count: number; orgId?: string; lastCompleted?: string }>();
     teleopCompletedTasks.forEach((task) => {
-      const record = entries.get(task.propertyId) ?? {
+      const record = entries.get(task.locationId) ?? {
         count: 0,
         orgId: task.partnerOrgId,
         lastCompleted: undefined,
@@ -123,7 +123,7 @@ export default function AdminTasksPage() {
       if (task.updatedAt && (!record.lastCompleted || task.updatedAt > record.lastCompleted)) {
         record.lastCompleted = task.updatedAt;
       }
-      entries.set(task.propertyId, record);
+      entries.set(task.locationId, record);
     });
     return Array.from(entries.entries()).sort((a, b) => b[1].count - a[1].count);
   }, [teleopCompletedTasks]);
@@ -373,7 +373,7 @@ export default function AdminTasksPage() {
                     <TableRow key={task.id}>
                       <TableCell className="text-sm font-medium text-neutral-800">{task.name}</TableCell>
                       <TableCell className="text-sm text-neutral-600">
-                        {propertyNameMap.get(task.propertyId) ?? task.propertyId}
+                        {propertyNameMap.get(task.locationId) ?? task.locationId}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{task.partnerOrgId ?? "unknown"}</Badge>

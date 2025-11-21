@@ -23,7 +23,7 @@ type TaskDoc = {
   id: string;
   name: string;
   description?: string;
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   status: TaskState;
   assignment: "teleoperator" | "human";
@@ -67,7 +67,7 @@ export default function TaskDetailPage() {
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
         description: doc.description ?? undefined,
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         partnerOrgId: doc.partnerOrgId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
@@ -150,9 +150,9 @@ export default function TaskDetailPage() {
         <Button variant="ghost" onClick={() => router.push("/properties")} className="text-sm text-neutral-500">
           ← Back to properties
         </Button>
-        {task?.propertyId && (
+        {task?.locationId && (
           <Button asChild variant="outline" size="sm">
-            <Link href={`/property/${task.propertyId}`}>View property</Link>
+            <Link href={`/property/${task.locationId}`}>View location</Link>
           </Button>
         )}
       </div>
@@ -179,7 +179,7 @@ export default function TaskDetailPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs uppercase text-neutral-500">Property</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-neutral-700">{task.propertyId}</CardContent>
+                <CardContent className="text-sm text-neutral-700">{task.locationId}</CardContent>
               </Card>
               <Card className="border-neutral-200">
                 <CardHeader className="pb-2">
@@ -246,7 +246,7 @@ export default function TaskDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-neutral-900">Audit timeline</h2>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/property/${task?.propertyId ?? ""}`}>Open property</Link>
+            <Link href={`/property/${task?.locationId ?? ""}`}>Open location</Link>
           </Button>
         </div>
         {auditError ? (

@@ -7,7 +7,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 type StartSessionPayload = {
   operatorId?: string;
   partnerOrgId?: string;
-  propertyId?: string;
+  locationId?: string;
   taskId?: string | null;
   allowed_hours?: number;
 };
@@ -28,14 +28,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { operatorId, partnerOrgId, propertyId, taskId, allowed_hours } =
+  const { operatorId, partnerOrgId, locationId, taskId, allowed_hours } =
     payload;
 
-  if (!operatorId || !partnerOrgId || !propertyId || !allowed_hours) {
+  if (!operatorId || !partnerOrgId || !locationId || !allowed_hours) {
     return NextResponse.json(
       {
         error:
-          "Missing required fields: operatorId, partnerOrgId, propertyId, allowed_hours.",
+          "Missing required fields: operatorId, partnerOrgId, locationId, allowed_hours.",
       },
       { status: 400 },
     );
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     id: sessionRef.id,
     operatorId,
     partnerOrgId,
-    propertyId,
+    locationId,
     taskId: taskId ?? null,
     allowedHours: allowed_hours,
     status: "active",
@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
   try {
     await sessionRef.set(sessionData);
     await adminDb
-      .collection("properties")
-      .doc(propertyId)
+      .collection("locations")
+      .doc(locationId)
       .set(
         {
           activeSessionId: sessionRef.id,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       action: "session_started",
       actorId: operatorId,
       createdAt: now,
-      details: { propertyId, taskId, allowed_hours },
+      details: { locationId, taskId, allowed_hours },
     });
 
     if (taskId) {

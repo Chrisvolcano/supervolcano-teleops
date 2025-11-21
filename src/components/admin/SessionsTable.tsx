@@ -44,7 +44,7 @@ export function SessionsTable({ sessions, onView }: SessionsTableProps) {
           return (
             <TableRow key={session.id}>
               <TableCell className="text-sm text-neutral-700">{formatDateTime(session.startedAt)}</TableCell>
-              <TableCell className="text-sm text-neutral-700">{session.propertyName}</TableCell>
+              <TableCell className="text-sm text-neutral-700">{session.locationName}</TableCell>
               <TableCell className="text-sm text-neutral-700">{session.taskName}</TableCell>
               <TableCell className="text-sm capitalize text-neutral-700">{session.outcome}</TableCell>
               <TableCell className="text-sm">

@@ -64,7 +64,7 @@ export default function PropertiesPage() {
       ({
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         duration: doc.duration ?? undefined,
@@ -83,7 +83,7 @@ export default function PropertiesPage() {
     return new Set(
       teleopTasks
         .filter((task) => (task.name ?? "").toLowerCase().includes(query))
-        .map((task) => task.propertyId),
+        .map((task) => task.locationId),
     );
   }, [searchValue, teleopTasks]);
 
@@ -281,7 +281,7 @@ export default function PropertiesPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-neutral-500">
-                  <span>Property: {propertyNameMap.get(task.propertyId) || task.propertyId}</span>
+                  <span>Location: {propertyNameMap.get(task.locationId) || task.locationId}</span>
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/task/${task.id}`}>View</Link>
                   </Button>

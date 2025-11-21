@@ -76,7 +76,7 @@ export function SessionDetail({ session, open, onOpenChange, onSaveQc, saving }:
         <DialogHeader>
           <DialogTitle>Session review</DialogTitle>
           <DialogDescription>
-            QC outcome and time split for {session?.propertyName ?? "a property"} • {session?.taskName ?? "Task"}
+            QC outcome and time split for {session?.locationName ?? "a location"} • {session?.taskName ?? "Task"}
           </DialogDescription>
         </DialogHeader>
         {session ? (

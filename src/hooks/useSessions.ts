@@ -6,8 +6,8 @@ export type SessionRecord = {
   id: string;
   taskId: string;
   taskName: string;
-  propertyId: string;
-  propertyName: string;
+  locationId: string;
+  locationName: string;
   startedAt?: string;
   endedAt?: string;
   outcome: "completed" | "failed" | "aborted";
@@ -29,7 +29,7 @@ export function useSessions() {
     data: properties,
     loading: propertiesLoading,
   } = useCollection<{ id: string; name: string }>({
-    path: "properties",
+    path: "locations",
     enabled: true,
     parse: (doc) => ({ id: doc.id, name: doc.name ?? "Untitled property" }),
   });
@@ -60,8 +60,8 @@ export function useSessions() {
       id: session.id,
       taskId: session.taskId,
       taskName: taskMap.get(session.taskId) ?? "Unknown task",
-      propertyId: session.propertyId,
-      propertyName: propertyMap.get(session.propertyId) ?? "Unknown property",
+      locationId: session.locationId ?? session.propertyId,
+      locationName: propertyMap.get(session.locationId ?? session.propertyId) ?? "Unknown location",
       startedAt: session.started_at ?? session.startedAt,
       endedAt: session.ended_at ?? session.endedAt,
       outcome: (session.outcome ?? "completed") as SessionRecord["outcome"],

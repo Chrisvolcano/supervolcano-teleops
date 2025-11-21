@@ -17,7 +17,7 @@ type BaseInput = {
 };
 
 type CreateInput = BaseInput & {
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   createdBy: string;
 };
@@ -35,7 +35,7 @@ export function useSaveTask() {
     setError(null);
     try {
       return await createTask({
-        propertyId: input.propertyId,
+        locationId: input.locationId,
         partnerOrgId: input.partnerOrgId,
         templateId: input.templateId,
         name: input.name,

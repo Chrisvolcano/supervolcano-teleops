@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   }
 
   const sessionData = snapshot.data() as {
-    propertyId?: string;
+    locationId?: string;
     taskId?: string | null;
     operatorId?: string;
   };
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
       { merge: true },
     );
 
-    if (sessionData.propertyId) {
+    if (sessionData.locationId) {
       await adminDb
-        .collection("properties")
-        .doc(sessionData.propertyId)
+        .collection("locations")
+        .doc(sessionData.locationId)
         .set(
           {
             activeSessionId: null,

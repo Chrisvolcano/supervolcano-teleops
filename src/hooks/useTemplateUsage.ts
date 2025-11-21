@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { useCollection } from "@/hooks/useCollection";
 
 export type TemplateUsageRow = {
-  propertyId: string;
-  propertyName: string;
+  locationId: string;
+  locationName: string;
   openCount: number;
   completedCount: number;
 };
@@ -13,22 +13,22 @@ export function useTemplateUsage(templateId: string | null) {
   const {
     data: tasks,
     loading: tasksLoading,
-  } = useCollection<{ propertyId: string; status: string }>({
+  } = useCollection<{ locationId: string; status: string }>({
     path: "tasks",
     enabled: Boolean(templateId),
     whereEqual: templateId ? [{ field: "templateId", value: templateId }] : undefined,
     parse: (doc) =>
       ({
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-      }) as { propertyId: string; status: string },
+      }) as { locationId: string; status: string },
   });
 
   const {
     data: properties,
     loading: propertiesLoading,
   } = useCollection<{ id: string; name: string }>({
-    path: "properties",
+    path: "locations",
     enabled: Boolean(templateId),
     parse: (doc) => ({ id: doc.id, name: doc.name ?? "Untitled property" }),
   });
@@ -39,9 +39,9 @@ export function useTemplateUsage(templateId: string | null) {
     const grouped = new Map<string, TemplateUsageRow>();
 
     tasks.forEach((task) => {
-      const current = grouped.get(task.propertyId) ?? {
-        propertyId: task.propertyId,
-        propertyName: propertyMap.get(task.propertyId) ?? "Unknown property",
+      const current = grouped.get(task.locationId) ?? {
+        locationId: task.locationId,
+        locationName: propertyMap.get(task.locationId) ?? "Unknown location",
         openCount: 0,
         completedCount: 0,
       };
@@ -50,10 +50,10 @@ export function useTemplateUsage(templateId: string | null) {
       } else {
         current.openCount += 1;
       }
-      grouped.set(task.propertyId, current);
+      grouped.set(task.locationId, current);
     });
 
-    return Array.from(grouped.values()).sort((a, b) => a.propertyName.localeCompare(b.propertyName));
+    return Array.from(grouped.values()).sort((a, b) => a.locationName.localeCompare(b.locationName));
   }, [tasks, properties, templateId]);
 
   return {

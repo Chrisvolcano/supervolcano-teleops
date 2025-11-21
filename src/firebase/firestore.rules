@@ -22,7 +22,7 @@ service cloud.firestore {
       return isOperator() &&
         resource.data.assigned_to == "teleoperator" &&
         request.resource.data.assigned_to == resource.data.assigned_to &&
-        request.resource.data.propertyId == resource.data.propertyId &&
+        request.resource.data.locationId == resource.data.locationId &&
         request.resource.data.partnerOrgId == resource.data.partnerOrgId &&
         request.resource.data.name == resource.data.name &&
         request.resource.data.duration == resource.data.duration &&
@@ -45,7 +45,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /properties/{propertyId} {
+    match /locations/{locationId} {
       allow read: if partnerMatches(resource.data.partnerOrgId);
       allow create, update, delete: if isAdmin();
     }
@@ -74,7 +74,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /propertyNotes/{noteId} {
+    match /locationNotes/{noteId} {
       allow read: if partnerMatches(resource.data.partnerOrgId);
       allow create: if isAuthenticated()
         && partnerMatches(request.resource.data.partnerOrgId)

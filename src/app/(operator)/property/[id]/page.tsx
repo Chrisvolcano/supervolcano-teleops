@@ -158,7 +158,7 @@ export default function PropertyDetailPage() {
     path: "tasks",
     enabled: Boolean(propertyId),
     whereEqual: [
-      { field: "propertyId", value: propertyId },
+      { field: "locationId", value: propertyId },
       ...(!isAdmin
         ? [{ field: "assigned_to", value: "teleoperator" }]
         : []),
@@ -171,7 +171,7 @@ export default function PropertyDetailPage() {
       ({
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         duration: doc.duration ?? undefined,
@@ -187,14 +187,14 @@ export default function PropertyDetailPage() {
     loading: notesLoading,
     error: notesError,
   } = useCollection<PropertyNote>({
-    path: "propertyNotes",
+    path: "locationNotes",
     enabled: Boolean(propertyId),
-    whereEqual: [{ field: "propertyId", value: propertyId }],
+    whereEqual: [{ field: "locationId", value: propertyId }],
     orderByField: { field: "createdAt", direction: "desc" },
     parse: (doc) =>
       ({
         id: doc.id,
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         partnerOrgId: doc.partnerOrgId,
         authorId: doc.authorId,
         authorEmail: doc.authorEmail,
@@ -233,7 +233,7 @@ export default function PropertyDetailPage() {
         name: task.name,
         status: task.status,
         updatedAt: task.updatedAt ?? new Date().toISOString(),
-        propertyId: task.propertyId,
+        locationId: task.locationId,
       }))
       .slice(0, 10);
   }, [tasks]);
@@ -281,9 +281,9 @@ export default function PropertyDetailPage() {
 
     setSavingNote(true);
     try {
-      const noteRef = doc(collection(firestore, "propertyNotes"));
+      const noteRef = doc(collection(firestore, "locationNotes"));
       await setDoc(noteRef, {
-        propertyId: property.id,
+        locationId: property.id,
         partnerOrgId: property.partnerOrgId,
         authorId: user.uid,
         authorEmail: user.email ?? "unknown",

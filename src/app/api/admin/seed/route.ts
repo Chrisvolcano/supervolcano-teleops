@@ -105,7 +105,7 @@ async function seedProperties() {
   await Promise.all(
     properties.map((property) =>
       adminDb
-        .collection("properties")
+        .collection("locations")
         .doc(property.id)
         .set(
           {
@@ -158,7 +158,7 @@ async function seedTasks() {
     {
       id: "task-available-1",
       name: "Thermal sensor calibration",
-      propertyId: "demo-property-1",
+      locationId: "demo-property-1",
       partnerOrgId: "demo-org",
       status: "available" as const,
       assignment: "teleoperator" as const,
@@ -168,7 +168,7 @@ async function seedTasks() {
     {
       id: "task-inprogress-1",
       name: "Drone reconnaissance sweep",
-      propertyId: "demo-property-2",
+      locationId: "demo-property-2",
       partnerOrgId: "demo-org",
       status: "in_progress" as const,
       assignment: "teleoperator" as const,
@@ -178,7 +178,7 @@ async function seedTasks() {
     {
       id: "task-human-1",
       name: "Containment bay mop",
-      propertyId: "demo-property-1",
+      locationId: "demo-property-1",
       partnerOrgId: "demo-org",
       status: "scheduled" as const,
       assignment: "human" as const,
@@ -208,14 +208,14 @@ async function seedTasks() {
 
   const taskCounts: Record<string, number> = {};
   tasks.forEach((task) => {
-    taskCounts[task.propertyId] = (taskCounts[task.propertyId] ?? 0) + 1;
+    taskCounts[task.locationId] = (taskCounts[task.locationId] ?? 0) + 1;
   });
 
   await Promise.all(
-    Object.entries(taskCounts).map(([propertyId, count]) =>
+    Object.entries(taskCounts).map(([locationId, count]) =>
       adminDb
-        .collection("properties")
-        .doc(propertyId)
+        .collection("locations")
+        .doc(locationId)
         .set({ taskCount: count }, { merge: true }),
     ),
   );
@@ -236,7 +236,7 @@ async function seedSessions() {
   );
 
   await adminDb
-    .collection("properties")
+    .collection("locations")
     .doc("demo-property-2")
     .set({ activeSessionId: "session-demo-1" }, { merge: true });
 }

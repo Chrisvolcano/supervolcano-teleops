@@ -48,9 +48,9 @@ export function TaskTemplateDrawer({ template, open, onOpenChange, loading, usag
                   </TableHeader>
                   <TableBody>
                     {usage.map((row) => (
-                      <TableRow key={row.propertyId}>
+                      <TableRow key={row.locationId}>
                         <TableCell>
-                          <span className="font-medium text-neutral-900">{row.propertyName}</span>
+                          <span className="font-medium text-neutral-900">{row.locationName}</span>
                         </TableCell>
                         <TableCell className="text-center text-sm">{row.openCount}</TableCell>
                         <TableCell className="text-center text-sm">{row.completedCount}</TableCell>

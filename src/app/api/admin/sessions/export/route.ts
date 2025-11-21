@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   rows.push(
     [
       "date",
-      "propertyId",
+      "locationId",
       "taskId",
       "outcome",
       "qcRating",
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     rows.push(
       [
         data.started_at ?? "",
-        data.propertyId ?? "",
+        data.locationId ?? data.propertyId ?? "",
         data.taskId ?? "",
         data.outcome ?? "",
         data.qc?.rating ?? 0,

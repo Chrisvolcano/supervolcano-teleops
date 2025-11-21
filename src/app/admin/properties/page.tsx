@@ -192,12 +192,12 @@ export default function AdminPropertiesPage() {
   } = useCollection<PortalTask>({
     path: "tasks",
     enabled: Boolean(selectedPropertyId),
-    whereEqual: selectedPropertyId ? [{ field: "propertyId", value: selectedPropertyId }] : undefined,
+    whereEqual: selectedPropertyId ? [{ field: "locationId", value: selectedPropertyId }] : undefined,
     parse: (doc) =>
       ({
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         duration: doc.duration ?? undefined,
@@ -285,8 +285,8 @@ export default function AdminPropertiesPage() {
 
     const trimmedPartnerOrg = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
     const baseRef = editingPropertyId
-      ? doc(firestore, "properties", editingPropertyId)
-      : doc(collection(firestore, "properties"));
+      ? doc(firestore, "locations", editingPropertyId)
+      : doc(collection(firestore, "locations"));
     const propertyId = baseRef.id;
 
     setPropertySaving(true);
@@ -407,8 +407,8 @@ export default function AdminPropertiesPage() {
 
   async function handleDeleteProperty(property: AdminProperty) {
     try {
-      const propertyRef = doc(firestore, "properties", property.id);
-      const tasksQuery = query(collection(firestore, "tasks"), where("propertyId", "==", property.id));
+      const propertyRef = doc(firestore, "locations", property.id);
+      const tasksQuery = query(collection(firestore, "tasks"), where("locationId", "==", property.id));
       const snapshot = await getDocs(tasksQuery);
 
       await Promise.all(snapshot.docs.map((taskDoc) => deleteDoc(doc(firestore, "tasks", taskDoc.id))));
@@ -473,7 +473,7 @@ export default function AdminPropertiesPage() {
         toast.success("Task updated");
       } else {
         const taskId = await createTaskMutation({
-          propertyId: selectedProperty.id,
+          locationId: selectedProperty.id,
           partnerOrgId: selectedProperty.partnerOrgId,
           name: form.name,
           assignment: form.assignment,
@@ -484,7 +484,7 @@ export default function AdminPropertiesPage() {
           createdBy: user.uid,
         });
 
-        await updateDoc(doc(firestore, "properties", selectedProperty.id), {
+        await updateDoc(doc(firestore, "locations", selectedProperty.id), {
           taskCount: increment(1),
         });
 

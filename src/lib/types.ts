@@ -69,7 +69,7 @@ export type TaskState =
 
 export type SVTask = {
   id: string;
-  propertyId: string;
+  locationId: string;
   partnerOrgId: string;
   templateId?: string | null;
   name: string;

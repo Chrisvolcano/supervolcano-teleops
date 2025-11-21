@@ -49,7 +49,7 @@ export default function OperatorTasksPage() {
       ({
         id: doc.id,
         name: doc.name ?? doc.title ?? "Untitled task",
-        propertyId: doc.propertyId,
+        locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
         assignment: doc.assigned_to ?? "teleoperator",
         duration: doc.duration ?? undefined,
@@ -141,7 +141,7 @@ export default function OperatorTasksPage() {
                 <p className="text-xs text-neutral-500">
                   {formatDateTime(latestCompletedTasks[0].updatedAt)} • Property:
                   {" "}
-                  {propertyNameMap.get(latestCompletedTasks[0].propertyId) ?? latestCompletedTasks[0].propertyId}
+                  {propertyNameMap.get(latestCompletedTasks[0].locationId) ?? latestCompletedTasks[0].locationId}
                 </p>
               </div>
             ) : (
@@ -181,7 +181,7 @@ export default function OperatorTasksPage() {
                   <TableRow key={task.id}>
                     <TableCell className="text-sm font-medium text-neutral-800">{task.name}</TableCell>
                     <TableCell className="text-sm text-neutral-600">
-                      {propertyNameMap.get(task.propertyId) ?? task.propertyId}
+                      {propertyNameMap.get(task.locationId) ?? task.locationId}
                     </TableCell>
                     <TableCell className="text-sm text-neutral-600">{formatDateTime(task.updatedAt)}</TableCell>
                   </TableRow>
@@ -227,7 +227,7 @@ export default function OperatorTasksPage() {
                   <TableRow key={task.id}>
                     <TableCell className="text-sm font-medium text-neutral-800">{task.name}</TableCell>
                     <TableCell className="text-sm text-neutral-600">
-                      {propertyNameMap.get(task.propertyId) ?? task.propertyId}
+                      {propertyNameMap.get(task.locationId) ?? task.locationId}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{task.partnerOrgId ?? "unknown"}</Badge>

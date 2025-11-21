@@ -18,7 +18,7 @@ import { db } from "@/lib/firebaseClient";
 import { toTimestampLike } from "@/lib/format";
 import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types";
 
-const collectionRef = () => collection(db, "properties");
+const collectionRef = () => collection(db, "locations");
 
 type WatchOptions = {
   partnerOrgId?: string;
@@ -68,7 +68,7 @@ export async function createProperty(input: {
 }) {
   const payload = buildPayload(input);
   if (input.id) {
-    const ref = doc(db, "properties", input.id);
+    const ref = doc(db, "locations", input.id);
     await setDoc(ref, payload);
     return input.id;
   }
@@ -80,13 +80,13 @@ export async function updateProperty(
   id: string,
   patch: Partial<Omit<SVProperty, "id">>,
 ) {
-  const ref = doc(db, "properties", id);
+  const ref = doc(db, "locations", id);
   const payload = sanitizePatch(patch);
   await setDoc(ref, { ...payload, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function updatePropertyTaskCount(id: string, delta: number) {
-  const ref = doc(db, "properties", id);
+  const ref = doc(db, "locations", id);
   await updateDoc(ref, {
     taskCount: increment(delta),
     updatedAt: serverTimestamp(),

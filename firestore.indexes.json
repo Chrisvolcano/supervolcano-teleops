@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "properties",
+      "collectionGroup": "locations",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "createdAt", "order": "DESCENDING" },
@@ -12,7 +12,7 @@
       "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "propertyId", "order": "ASCENDING" },
+        { "fieldPath": "locationId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
@@ -38,7 +38,7 @@
       "collectionGroup": "sessions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "propertyId", "order": "ASCENDING" },
+        { "fieldPath": "locationId", "order": "ASCENDING" },
         { "fieldPath": "started_at", "order": "DESCENDING" }
       ]
     },
