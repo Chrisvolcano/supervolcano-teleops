@@ -18,6 +18,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { createProperty, updateProperty } from "@/lib/repositories/propertiesRepo";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import toast from "react-hot-toast";
 import {
@@ -281,28 +282,17 @@ export default function AdminPropertiesPage() {
     setPropertyFormStepIndex((index) => Math.max(index - 1, 0));
   }, []);
 
-  function generateLocationId(): string {
-    // Use crypto.randomUUID() if available (browser/Node 16+), otherwise fallback
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    // Fallback: generate a UUID-like string
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 15)}-${Math.random().toString(36).slice(2, 15)}`;
-  }
-
   async function persistProperty() {
     if (!user) return;
 
     const trimmedPartnerOrg = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
-    // Generate UUID for new documents, use existing ID for edits
-    const propertyId = editingPropertyId || generateLocationId();
 
     setPropertySaving(true);
     setPropertyError(null);
 
     try {
       console.time("persistProperty");
-      console.log("[admin] persistProperty:start", { propertyId, editingPropertyId, trimmedPartnerOrg });
+      console.log("[admin] persistProperty:start", { editingPropertyId, trimmedPartnerOrg });
       try {
         await user.getIdToken?.();
         console.log("[admin] persistProperty:token ok");
@@ -336,69 +326,106 @@ export default function AdminPropertiesPage() {
         (item) => !propertyFormState.removedMediaIds.includes(item.id),
       );
 
-      const uploadedMediaItems: PropertyMediaItem[] = [];
-      for (const file of propertyFormState.uploadFiles) {
-        console.log("[admin] persistProperty:upload", file.name, file.size);
-        const type = inferMediaType(file);
-        const mediaId = createMediaId(file.name);
-        const path = `locations/${propertyId}/media/${mediaId}-${file.name}`;
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadBytes(storageRef, file, { contentType: file.type });
-        const url = await getDownloadURL(snapshot.ref);
-        uploadedMediaItems.push({
-          id: mediaId,
-          url,
-          type,
-          storagePath: snapshot.ref.fullPath ?? path,
-          contentType: snapshot.metadata.contentType ?? file.type,
-          createdAt: new Date(),
-        });
-      }
+      let propertyId: string;
+      let uploadedMediaItems: PropertyMediaItem[] = [];
 
-      const media = [...retainedMedia, ...uploadedMediaItems];
-      const images = media.filter((item) => item.type === "image").map((item) => item.url);
-      const videoCount = media.filter((item) => item.type === "video").length;
+      if (editingProperty && editingPropertyId) {
+        // Update existing document
+        propertyId = editingPropertyId;
 
-      const payload = {
-        name: propertyFormState.name.trim(),
-        address: propertyFormState.address.trim(),
-        partnerOrgId: trimmedPartnerOrg,
-        status: propertyFormState.status,
-        description: propertyFormState.description.trim(),
-        images,
-        media,
-        imageCount: images.length,
-        videoCount,
-        isActive: propertyFormState.isActive,
-        taskCount: editingProperty?.taskCount ?? 0,
-        updatedAt: serverTimestamp(),
-        ...(editingProperty
-          ? {
-              updatedBy: user.uid,
-            }
-          : {
-              createdAt: serverTimestamp(),
-              createdBy: user.uid,
-            }),
-      };
-
-      console.log("[admin] persistProperty:save", { editingProperty: !!editingProperty, propertyId });
-      try {
-        if (editingProperty && editingPropertyId) {
-          // Update existing document
-          const propertyRef = doc(firestore, "locations", editingPropertyId);
-          await setDoc(propertyRef, payload, { merge: true });
-          console.log("[admin] setDoc merge resolved");
-        } else {
-          // Create new document with proper UUID using addDoc for Firestore-generated IDs
-          // But we need the ID for storage paths, so we'll use setDoc with our generated UUID
-          const propertyRef = doc(firestore, "locations", propertyId);
-          await setDoc(propertyRef, payload);
-          console.log("[admin] Location created with ID:", propertyId);
+        // Upload new media files
+        for (const file of propertyFormState.uploadFiles) {
+          console.log("[admin] persistProperty:upload", file.name, file.size);
+          const type = inferMediaType(file);
+          const mediaId = createMediaId(file.name);
+          const path = `locations/${propertyId}/media/${mediaId}-${file.name}`;
+          const storageRef = ref(storage, path);
+          const snapshot = await uploadBytes(storageRef, file, { contentType: file.type });
+          const url = await getDownloadURL(snapshot.ref);
+          uploadedMediaItems.push({
+            id: mediaId,
+            url,
+            type,
+            storagePath: snapshot.ref.fullPath ?? path,
+            contentType: snapshot.metadata.contentType ?? file.type,
+            createdAt: new Date(),
+          });
         }
-      } catch (saveError) {
-        console.error("[admin] save failed", saveError);
-        throw saveError;
+
+        const media = [...retainedMedia, ...uploadedMediaItems];
+        const images = media.filter((item) => item.type === "image").map((item) => item.url);
+        const videoCount = media.filter((item) => item.type === "video").length;
+
+        // Update using repository function
+        await updateProperty(
+          propertyId,
+          {
+            name: propertyFormState.name.trim(),
+            address: propertyFormState.address.trim(),
+            partnerOrgId: trimmedPartnerOrg,
+            status: propertyFormState.status,
+            description: propertyFormState.description.trim(),
+            images,
+            media,
+            imageCount: images.length,
+            videoCount,
+            isActive: propertyFormState.isActive,
+          },
+          user.uid,
+        );
+
+        console.log("[admin] Location updated:", propertyId);
+      } else {
+        // Create new document FIRST to get proper Firestore UUID
+        propertyId = await createProperty({
+          name: propertyFormState.name.trim(),
+          address: propertyFormState.address.trim(),
+          partnerOrgId: trimmedPartnerOrg,
+          status: propertyFormState.status,
+          description: propertyFormState.description.trim(),
+          images: [],
+          media: [],
+          createdBy: user.uid,
+        });
+
+        console.log("[admin] Location created with Firestore UUID:", propertyId);
+
+        // Now upload media files using the proper UUID
+        for (const file of propertyFormState.uploadFiles) {
+          console.log("[admin] persistProperty:upload", file.name, file.size);
+          const type = inferMediaType(file);
+          const mediaId = createMediaId(file.name);
+          const path = `locations/${propertyId}/media/${mediaId}-${file.name}`;
+          const storageRef = ref(storage, path);
+          const snapshot = await uploadBytes(storageRef, file, { contentType: file.type });
+          const url = await getDownloadURL(snapshot.ref);
+          uploadedMediaItems.push({
+            id: mediaId,
+            url,
+            type,
+            storagePath: snapshot.ref.fullPath ?? path,
+            contentType: snapshot.metadata.contentType ?? file.type,
+            createdAt: new Date(),
+          });
+        }
+
+        // Update document with media URLs
+        const media = [...retainedMedia, ...uploadedMediaItems];
+        const images = media.filter((item) => item.type === "image").map((item) => item.url);
+        const videoCount = media.filter((item) => item.type === "video").length;
+
+        await updateProperty(
+          propertyId,
+          {
+            images,
+            media,
+            imageCount: images.length,
+            videoCount,
+          },
+          user.uid,
+        );
+
+        console.log("[admin] Location media updated:", propertyId);
       }
 
       console.info("[admin] property saved", propertyId);
