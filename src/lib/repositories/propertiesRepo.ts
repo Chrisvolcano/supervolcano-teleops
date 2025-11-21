@@ -105,7 +105,13 @@ export async function createProperty(input: {
     
     try {
       console.log("[repo] createProperty:awaiting addDoc...");
-      const docRef = await addDoc(collection, payload);
+      // Add timeout to catch hanging requests
+      const addDocPromise = addDoc(collection, payload);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("addDoc timed out after 10 seconds")), 10000)
+      );
+      
+      const docRef = await Promise.race([addDocPromise, timeoutPromise]) as Awaited<ReturnType<typeof addDoc>>;
       console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
       return docRef.id;
     } catch (addDocError) {

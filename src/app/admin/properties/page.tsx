@@ -316,7 +316,9 @@ export default function AdminPropertiesPage() {
         isAdmin,
       });
       try {
-        const token = await user.getIdToken?.();
+        // Force refresh token to get latest claims (especially after role changes)
+        console.log("[admin] Refreshing token to get latest claims...");
+        const token = await user.getIdToken?.(true); // force refresh
         if (token) {
           // Decode token to check claims (just for debugging - don't use in production)
           try {
@@ -326,13 +328,25 @@ export default function AdminPropertiesPage() {
               partner_org_id: payload.partner_org_id,
               email: payload.email,
             });
-          } catch {
+            
+            if (payload.role !== "admin") {
+              console.error("[admin] WARNING: Token does not have admin role!", {
+                tokenRole: payload.role,
+                expectedRole: "admin",
+              });
+              throw new Error("Your account does not have admin role. Please sign out and sign back in, or contact an administrator.");
+            }
+          } catch (decodeError) {
+            if (decodeError instanceof Error && decodeError.message.includes("admin role")) {
+              throw decodeError;
+            }
             // Token decode failed, that's ok
           }
         }
         console.log("[admin] persistProperty:token ok");
       } catch (tokenError) {
-        console.warn("[admin] token refresh skipped", tokenError);
+        console.error("[admin] token refresh failed", tokenError);
+        throw tokenError;
       }
 
       const removedMediaItems = propertyFormState.existingMedia.filter((item) =>

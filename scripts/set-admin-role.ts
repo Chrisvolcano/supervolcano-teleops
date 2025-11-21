@@ -59,10 +59,42 @@ const auth = getAuth();
 async function setAdminRole(email: string) {
   try {
     console.log(`\n🔍 Looking up user: ${email}...`);
-    const user = await auth.getUserByEmail(email);
+    let user;
     
-    console.log(`✅ Found user: ${user.email} (${user.uid})`);
+    try {
+      user = await auth.getUserByEmail(email);
+      console.log(`✅ Found existing user: ${user.email} (${user.uid})`);
+    } catch (error: any) {
+      if (error?.code === 'auth/user-not-found') {
+        console.log(`ℹ️  User not found. Creating new user...`);
+        // Create the user with temporary password
+        const tempPassword = "ChangeMe123!";
+        user = await auth.createUser({
+          email,
+          emailVerified: false,
+          password: tempPassword,
+        });
+        console.log(`✅ Created new user: ${user.email} (${user.uid})`);
+        console.log(`🔑 Temporary password set: ${tempPassword}`);
+        console.log(`⚠️  User should change this password after first login.`);
+      } else {
+        throw error;
+      }
+    }
+    
     console.log(`📋 Current custom claims:`, user.customClaims || "(none)");
+    
+    // Update password if needed
+    const tempPassword = "ChangeMe123!";
+    try {
+      await auth.updateUser(user.uid, {
+        password: tempPassword,
+      });
+      console.log(`🔑 Password updated: ${tempPassword}`);
+      console.log(`⚠️  User should change this password after first login.`);
+    } catch (passwordError) {
+      console.warn(`⚠️  Could not update password:`, passwordError instanceof Error ? passwordError.message : String(passwordError));
+    }
     
     console.log(`\n🔧 Setting admin role...`);
     await auth.setCustomUserClaims(user.uid, {
