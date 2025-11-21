@@ -108,8 +108,15 @@ export async function createProperty(input: {
       console.log("[repo] createProperty:collection path", collection.path);
       console.log("[repo] createProperty:db instance", db.app.name);
       
-      // Call addDoc directly - if it hangs, it's likely a permission issue
-      const docRef = await addDoc(collection, payload);
+      // Add timeout wrapper to catch hanging requests
+      const addDocWithTimeout = Promise.race([
+        addDoc(collection, payload),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("addDoc timed out after 15 seconds - check Firestore rules and network connection")), 15000)
+        ),
+      ]);
+      
+      const docRef = await addDocWithTimeout as Awaited<ReturnType<typeof addDoc>>;
       console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
       return docRef.id;
     } catch (addDocError) {

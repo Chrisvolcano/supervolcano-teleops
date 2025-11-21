@@ -12,7 +12,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "migrate:locations": "tsx scripts/migrate-to-locations.ts",
     "set-admin": "tsx scripts/set-admin-role.ts",
-    "list-users": "tsx scripts/list-users.ts"
+    "list-users": "tsx scripts/list-users.ts",
+    "deploy-rules": "tsx scripts/deploy-rules.ts",
+    "show-rules": "tsx scripts/show-rules.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
