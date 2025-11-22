@@ -167,28 +167,52 @@ export async function createProperty(input: {
         console.warn("[repo] createProperty:could not enable network (this is ok if already online)", networkError);
       }
       
-      // Try addDoc with a longer timeout to see if it's just slow
-      // Also log when the promise actually starts
+      // Try addDoc - but first check if we can use setDoc with a generated ID as fallback
       console.log("[repo] createProperty:starting addDoc promise...");
       const startTime = Date.now();
       
+      // Generate a document ID upfront so we can use setDoc as fallback if addDoc hangs
+      const newDocRef = doc(collection);
+      const generatedId = newDocRef.id;
+      console.log("[repo] createProperty:generated document ID", generatedId);
+      
+      // Try addDoc first (preferred method)
       const addDocPromise = addDoc(collection, payload).then((ref) => {
         const duration = Date.now() - startTime;
-        console.log(`[repo] createProperty:addDoc completed in ${duration}ms`);
+        console.log(`[repo] createProperty:addDoc completed in ${duration}ms`, { id: ref.id });
         return ref;
       }).catch((err) => {
         const duration = Date.now() - startTime;
         console.error(`[repo] createProperty:addDoc failed after ${duration}ms`, err);
-        throw err;
+        // If addDoc fails, try setDoc with the generated ID as fallback
+        console.log("[repo] createProperty:trying setDoc fallback with generated ID", generatedId);
+        const fallbackRef = doc(collection, generatedId);
+        return setDoc(fallbackRef, payload).then(() => {
+          console.log("[repo] createProperty:setDoc fallback succeeded", generatedId);
+          return fallbackRef;
+        }).catch((fallbackErr) => {
+          console.error("[repo] createProperty:setDoc fallback also failed", fallbackErr);
+          throw err; // Throw original error
+        });
       });
       
-      // Add timeout but make it longer (30 seconds) to see if it's just propagation delay
-      const timeoutPromise = new Promise((_, reject) => 
+      // Add timeout - shorter timeout to fail faster and try fallback
+      const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => {
           const duration = Date.now() - startTime;
-          console.error(`[repo] createProperty:TIMEOUT - addDoc took longer than 30 seconds (${duration}ms)`);
-          reject(new Error("addDoc timed out after 30 seconds - this usually means Firestore rules are blocking the write or there's a network issue"));
-        }, 30000)
+          console.error(`[repo] createProperty:TIMEOUT - addDoc took longer than 15 seconds (${duration}ms)`);
+          console.log("[repo] createProperty:attempting setDoc fallback due to timeout...");
+          // Try setDoc as fallback when timeout occurs
+          const fallbackRef = doc(collection, generatedId);
+          setDoc(fallbackRef, payload).then(() => {
+            console.log("[repo] createProperty:setDoc fallback succeeded after timeout", generatedId);
+            // Resolve with the fallback ref
+            resolve(fallbackRef);
+          }).catch((fallbackErr) => {
+            console.error("[repo] createProperty:setDoc fallback failed after timeout", fallbackErr);
+            reject(new Error("addDoc timed out and setDoc fallback also failed - check Firestore rules and network connection"));
+          });
+        }, 15000) // Reduced to 15 seconds
       );
       
       const docRef = await Promise.race([addDocPromise, timeoutPromise]) as Awaited<ReturnType<typeof addDoc>>;
