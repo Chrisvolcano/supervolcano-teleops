@@ -37,46 +37,54 @@ async function writePropertyViaRestApi(
   }
   const token = await currentUser.getIdToken(true);
   
-  // Convert payload to Firestore REST API format
-  const restPayload: any = {};
+  // Convert payload to Firestore REST API format (simplified, based on Claude's fix)
+  const fields: any = {};
   const now = new Date().toISOString();
   
   for (const [key, value] of Object.entries(payload)) {
     if (value === null || value === undefined) continue;
     
-    // Skip serverTimestamp() - we'll add timestamps manually
+    // Handle serverTimestamp() - replace with actual timestamp
     if (value && typeof value === "object" && "toFirestore" in value) {
-      // serverTimestamp() - replace with actual timestamp
       if (key === "createdAt" || key === "updatedAt") {
-        restPayload[key] = { timestampValue: now };
+        fields[key] = { timestampValue: now };
       }
       continue;
     }
     
+    // Convert field types to Firestore REST API format
     if (typeof value === "string") {
-      restPayload[key] = { stringValue: value };
+      fields[key] = { stringValue: value };
     } else if (typeof value === "number") {
-      restPayload[key] = { integerValue: value.toString() };
+      // Use integerValue for integers, doubleValue for decimals
+      fields[key] = Number.isInteger(value)
+        ? { integerValue: String(value) }
+        : { doubleValue: value };
     } else if (typeof value === "boolean") {
-      restPayload[key] = { booleanValue: value };
+      fields[key] = { booleanValue: value };
+    } else if (value instanceof Date) {
+      fields[key] = { timestampValue: value.toISOString() };
     } else if (Array.isArray(value)) {
       if (value.length === 0) {
-        restPayload[key] = { arrayValue: { values: [] } };
+        fields[key] = { arrayValue: { values: [] } };
       } else if (typeof value[0] === "string") {
-        restPayload[key] = { arrayValue: { values: value.map(v => ({ stringValue: String(v) })) } };
+        fields[key] = { arrayValue: { values: value.map(v => ({ stringValue: String(v) })) } };
       } else {
-        // Complex array - skip for now or handle better
-        restPayload[key] = { arrayValue: { values: [] } };
+        // Complex array - stringify for now
+        fields[key] = { stringValue: JSON.stringify(value) };
       }
     } else if (value && typeof value === "object" && "toDate" in value) {
-      // Timestamp object
-      restPayload[key] = { timestampValue: (value as any).toDate().toISOString() };
+      // Timestamp object from Firestore
+      fields[key] = { timestampValue: (value as any).toDate().toISOString() };
+    } else {
+      // Fallback: stringify unknown types
+      fields[key] = { stringValue: JSON.stringify(value) };
     }
   }
   
   // Ensure timestamps are set
-  if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
-  if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
+  if (!fields.createdAt) fields.createdAt = { timestampValue: now };
+  if (!fields.updatedAt) fields.updatedAt = { timestampValue: now };
   
   // CRITICAL FIX: For nam5 multi-region, use the standard global endpoint directly
   // Do NOT use regional endpoints like nam5-firestore.googleapis.com
@@ -93,18 +101,16 @@ async function writePropertyViaRestApi(
     url,
     documentId,
     projectId,
-    fieldCount: Object.keys(restPayload).length,
+    fieldCount: Object.keys(fields).length,
   });
   
   const response = await fetch(url, {
-    method: "PATCH",
+    method: "PATCH", // PATCH for documents with specific IDs
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ 
-      fields: restPayload,
-    }),
+    body: JSON.stringify({ fields }),
   });
   
   if (!response.ok) {
