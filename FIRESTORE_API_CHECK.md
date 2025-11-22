@@ -4,7 +4,13 @@
 Your database is in **`nam5`** (North America multi-region). This is correct and the standard REST API endpoint is the right one to use.
 
 ## The Problem
-The REST API returns 404 "The database (default) does not exist" even though you can see the database in Firebase Console.
+The REST API returns 404 "The database (default) does not exist" even though:
+- ✅ Cloud Firestore API is **Enabled** (confirmed in Google Cloud Console)
+- ✅ Database exists in Firebase Console (you can see it)
+- ✅ API is being called (124 requests showing in metrics)
+- ❌ **41% error rate** on Firestore API requests
+
+This suggests the API is enabled, but write requests are failing with 404 while read requests might be working.
 
 ## Possible Causes & Solutions
 
