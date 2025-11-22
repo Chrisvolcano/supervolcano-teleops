@@ -2,6 +2,9 @@
  * Teleoperators Repository
  * Data access layer for teleoperator CRUD operations
  * Uses Firebase Admin SDK for server-side operations (more reliable than client SDK)
+ * 
+ * Collection: teleoperators
+ * Database: default (nam5 multi-region)
  */
 
 import { adminDb, adminAuth } from "@/lib/firebaseAdmin";
@@ -113,18 +116,41 @@ export async function listTeleoperators(
   partnerOrgId?: string,
   status?: TeleoperatorStatus,
 ): Promise<Teleoperator[]> {
+  console.log("[repo] listTeleoperators - Starting", {
+    collection: COLLECTION,
+    partnerOrgId,
+    status,
+    databaseId: adminDb.app.options.projectId,
+  });
+
   let query: FirebaseFirestore.Query = adminDb.collection(COLLECTION);
 
   if (partnerOrgId) {
     query = query.where("partnerOrgId", "==", partnerOrgId);
+    console.log("[repo] listTeleoperators - Filtering by partnerOrgId:", partnerOrgId);
   }
 
   if (status) {
     query = query.where("currentStatus", "==", status);
+    console.log("[repo] listTeleoperators - Filtering by status:", status);
   }
 
-  const snapshot = await query.get();
-  return snapshot.docs.map((doc) => normalizeTeleoperator(doc.id, doc.data()));
+  try {
+    console.log("[repo] listTeleoperators - Executing Firestore query...");
+    const snapshot = await query.get();
+    console.log("[repo] listTeleoperators - ✅ Query successful, found", snapshot.docs.length, "documents");
+    return snapshot.docs.map((doc) => normalizeTeleoperator(doc.id, doc.data()));
+  } catch (error: any) {
+    console.error("[repo] listTeleoperators - ❌ Query failed:", {
+      code: error.code,
+      message: error.message,
+      stack: error.stack,
+      collection: COLLECTION,
+      partnerOrgId,
+      status,
+    });
+    throw error;
+  }
 }
 
 /**

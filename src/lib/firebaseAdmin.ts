@@ -1,3 +1,15 @@
+/**
+ * Firebase Admin SDK Configuration
+ * 
+ * Required Environment Variables:
+ * - FIREBASE_ADMIN_PROJECT_ID
+ * - FIREBASE_ADMIN_CLIENT_EMAIL
+ * - FIREBASE_ADMIN_PRIVATE_KEY (with \n characters preserved)
+ * - FIREBASE_ADMIN_DATABASE_ID (optional, defaults to "default")
+ * 
+ * Database: Uses 'default' (without parentheses) for nam5 multi-region
+ */
+
 import { App, cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";

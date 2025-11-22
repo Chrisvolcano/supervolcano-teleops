@@ -15,7 +15,8 @@
     "list-users": "tsx scripts/list-users.ts",
     "deploy-rules": "tsx scripts/deploy-rules.ts",
     "show-rules": "tsx scripts/show-rules.ts",
-    "check-locations": "tsx scripts/check-locations.ts"
+    "check-locations": "tsx scripts/check-locations.ts",
+    "setup:test": "tsx scripts/setup-test-data.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
