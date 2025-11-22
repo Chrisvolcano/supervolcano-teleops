@@ -194,9 +194,26 @@ export async function createProperty(input: {
       console.log("[repo] createProperty:INITIATING setDoc network request NOW...");
       console.log("[repo] createProperty:Check Network tab for request to firestore.googleapis.com");
       
+      // CRITICAL: Check if Firestore is actually connected before attempting write
+      // Firestore uses persistent connections (WebSocket/gRPC-Web) which might not show in Network tab
+      // But we can verify the connection state
+      try {
+        const { waitForPendingWrites } = await import("firebase/firestore");
+        console.log("[repo] createProperty:Checking Firestore connection state...");
+        // This will throw if Firestore is offline or disconnected
+        await waitForPendingWrites(db);
+        console.log("[repo] createProperty:Firestore connection verified - pending writes completed");
+      } catch (connectionError) {
+        console.warn("[repo] createProperty:Firestore connection check failed (continuing anyway):", connectionError);
+      }
+      
       // Try setDoc with a timeout - but also add error listener to catch permission errors early
       let timeoutId: NodeJS.Timeout | null = null;
       let hasCompleted = false;
+      
+      // Add a marker to track when setDoc is actually called
+      const setDocCallTime = Date.now();
+      console.log(`[repo] createProperty:Calling setDoc at ${setDocCallTime}...`);
       
       const setDocPromise = setDoc(docRef, payload)
         .then(() => {
