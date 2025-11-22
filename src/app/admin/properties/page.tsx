@@ -344,32 +344,42 @@ export default function AdminPropertiesPage() {
   }, []);
 
   async function persistProperty() {
+    console.log("=".repeat(80));
     console.log("[admin] persistProperty: CALLED", {
       hasUser: !!user,
       userId: user?.uid,
+      userEmail: user?.email,
       propertySaving,
       editingPropertyId,
       formState: {
         name: propertyFormState.name,
+        nameLength: propertyFormState.name?.length,
         partnerOrgId: propertyFormState.partnerOrgId,
         address: propertyFormState.address,
       },
+      timestamp: new Date().toISOString(),
     });
+    console.log("=".repeat(80));
     
     if (!user) {
-      console.error("[admin] persistProperty: no user");
+      console.error("[admin] ❌ persistProperty: no user");
       toast.error("You must be logged in to save properties");
       return;
     }
 
-    // Validate required fields
-    const trimmedName = propertyFormState.name.trim();
-    if (!trimmedName) {
-      console.error("[admin] persistProperty: name is required");
-      toast.error("Property name is required");
-      setPropertyError("Property name is required");
-      return;
-    }
+        // Validate required fields
+        const trimmedName = propertyFormState.name?.trim() || "";
+        if (!trimmedName) {
+          console.error("[admin] ❌ persistProperty: name is required", {
+            name: propertyFormState.name,
+            nameType: typeof propertyFormState.name,
+            nameLength: propertyFormState.name?.length,
+          });
+          toast.error("Property name is required");
+          setPropertyError("Property name is required");
+          return;
+        }
+        console.log("[admin] ✅ persistProperty: name validated", { trimmedName, length: trimmedName.length });
 
     const trimmedPartnerOrg = propertyFormState.partnerOrgId.trim() || partnerOrgClaim || "demo-org";
 
@@ -595,17 +605,35 @@ export default function AdminPropertiesPage() {
       closePropertyDrawer();
       toast.success(editingProperty ? "Property updated" : "Property created");
     } catch (error) {
+      console.error("=".repeat(80));
+      console.error("[admin] ❌❌❌ persistProperty: ERROR CAUGHT ❌❌❌");
       console.error("[admin] persistProperty:error", error);
       console.error("[admin] persistProperty:error details", {
         error,
         errorType: error?.constructor?.name,
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
+        errorCode: (error as any)?.code,
+        errorName: (error as any)?.name,
       });
+      console.error("=".repeat(80));
+      
       const message =
         error instanceof Error ? error.message : "Unable to save property. Verify your admin access.";
       setPropertyError(message);
-      toast.error(`Failed to save: ${message}`);
+      
+      // Show a more visible error
+      toast.error(`Failed to save: ${message}`, {
+        duration: 10000, // Show for 10 seconds
+      });
+      
+      // Also log to console with instructions
+      console.error("\n🔍 TROUBLESHOOTING:");
+      console.error("1. Check Network tab for requests to firestore.googleapis.com");
+      console.error("2. Check if request was sent (status: pending/200/403/401)");
+      console.error("3. If no request appears, the SDK isn't sending it");
+      console.error("4. If 403, check Firestore rules and admin role");
+      console.error("5. If 401, sign out and sign back in");
     } finally {
       setPropertySaving(false);
       console.log("[admin] persistProperty:end");
