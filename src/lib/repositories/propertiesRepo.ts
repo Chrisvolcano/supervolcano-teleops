@@ -121,12 +121,8 @@ export async function createProperty(input: {
         email: currentUser.email,
       });
       
-      // Get fresh token to ensure it's included in the request
-      const freshToken = await currentUser.getIdToken(true);
-      console.log("[repo] createProperty:got fresh token", {
-        tokenLength: freshToken.length,
-        tokenPreview: freshToken.substring(0, 20) + "...",
-      });
+      // Note: Token refresh is already done in persistProperty, so we don't need to do it again here
+      // The Firestore SDK will automatically include the current auth token in requests
       
       // Try addDoc - but first verify the collection reference is valid
       console.log("[repo] createProperty:collection details", {
@@ -135,25 +131,40 @@ export async function createProperty(input: {
         parent: collection.parent?.path,
       });
       
-      // Verify payload is serializable
+      // Verify payload is serializable and valid
+      if (!payload.name || payload.name === "") {
+        console.warn("[repo] createProperty:payload has empty name", { payloadName: payload.name });
+      }
+      if (!payload.partnerOrgId || payload.partnerOrgId.trim() === "") {
+        throw new Error("partnerOrgId is required and cannot be empty");
+      }
+      if (!payload.createdBy || payload.createdBy.trim() === "") {
+        throw new Error("createdBy is required and cannot be empty");
+      }
+      
       console.log("[repo] createProperty:payload check", {
-        hasName: !!payload.name,
+        hasName: !!payload.name && payload.name.trim().length > 0,
+        nameValue: payload.name,
+        nameLength: payload.name?.length || 0,
         hasPartnerOrgId: !!payload.partnerOrgId,
         hasCreatedBy: !!payload.createdBy,
         payloadKeys: Object.keys(payload),
         payloadSize: JSON.stringify(payload).length,
       });
       
-      // Check Firestore connection state
+      // Ensure Firestore is online - check if enableNetwork is available
       try {
-        const { enableNetwork, disableNetwork, waitForPendingWrites } = await import("firebase/firestore");
-        console.log("[repo] createProperty:checking Firestore connection state...");
-        // Note: enableNetwork/disableNetwork are not available in all Firestore versions
-        // But we can try to ensure network is enabled
-        await enableNetwork(db);
-        console.log("[repo] createProperty:Firestore network enabled");
+        const firestoreModule = await import("firebase/firestore");
+        if (typeof firestoreModule.enableNetwork === "function") {
+          console.log("[repo] createProperty:ensuring Firestore network is enabled...");
+          await firestoreModule.enableNetwork(db);
+          console.log("[repo] createProperty:Firestore network enabled");
+        } else {
+          console.log("[repo] createProperty:enableNetwork not available in this Firestore version");
+        }
       } catch (networkError) {
-        console.warn("[repo] createProperty:could not check/enable network", networkError);
+        // If enableNetwork fails, log but continue - the SDK should handle offline mode
+        console.warn("[repo] createProperty:could not enable network (this is ok if already online)", networkError);
       }
       
       // Try addDoc with a longer timeout to see if it's just slow
@@ -257,11 +268,27 @@ function buildPayload(input: {
   status?: PropertyStatus;
   createdBy: string;
 }) {
+  // Validate required fields
+  const trimmedName = input.name?.trim() || "";
+  if (!trimmedName) {
+    throw new Error("name is required and cannot be empty");
+  }
+  
+  const trimmedPartnerOrgId = input.partnerOrgId?.trim() || "";
+  if (!trimmedPartnerOrgId) {
+    throw new Error("partnerOrgId is required and cannot be empty");
+  }
+  
+  if (!input.createdBy || input.createdBy.trim() === "") {
+    throw new Error("createdBy is required and cannot be empty");
+  }
+  
   const media = Array.isArray(input.media) ? input.media : [];
   const imageUrls = input.images ?? media.filter((item) => item.type === "image").map((item) => item.url);
+  
   return {
-    name: input.name.trim(),
-    partnerOrgId: input.partnerOrgId.trim(),
+    name: trimmedName,
+    partnerOrgId: trimmedPartnerOrgId,
     address: input.address?.trim() ?? "",
     description: input.description?.trim() ?? "",
     images: imageUrls,
@@ -271,7 +298,7 @@ function buildPayload(input: {
     status: input.status ?? "unassigned",
     isActive: true,
     taskCount: 0,
-    createdBy: input.createdBy, // Admin's UID - associates this location with the creating admin
+    createdBy: input.createdBy.trim(), // Admin's UID - associates this location with the creating admin
     createdAt: serverTimestamp(), // Firestore server timestamp for accurate creation time
     updatedAt: serverTimestamp(),
   };

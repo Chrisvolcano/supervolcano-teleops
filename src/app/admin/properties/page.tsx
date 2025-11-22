@@ -325,10 +325,11 @@ export default function AdminPropertiesPage() {
         role,
         isAdmin,
       });
+      // Force refresh token to get latest claims (especially after role changes)
+      // This ensures the Firestore SDK uses a token with the latest admin role claim
+      console.log("[admin] Refreshing token to get latest claims...");
       try {
-        // Force refresh token to get latest claims (especially after role changes)
-        console.log("[admin] Refreshing token to get latest claims...");
-        const token = await user.getIdToken?.(true); // force refresh
+        const token = await user.getIdToken(true); // Force refresh
         if (token) {
           // Decode token to check claims (just for debugging - don't use in production)
           try {
@@ -338,7 +339,7 @@ export default function AdminPropertiesPage() {
               role: tokenRole,
               partner_org_id: payload.partner_org_id,
               email: payload.email,
-              fullPayload: payload, // Show all claims for debugging
+              uid: payload.user_id || payload.sub,
             });
             
             if (tokenRole !== "admin") {
@@ -350,21 +351,25 @@ export default function AdminPropertiesPage() {
               });
               const errorMsg = `Permission denied: Your account role is "${tokenRole || 'undefined'}" but "admin" is required. Please sign out and sign back in to refresh your token, or contact an administrator.`;
               toast.error(errorMsg);
-              throw new Error(errorMsg);
+              setPropertySaving(false);
+              setPropertyError(errorMsg);
+              return;
             } else {
               console.log("[admin] ✅ Token has admin role - proceeding with save");
             }
           } catch (decodeError) {
-            if (decodeError instanceof Error && decodeError.message.includes("admin role")) {
-              throw decodeError;
-            }
-            // Token decode failed, that's ok
+            // Token decode failed - log but continue (Firestore will validate)
+            console.warn("[admin] Could not decode token claims (continuing anyway)", decodeError);
           }
         }
-        console.log("[admin] persistProperty:token ok");
+        console.log("[admin] persistProperty:token refreshed and validated");
       } catch (tokenError) {
         console.error("[admin] token refresh failed", tokenError);
-        throw tokenError;
+        const errorMsg = "Failed to refresh authentication token. Please try again.";
+        toast.error(errorMsg);
+        setPropertySaving(false);
+        setPropertyError(errorMsg);
+        return;
       }
 
       const removedMediaItems = propertyFormState.existingMedia.filter((item) =>
