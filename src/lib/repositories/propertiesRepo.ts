@@ -178,28 +178,41 @@ async function writePropertyViaRestApi(
   console.log("[repo] writePropertyViaRestApi:Token length:", token.length);
   
   console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 About to send POST request (create new document):", url);
-  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for POST request!");
-  console.log("[repo] writePropertyViaRestApi:NOTE - Using POST to CREATE new document");
-  console.log("[repo] writePropertyViaRestApi:PATCH would be for UPDATE existing document");
+  console.log("[repo] 🚀🚀🚀 About to send PATCH request (create/update document):", url);
+  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for PATCH request!");
+  console.log("[repo] writePropertyViaRestApi:CRITICAL - Using PATCH for document with specific ID");
+  console.log("[repo] writePropertyViaRestApi:POST is ONLY for auto-generated IDs (collection path)");
+  console.log("[repo] writePropertyViaRestApi:PATCH is for specific IDs (document path with ID)");
   console.log("=".repeat(80));
   
   const fetchStartTime = Date.now();
-  // CRITICAL: Firestore REST API uses POST to create documents, even with document ID in path
-  // The document ID is in the path: /databases/(default)/documents/collection/documentId
-  // POST creates the document at that ID, PATCH updates existing documents
-  console.log("[repo] writePropertyViaRestApi:Using POST method to CREATE document with ID:", documentId);
+  // CRITICAL: Firestore REST API methods:
+  // - POST to /databases/(default)/documents/collection → creates with AUTO-GENERATED ID
+  // - PATCH to /databases/(default)/documents/collection/documentId → creates/updates with SPECIFIC ID
+  //
+  // We have a SPECIFIC document ID in the path, so we MUST use PATCH, not POST!
+  // POST with document ID in path returns 404 because that's not the correct endpoint format
+  console.log("[repo] writePropertyViaRestApi:Using PATCH method (required for specific document ID)");
+  console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
   console.log("[repo] writePropertyViaRestApi:Full path:", docRef.path);
   
-  const response = await fetch(url, {
-    method: "POST",
+  // Build updateMask - required for PATCH requests
+  // Format: ?updateMask=field1,field2,field3
+  const fieldPaths = Object.keys(restPayload);
+  const updateMask = fieldPaths.join(",");
+  const urlWithMask = `${url}?updateMask=${updateMask}`;
+  
+  console.log("[repo] writePropertyViaRestApi:Update mask fields:", fieldPaths);
+  console.log("[repo] writePropertyViaRestApi:Full URL with updateMask:", urlWithMask);
+  
+  const response = await fetch(urlWithMask, {
+    method: "PATCH",
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ 
       fields: restPayload,
-      // Document ID is in the path, not in the body
     }),
   });
   
