@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   increment,
@@ -209,6 +208,16 @@ export async function updateProperty(
   patch: Partial<Omit<SVProperty, "id">>,
   updatedBy?: string,
 ) {
+  // Ensure fresh token for admin operations
+  const { auth } = await import("@/lib/firebaseClient");
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    // Force token refresh to ensure admin role is present
+    await currentUser.getIdToken(true);
+    // Small delay to ensure Firestore SDK picks up refreshed token
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  
   const ref = doc(db, "locations", id);
   const payload = sanitizePatch(patch);
   await setDoc(ref, { 
