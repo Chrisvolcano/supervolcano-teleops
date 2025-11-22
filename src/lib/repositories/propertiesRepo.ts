@@ -78,12 +78,28 @@ async function writePropertyViaRestApi(
   if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
   if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
   
-  // Get database ID - it might not be "(default)" if the database was created differently
-  // The SDK's db instance should have the database ID
-  const databaseId = (db as any).databaseId || (db as any)._databaseId || "(default)";
-  console.log("[repo] writePropertyViaRestApi:Database ID:", databaseId);
+  // Get database ID - try multiple ways to get it from the SDK instance
+  // The Firestore SDK stores the database ID internally
+  const dbAny = db as any;
+  const databaseId = dbAny._databaseId?._databaseId || 
+                     dbAny.databaseId || 
+                     dbAny._databaseId || 
+                     "(default)";
+  console.log("[repo] writePropertyViaRestApi:Database ID from SDK:", databaseId);
+  console.log("[repo] writePropertyViaRestApi:Database ID sources checked:", {
+    _databaseId__databaseId: dbAny._databaseId?._databaseId,
+    databaseId: dbAny.databaseId,
+    _databaseId: dbAny._databaseId,
+    fallback: "(default)",
+  });
+  
+  // Also check if database exists by trying to get document path
+  console.log("[repo] writePropertyViaRestApi:Document path from SDK:", docRef.path);
+  console.log("[repo] writePropertyViaRestApi:SDK db type:", typeof db);
+  console.log("[repo] writePropertyViaRestApi:SDK db app:", db.app.options.projectId);
   
   const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${docRef.path}`;
+  console.log("[repo] writePropertyViaRestApi:Full REST API URL:", url);
   console.log("[repo] writePropertyViaRestApi:REST API URL:", url);
   console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
   console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
