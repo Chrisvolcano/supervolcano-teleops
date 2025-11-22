@@ -746,7 +746,7 @@ export default function AdminPropertiesPage() {
     setDeletingTaskId(task.id);
     try {
       await deleteTaskMutation(task.id);
-      await updateDoc(doc(firestore, "properties", selectedProperty.id), {
+      await updateDoc(doc(firestore, "locations", selectedProperty.id), {
         taskCount: increment(-1),
       });
       toast.success("Task deleted");
