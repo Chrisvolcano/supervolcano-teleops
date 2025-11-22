@@ -125,6 +125,26 @@ export async function createProperty(input: {
     // This ensures any cached connections use the fresh token
     await new Promise(resolve => setTimeout(resolve, 300)); // Increased to 300ms to ensure SDK picks up token
     
+    // Verify Firestore connection state before proceeding
+    console.log("[repo] createProperty:verifying Firestore connection...", {
+      dbAppName: db.app.name,
+      dbProjectId: db.app.options.projectId,
+      dbType: db.type,
+      hasAuth: !!auth.currentUser,
+    });
+    
+    // Ensure Firestore network is enabled (in case it was disabled)
+    try {
+      const { enableNetwork } = await import("firebase/firestore");
+      if (typeof enableNetwork === "function") {
+        console.log("[repo] createProperty:ensuring Firestore network is enabled...");
+        await enableNetwork(db);
+        console.log("[repo] createProperty:Firestore network enabled");
+      }
+    } catch (networkError) {
+      console.warn("[repo] createProperty:could not enable network (may already be enabled)", networkError);
+    }
+    
     // NOW create document reference AFTER token is refreshed
     // This ensures the docRef is created with fresh auth state
     console.log("[repo] createProperty:generating document ID...");
@@ -140,6 +160,7 @@ export async function createProperty(input: {
       dbInstance: db.app.name,
       dbProject: db.app.options.projectId,
       documentId,
+      fullPath: `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`,
     });
     
     // Check payload structure (but don't JSON.stringify - serverTimestamp() and Date objects are valid for Firestore)
@@ -192,8 +213,15 @@ export async function createProperty(input: {
             const duration = Date.now() - startTime;
             console.error(`[repo] createProperty:setDoc TIMED OUT after ${duration}ms`);
             console.error("[repo] createProperty:This indicates a Firestore connection or rules issue");
-            console.error("[repo] createProperty:Check Network tab for blocked requests to firestore.googleapis.com");
-            reject(new Error(`setDoc timed out after ${duration}ms - This usually means: 1) Firestore rules are blocking (check token has admin role), 2) Network issue, or 3) Firestore service problem`));
+            console.error("[repo] createProperty:DIAGNOSTICS:");
+            console.error("  1. Open DevTools → Network tab");
+            console.error("  2. Filter by 'firestore' or 'googleapis'");
+            console.error("  3. Look for requests to firestore.googleapis.com");
+            console.error("  4. Check if request was sent (status: pending/sent) or blocked");
+            console.error("  5. If no request appears, the SDK isn't sending it (network/SDK issue)");
+            console.error("  6. If request appears but hangs, check response status (403 = rules, 401 = auth)");
+            console.error(`  7. Expected endpoint: https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`);
+            reject(new Error(`setDoc timed out after ${duration}ms - Check Network tab for requests to firestore.googleapis.com. If no request appears, the SDK isn't sending it.`));
           }
         }, 10000);
       });
