@@ -236,22 +236,39 @@ export default function AdminPropertiesPage() {
     );
   }, [properties, searchValue]);
 
+  // Use ref to track if we've already set the initial property to prevent loops
+  const hasSetInitialProperty = useRef(false);
+  
   useEffect(() => {
     if (!filteredProperties.length) {
+      hasSetInitialProperty.current = false;
       return;
     }
-    // Only update selectedPropertyId if it's not set or the selected property doesn't exist in the filtered list
-    // Use a ref or additional check to prevent infinite loops
-    const currentSelectedExists = selectedPropertyId && filteredProperties.some((property) => property.id === selectedPropertyId);
-    if (!selectedPropertyId || !currentSelectedExists) {
+    
+    // Only set initial property once when properties first load
+    if (!hasSetInitialProperty.current && !selectedPropertyId) {
       const firstPropertyId = filteredProperties[0]?.id;
-      if (firstPropertyId && firstPropertyId !== selectedPropertyId) {
+      if (firstPropertyId) {
+        hasSetInitialProperty.current = true;
         setSelectedPropertyId(firstPropertyId);
         setActiveTab("summary");
       }
+      return;
+    }
+    
+    // Only update if selected property doesn't exist in current list (and we've already set initial)
+    if (hasSetInitialProperty.current && selectedPropertyId) {
+      const currentSelectedExists = filteredProperties.some((property) => property.id === selectedPropertyId);
+      if (!currentSelectedExists) {
+        const firstPropertyId = filteredProperties[0]?.id;
+        if (firstPropertyId && firstPropertyId !== selectedPropertyId) {
+          setSelectedPropertyId(firstPropertyId);
+          setActiveTab("summary");
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredProperties.length, selectedPropertyId]); // Only depend on length and selectedPropertyId to avoid re-running on property reference changes
+  }, [filteredProperties.length, selectedPropertyId]); // Only depend on length and selectedPropertyId
 
   const operatorTaskCount = useMemo(() => {
     return tasks.filter((task) => task.assignment === "teleoperator").length;
