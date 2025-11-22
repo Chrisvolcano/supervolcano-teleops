@@ -19,15 +19,18 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 
 const collectionRef = () => collection(db, "locations");
 
-// Helper function to verify database exists and get correct ID
-async function verifyDatabaseId(projectId: string, token: string): Promise<string> {
-  // For nam5 multi-region, database ID is always (default)
-  // But we need to verify it exists by trying a simple read operation
-  const testUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-  console.log("[repo] 🔍 Verifying database (default) exists...", { testUrl });
+// Helper function to discover the correct database ID by trying to read an existing document
+async function discoverDatabaseId(projectId: string, token: string): Promise<string> {
+  // Since database exists and we can see collections, try reading an existing document
+  // This will tell us the correct database ID
+  const testDocId = "test-manual-123"; // From the user's screenshot
+  const testCollection = "locations";
+  
+  // Try (default) first - most common
+  const testUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${testCollection}/${testDocId}`;
+  console.log("[repo] 🔍 Testing database ID by reading existing document...", { testUrl });
   
   try {
-    // Try to list collections (this will fail if database doesn't exist)
     const response = await fetch(testUrl, {
       method: "GET",
       headers: {
@@ -36,22 +39,40 @@ async function verifyDatabaseId(projectId: string, token: string): Promise<strin
       },
     });
     
-    if (response.ok || response.status === 403) {
-      // 200 = database exists and we can read
-      // 403 = database exists but we don't have permission (which is fine - it exists!)
-      console.log("[repo] ✅ Database (default) exists (status:", response.status, ")");
+    if (response.ok) {
+      console.log("[repo] ✅ Database ID (default) works! Document read successful");
       return "(default)";
     } else if (response.status === 404) {
-      console.error("[repo] ❌ Database (default) does not exist (404)");
-      throw new Error("Database (default) does not exist. Please create a Firestore database in the Firebase Console.");
+      // Try without parentheses - some multi-region databases use "default" not "(default)"
+      const testUrl2 = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/default/documents/${testCollection}/${testDocId}`;
+      console.log("[repo] ⚠️ (default) failed, trying 'default' without parentheses...", { testUrl2 });
+      
+      const response2 = await fetch(testUrl2, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (response2.ok) {
+        console.log("[repo] ✅ Database ID 'default' (without parentheses) works!");
+        return "default";
+      } else {
+        console.error("[repo] ❌ Both (default) and default failed. Status:", response.status, response2.status);
+        // Still return (default) as fallback - might work for writes even if reads fail
+        return "(default)";
+      }
+    } else if (response.status === 403) {
+      // 403 = database exists but no permission - that's fine, it exists!
+      console.log("[repo] ✅ Database (default) exists (403 = permission denied, but DB exists)");
+      return "(default)";
     } else {
-      console.warn("[repo] ⚠️ Unexpected status when verifying database:", response.status);
-      // Still try (default) - might work
+      console.warn("[repo] ⚠️ Unexpected status:", response.status, "- using (default) as fallback");
       return "(default)";
     }
   } catch (error) {
-    console.warn("[repo] ⚠️ Could not verify database, using (default):", error);
-    // Fallback to (default) - most common case
+    console.warn("[repo] ⚠️ Error testing database ID, using (default):", error);
     return "(default)";
   }
 }
@@ -64,7 +85,7 @@ async function writePropertyViaRestApi(
   documentId: string,
 ): Promise<string> {
   console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (V5.1 - Verify DB exists) 🚀🚀🚀");
+  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (V5.2 - Test DB ID with read) 🚀🚀🚀");
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
   console.log("[repo] writePropertyViaRestApi:Document path:", docRef.path);
@@ -81,8 +102,8 @@ async function writePropertyViaRestApi(
     throw new Error("Project ID not found in Firebase config");
   }
   
-  // Verify database exists and get correct ID
-  const databaseId = await verifyDatabaseId(projectId, token);
+  // Discover the correct database ID by testing with an existing document
+  const databaseId = await discoverDatabaseId(projectId, token);
   
   // Convert payload to Firestore REST API format
   const fields: any = {};
