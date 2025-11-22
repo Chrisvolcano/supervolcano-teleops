@@ -339,23 +339,41 @@ export type SVProperty = {
   updatedBy?: string | null;
 };
 
-export type TaskState = "scheduled" | "in_progress" | "completed" | "cancelled";
+// Legacy TaskState (for backward compatibility with old code)
+export type TaskState =
+  | "scheduled"
+  | "available"
+  | "claimed"
+  | "in_progress"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "aborted";
+
+export type SVTaskTemplate = {
+  id: string;
+  name: string;
+  difficulty: TaskDifficulty;
+  defaultAssignedTo: TaskAssignment;
+  isActive: boolean;
+  stats: TaskTemplateStats;
+  partnerOrgId?: string;
+};
 
 export type SVTask = {
   id: string;
   locationId: string;
-  name: string;
-  description?: string;
-  status: TaskState;
-  assigned_to: TaskAssignment;
-  templateId?: string;
   partnerOrgId: string;
-  assignedToUserId?: string | null;
-  priority?: "low" | "medium" | "high";
-  duration?: number;
-  type?: string;
+  templateId?: string | null;
+  name: string;
+  assignment: TaskAssignment;
+  status: TaskState;
+  duration?: number | null;
+  priority?: "low" | "medium" | "high" | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
   createdAt?: TimestampLike;
   updatedAt?: TimestampLike;
-  updatedBy?: string | null;
+  assignedToUserId?: string | null;
 };
 
