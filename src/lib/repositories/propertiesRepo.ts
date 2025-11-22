@@ -114,14 +114,29 @@ export async function createProperty(input: {
     // The Firestore SDK automatically uses the latest token from auth.currentUser
     // By forcing a refresh here, we ensure the SDK picks up the latest token before setDoc
     const token = await currentUser.getIdToken(true); // Force refresh!
-    console.log("[repo] createProperty:got FRESH auth token (forced refresh)", {
-      tokenLength: token.length,
-      hasToken: !!token,
-    });
+    
+    // Decode token to verify admin role is present
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const tokenRole = payload.role;
+      console.log("[repo] createProperty:got FRESH auth token (forced refresh)", {
+        tokenLength: token.length,
+        hasToken: !!token,
+        role: tokenRole,
+        hasAdminRole: tokenRole === "admin",
+        partnerOrgId: payload.partner_org_id,
+      });
+      
+      if (tokenRole !== "admin") {
+        throw new Error(`Token does not have admin role! Role is: "${tokenRole || 'undefined'}". Please sign out and sign back in, or run: npm run set-admin`);
+      }
+    } catch (decodeError) {
+      console.warn("[repo] createProperty:could not decode token (continuing anyway)", decodeError);
+    }
     
     // Give Firestore SDK a moment to pick up the refreshed token
     // This ensures setDoc uses the token we just refreshed
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200)); // Increased to 200ms
     
     // Check payload structure (but don't JSON.stringify - serverTimestamp() and Date objects are valid for Firestore)
     console.log("[repo] createProperty:payload structure check", {
