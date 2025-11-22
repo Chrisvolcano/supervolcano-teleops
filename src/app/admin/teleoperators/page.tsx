@@ -5,7 +5,7 @@
  * CRUD operations for teleoperators
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Teleoperator, TeleoperatorStatus } from "@/lib/types";
 import toast from "react-hot-toast";
@@ -35,13 +35,7 @@ export default function AdminTeleoperatorsPage() {
   });
 
   // Load teleoperators
-  useEffect(() => {
-    if (!user || !claims) return;
-
-    loadTeleoperators();
-  }, [user, claims]);
-
-  async function loadTeleoperators() {
+  const loadTeleoperators = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -65,7 +59,13 @@ export default function AdminTeleoperatorsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !claims) return;
+
+    loadTeleoperators();
+  }, [user, claims, loadTeleoperators]);
 
   async function handleCreate() {
     if (!user) {

@@ -282,6 +282,10 @@ export interface UserClaims {
 // UTILITY TYPES
 // ============================================================================
 
+// ============================================================================
+// LEGACY TYPES (for backward compatibility with existing code)
+// ============================================================================
+
 export type TimestampLike =
   | { toDate: () => Date }
   | { seconds: number; nanoseconds: number }
@@ -289,4 +293,69 @@ export type TimestampLike =
   | string
   | null
   | undefined;
+
+// Legacy property types (renamed to locations in new system)
+export type PropertyStatus = "scheduled" | "unassigned";
+export type LocationStatus = "active" | "inactive"; // New type
+
+export type TaskAssignment = "teleoperator" | "human";
+
+export type TaskDifficulty = "easy" | "mid" | "high";
+
+export type TaskTemplateStats = {
+  assignedTeleop: number;
+  completedTeleop: number;
+  assignedHuman: number;
+  completedHuman: number;
+};
+
+export type PropertyMediaType = "image" | "video";
+
+export type PropertyMediaItem = {
+  id: string;
+  url: string;
+  type: PropertyMediaType;
+  storagePath?: string;
+  contentType?: string | null;
+  createdAt?: TimestampLike;
+};
+
+export type SVProperty = {
+  id: string;
+  name: string;
+  partnerOrgId: string;
+  address?: string;
+  description?: string;
+  images: string[];
+  media: PropertyMediaItem[];
+  imageCount: number;
+  videoCount: number;
+  status: PropertyStatus;
+  isActive: boolean;
+  taskCount: number;
+  createdBy?: string | null;
+  createdAt?: TimestampLike;
+  updatedAt?: TimestampLike;
+  updatedBy?: string | null;
+};
+
+export type TaskState = "scheduled" | "in_progress" | "completed" | "cancelled";
+
+export type SVTask = {
+  id: string;
+  locationId: string;
+  name: string;
+  description?: string;
+  status: TaskState;
+  assigned_to: TaskAssignment;
+  templateId?: string;
+  partnerOrgId: string;
+  assignedToUserId?: string | null;
+  priority?: "low" | "medium" | "high";
+  duration?: number;
+  type?: string;
+  createdAt?: TimestampLike;
+  updatedAt?: TimestampLike;
+  updatedBy?: string | null;
+};
 
