@@ -291,12 +291,22 @@ export default function AdminPropertiesPage() {
       formState: {
         name: propertyFormState.name,
         partnerOrgId: propertyFormState.partnerOrgId,
+        address: propertyFormState.address,
       },
     });
     
     if (!user) {
       console.error("[admin] persistProperty: no user");
       toast.error("You must be logged in to save properties");
+      return;
+    }
+
+    // Validate required fields
+    const trimmedName = propertyFormState.name.trim();
+    if (!trimmedName) {
+      console.error("[admin] persistProperty: name is required");
+      toast.error("Property name is required");
+      setPropertyError("Property name is required");
       return;
     }
 
@@ -434,16 +444,22 @@ export default function AdminPropertiesPage() {
         console.log("[admin] Location updated:", propertyId);
       } else {
         // Create new document FIRST to get proper Firestore UUID
+        const nameToSave = trimmedName; // Use validated trimmed name
+        const addressToSave = propertyFormState.address.trim();
+        
         console.log("[admin] Creating new location...", {
-          name: propertyFormState.name.trim(),
+          name: nameToSave,
+          nameLength: nameToSave.length,
+          address: addressToSave,
           partnerOrgId: trimmedPartnerOrg,
           createdBy: user.uid,
+          fullFormState: propertyFormState,
         });
         
         try {
           propertyId = await createProperty({
-            name: propertyFormState.name.trim(),
-            address: propertyFormState.address.trim(),
+            name: nameToSave,
+            address: addressToSave,
             partnerOrgId: trimmedPartnerOrg,
             status: propertyFormState.status,
             description: propertyFormState.description.trim(),
