@@ -51,7 +51,9 @@ if (typeof window !== "undefined" && (process.env.NODE_ENV !== "production" || p
 
 export const firebaseAuth = getAuth(firebaseApp);
 export const auth = firebaseAuth;
-export const firestore = getFirestore(firebaseApp);
+// For nam5 multi-region databases, use 'default' (without parentheses) instead of '(default)'
+// This matches what the REST API expects
+export const firestore = getFirestore(firebaseApp, "default");
 export const db = firestore;
 export const storage = getStorage(firebaseApp);
 
