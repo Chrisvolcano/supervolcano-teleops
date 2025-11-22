@@ -78,12 +78,13 @@ async function writePropertyViaRestApi(
   if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
   if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
   
-  // Get database ID - try multiple ways to get it from the SDK instance
-  // The Firestore SDK stores the database ID internally, but it might be nested
+  // CRITICAL: Extract database ID from SDK instance
+  // The SDK knows which database it's connected to
   const dbAny = db as any;
   let databaseId = "(default)"; // Default fallback
   
-  // Try to extract database ID from SDK instance
+  // Try to extract database ID from SDK instance (it's stored internally)
+  // The Firestore SDK v9 stores it in _databaseId._databaseId
   if (dbAny._databaseId) {
     if (typeof dbAny._databaseId === "string") {
       databaseId = dbAny._databaseId;
@@ -91,33 +92,42 @@ async function writePropertyViaRestApi(
       databaseId = dbAny._databaseId._databaseId;
     } else if (dbAny._databaseId.databaseId) {
       databaseId = dbAny._databaseId.databaseId;
+    } else if (typeof dbAny._databaseId === "object") {
+      // Try any property that might be the database ID
+      const possibleId = Object.values(dbAny._databaseId).find((v: any) => typeof v === "string" && v.length > 0 && v !== "firestore");
+      if (possibleId) {
+        databaseId = possibleId as string;
+      }
     }
   }
   if (dbAny.databaseId && databaseId === "(default)") {
     databaseId = dbAny.databaseId;
   }
   
-  console.log("[repo] writePropertyViaRestApi:Database ID from SDK:", databaseId);
+  console.log("=".repeat(80));
+  console.log("[repo] writePropertyViaRestApi:🔍 Database ID Detection");
+  console.log("=".repeat(80));
+  console.log("[repo] writePropertyViaRestApi:Database ID extracted:", databaseId);
   console.log("[repo] writePropertyViaRestApi:SDK database ID structure:", {
     _databaseId: dbAny._databaseId,
     _databaseId_type: typeof dbAny._databaseId,
     _databaseId__databaseId: dbAny._databaseId?._databaseId,
     _databaseId_databaseId: dbAny._databaseId?.databaseId,
-    databaseId: dbAny.databaseId,
+    databaseId_property: dbAny.databaseId,
     allKeys: Object.keys(dbAny).filter(k => k.toLowerCase().includes("database")),
+    _databaseId_keys: typeof dbAny._databaseId === "object" ? Object.keys(dbAny._databaseId || {}) : "not an object",
   });
   
-  // The docRef path should give us clues too
-  console.log("[repo] writePropertyViaRestApi:Document path:", docRef.path);
-  console.log("[repo] writePropertyViaRestApi:Project ID:", db.app.options.projectId);
-  
   const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${docRef.path}`;
+  console.log("[repo] writePropertyViaRestApi:Project ID:", db.app.options.projectId);
   console.log("[repo] writePropertyViaRestApi:Full REST API URL:", url);
+  console.log("=".repeat(80));
   
-  // IMPORTANT: If you see the database in Console but get 404, check:
-  // 1. What's the database ID shown in Console? (might not be "(default)")
-  // 2. Is the database in Native mode or Datastore mode?
-  // 3. What region is the database in?
+  // IMPORTANT: If you see database in Console but get 404, check:
+  // 1. Go to Firebase Console → Firestore Database
+  // 2. Look at the URL - does it show /firestore/databases/(default)/... or /firestore/databases/[OTHER_ID]/...?
+  // 3. Is the database in Native mode or Datastore mode? (Native mode required for Firestore API)
+  // 4. The database ID might not be "(default)" - check the Console URL
   console.log("[repo] writePropertyViaRestApi:REST API URL:", url);
   console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
   console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
