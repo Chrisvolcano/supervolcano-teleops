@@ -118,17 +118,22 @@ async function writePropertyViaRestApi(
     _databaseId_keys: typeof dbAny._databaseId === "object" ? Object.keys(dbAny._databaseId || {}) : "not an object",
   });
   
-  const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${docRef.path}`;
-  console.log("[repo] writePropertyViaRestApi:Project ID:", db.app.options.projectId);
-  console.log("[repo] writePropertyViaRestApi:Full REST API URL:", url);
-  console.log("=".repeat(80));
+  // CRITICAL: Firestore REST API format for creating documents
+  // The docRef.path from SDK is like "locations/documentId"
+  // But REST API needs: /databases/(default)/documents/locations/documentId
+  // The docRef.path already includes the collection and document ID
+  const documentPath = docRef.path; // e.g., "locations/HSqhrJn9oQ4wVe1oewIs"
+  const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${documentPath}`;
   
-  // IMPORTANT: If you see database in Console but get 404, check:
-  // 1. Go to Firebase Console → Firestore Database
-  // 2. Look at the URL - does it show /firestore/databases/(default)/... or /firestore/databases/[OTHER_ID]/...?
-  // 3. Is the database in Native mode or Datastore mode? (Native mode required for Firestore API)
-  // 4. The database ID might not be "(default)" - check the Console URL
-  console.log("[repo] writePropertyViaRestApi:REST API URL:", url);
+  console.log("=".repeat(80));
+  console.log("[repo] writePropertyViaRestApi:🔍 REST API URL Construction");
+  console.log("=".repeat(80));
+  console.log("[repo] writePropertyViaRestApi:Project ID:", db.app.options.projectId);
+  console.log("[repo] writePropertyViaRestApi:Database ID:", databaseId);
+  console.log("[repo] writePropertyViaRestApi:Document path from SDK:", documentPath);
+  console.log("[repo] writePropertyViaRestApi:Full REST API URL:", url);
+  console.log("[repo] writePropertyViaRestApi:Expected format: /projects/{project}/databases/{database}/documents/{path}");
+  console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
   console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
   console.log("[repo] writePropertyViaRestApi:Payload has partnerOrgId:", !!restPayload.partnerOrgId);
