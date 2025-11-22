@@ -196,16 +196,18 @@ async function writePropertyViaRestApi(
   console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
   console.log("[repo] writePropertyViaRestApi:Full path:", docRef.path);
   
-  // Build updateMask - required for PATCH requests
-  // Format: ?updateMask=field1,field2,field3
+  // For Firestore REST API PATCH to CREATE a new document:
+  // - updateMask is ONLY needed for partial updates (updating existing documents)
+  // - For creating new documents, we can omit updateMask entirely
+  // - The fields in the body will be used to create all fields
+  //
+  // Since we're creating a NEW document (doesn't exist yet), we don't need updateMask
   const fieldPaths = Object.keys(restPayload);
-  const updateMask = fieldPaths.join(",");
-  const urlWithMask = `${url}?updateMask=${updateMask}`;
+  console.log("[repo] writePropertyViaRestApi:Creating NEW document - updateMask not needed");
+  console.log("[repo] writePropertyViaRestApi:Fields to create:", fieldPaths);
+  console.log("[repo] writePropertyViaRestApi:Full URL:", url);
   
-  console.log("[repo] writePropertyViaRestApi:Update mask fields:", fieldPaths);
-  console.log("[repo] writePropertyViaRestApi:Full URL with updateMask:", urlWithMask);
-  
-  const response = await fetch(urlWithMask, {
+  const response = await fetch(url, {
     method: "PATCH",
     headers: {
       "Authorization": `Bearer ${token}`,
