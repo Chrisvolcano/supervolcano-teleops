@@ -136,18 +136,29 @@ async function writePropertyViaRestApi(
   console.log("[repo] writePropertyViaRestApi:Token length:", token.length);
   
   console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 About to send PATCH request to:", url);
-  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for PATCH request!");
+  console.log("[repo] 🚀🚀🚀 About to send POST request (create new document):", url);
+  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for POST request!");
+  console.log("[repo] writePropertyViaRestApi:NOTE - Using POST to CREATE new document");
+  console.log("[repo] writePropertyViaRestApi:PATCH would be for UPDATE existing document");
   console.log("=".repeat(80));
   
   const fetchStartTime = Date.now();
+  // CRITICAL: Firestore REST API uses POST to create documents, even with document ID in path
+  // The document ID is in the path: /databases/(default)/documents/collection/documentId
+  // POST creates the document at that ID, PATCH updates existing documents
+  console.log("[repo] writePropertyViaRestApi:Using POST method to CREATE document with ID:", documentId);
+  console.log("[repo] writePropertyViaRestApi:Full path:", docRef.path);
+  
   const response = await fetch(url, {
-    method: "PATCH",
+    method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fields: restPayload }),
+    body: JSON.stringify({ 
+      fields: restPayload,
+      // Document ID is in the path, not in the body
+    }),
   });
   
   const fetchDuration = Date.now() - fetchStartTime;
