@@ -57,7 +57,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, initializing, router]);
 
-  const isAdmin = role === "admin";
+  // Support both old "admin" role and new role system
+  const isAdmin = role === "admin" || role === "superadmin" || role === "partner_admin";
 
   if (initializing || loading) {
     return (
