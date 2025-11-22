@@ -20,7 +20,7 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 const collectionRef = () => collection(db, "locations");
 
 // REST API fallback function for when SDK fails
-async function useRestApiFallback(
+async function writePropertyViaRestApi(
   docRef: ReturnType<typeof doc>,
   payload: any,
   documentId: string,
@@ -397,7 +397,7 @@ export async function createProperty(input: {
         if (errorMsg.includes("SDK_TIMEOUT") || errorMsg.includes("timed out")) {
           console.warn("[repo] createProperty:SDK timed out, using REST API fallback...");
           try {
-            result = await useRestApiFallback(docRef, payload, documentId);
+            result = await writePropertyViaRestApi(docRef, payload, documentId);
             console.log("[repo] createProperty:✅ REST API fallback succeeded!");
           } catch (restError) {
             console.error("[repo] createProperty:REST API fallback also failed:", restError);
