@@ -114,21 +114,30 @@ export async function createProperty(input: {
       hasToken: !!token,
     });
     
-    // Serialize payload to check for issues
-    try {
-      JSON.stringify(payload);
-      console.log("[repo] createProperty:payload is JSON-serializable");
-    } catch (serializeError) {
-      console.error("[repo] createProperty:payload NOT JSON-serializable!", serializeError);
-      throw new Error("Payload contains non-serializable data");
-    }
+    // Check payload structure (but don't JSON.stringify - serverTimestamp() and Date objects are valid for Firestore)
+    console.log("[repo] createProperty:payload structure check", {
+      hasName: !!payload.name,
+      hasPartnerOrgId: !!payload.partnerOrgId,
+      hasCreatedBy: !!payload.createdBy,
+      hasCreatedAt: !!payload.createdAt,
+      hasUpdatedAt: !!payload.updatedAt,
+      mediaCount: Array.isArray(payload.media) ? payload.media.length : 0,
+      payloadKeys: Object.keys(payload),
+    });
     
     const startTime = Date.now();
     try {
       console.log("[repo] createProperty:awaiting setDoc...", {
         docPath: docRef.path,
         payloadKeys: Object.keys(payload),
-        payloadSize: JSON.stringify(payload).length,
+        payloadFields: {
+          name: payload.name,
+          partnerOrgId: payload.partnerOrgId,
+          createdBy: payload.createdBy,
+          hasCreatedAt: !!payload.createdAt,
+          hasUpdatedAt: !!payload.updatedAt,
+          mediaCount: Array.isArray(payload.media) ? payload.media.length : 0,
+        },
       });
       
       // Try setDoc with a timeout
