@@ -27,12 +27,11 @@ async function writePropertyViaRestApi(
   documentId: string,
 ): Promise<string> {
   console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (FIXED VERSION) 🚀🚀🚀");
-  console.log("=".repeat(80));console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED 🚀🚀🚀");
+  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (V4.0 - POST for new docs) 🚀🚀🚀");
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
   console.log("[repo] writePropertyViaRestApi:Document path:", docRef.path);
+  
   const { auth: firebaseAuth } = await import("@/lib/firebaseClient");
   const currentUser = firebaseAuth.currentUser;
   if (!currentUser) {
@@ -40,7 +39,12 @@ async function writePropertyViaRestApi(
   }
   const token = await currentUser.getIdToken(true);
   
-  // Convert payload to Firestore REST API format (simplified, based on Claude's fix)
+  const projectId = db.app.options.projectId;
+  if (!projectId) {
+    throw new Error("Project ID not found in Firebase config");
+  }
+  
+  // Convert payload to Firestore REST API format
   const fields: any = {};
   const now = new Date().toISOString();
   
@@ -59,7 +63,6 @@ async function writePropertyViaRestApi(
     if (typeof value === "string") {
       fields[key] = { stringValue: value };
     } else if (typeof value === "number") {
-      // Use integerValue for integers, doubleValue for decimals
       fields[key] = Number.isInteger(value)
         ? { integerValue: String(value) }
         : { doubleValue: value };
@@ -77,10 +80,8 @@ async function writePropertyViaRestApi(
         fields[key] = { stringValue: JSON.stringify(value) };
       }
     } else if (value && typeof value === "object" && "toDate" in value) {
-      // Timestamp object from Firestore
       fields[key] = { timestampValue: (value as any).toDate().toISOString() };
     } else {
-      // Fallback: stringify unknown types
       fields[key] = { stringValue: JSON.stringify(value) };
     }
   }
@@ -89,32 +90,49 @@ async function writePropertyViaRestApi(
   if (!fields.createdAt) fields.createdAt = { timestampValue: now };
   if (!fields.updatedAt) fields.updatedAt = { timestampValue: now };
   
-  // CRITICAL FIX: For nam5 multi-region, use the standard global endpoint directly
-  // Do NOT use regional endpoints like nam5-firestore.googleapis.com
-  // Use (default) directly in the URL - no complex extraction needed
-  const projectId = db.app.options.projectId;
-  if (!projectId) {
-    throw new Error("Project ID not found in Firebase config");
-  }
+  // CRITICAL: For creating NEW documents with a specific ID, use POST to the collection
+  // Then update the document name in the response to use our ID
+  // Actually, Firestore REST API allows POST with documentId in path for new documents
+  // But let's try POST to collection first, then PATCH if that fails
+  const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
   
-  // Simplified URL construction - use (default) directly
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/locations/${documentId}`;
-  
-  console.log("🌐 REST API Write:", {
-    url,
+  // Try POST first (create new document with specific ID)
+  const postUrl = `${baseUrl}/locations?documentId=${documentId}`;
+  console.log("🌐 REST API Write (POST):", {
+    url: postUrl,
     documentId,
     projectId,
     fieldCount: Object.keys(fields).length,
   });
   
-  const response = await fetch(url, {
-    method: "PATCH", // PATCH for documents with specific IDs
+  let response = await fetch(postUrl, {
+    method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ fields }),
   });
+  
+  // If POST fails with 404 (database doesn't exist), try PATCH as fallback
+  if (!response.ok && response.status === 404) {
+    console.warn("⚠️ POST failed with 404, trying PATCH with document ID in path...");
+    const patchUrl = `${baseUrl}/locations/${documentId}`;
+    console.log("🌐 REST API Write (PATCH fallback):", {
+      url: patchUrl,
+      documentId,
+      projectId,
+    });
+    
+    response = await fetch(patchUrl, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields }),
+    });
+  }
   
   if (!response.ok) {
     let errorData: any;
@@ -127,11 +145,16 @@ async function writePropertyViaRestApi(
     
     console.error("❌ REST API Error:", {
       status: response.status,
+      statusText: response.statusText,
       error: errorData.error,
-      url,
+      url: response.url,
+      triedPost: true,
+      triedPatch: response.status === 404,
     });
     
-    throw new Error(`REST API write failed: ${response.status} ${errorData.error?.message || "Unknown error"}`);
+    // More detailed error message
+    const errorMsg = errorData.error?.message || "Unknown error";
+    throw new Error(`REST API write failed: ${response.status} ${errorMsg}. URL: ${response.url}`);
   }
   
   const responseData = await response.json();
