@@ -78,143 +78,23 @@ async function writePropertyViaRestApi(
   if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
   if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
   
-  // CRITICAL: Extract database ID from SDK instance
-  // The SDK knows which database it's connected to
-  // The error shows "database super-volcano-oem-portal does not exist" - that's the PROJECT ID!
-  // This means databaseId extraction is failing and we're using project ID instead
-  const dbAny = db as any;
-  let databaseId = "(default)"; // Default fallback - MUST be "(default)" with parentheses
-  
-  // Try to extract database ID from SDK instance (it's stored internally)
-  // The Firestore SDK v9 stores it in _databaseId._databaseId
-  console.log("[repo] writePropertyViaRestApi:Attempting to extract database ID from SDK...");
-  console.log("[repo] writePropertyViaRestApi:dbAny keys:", Object.keys(dbAny));
-  
-  if (dbAny._databaseId) {
-    console.log("[repo] writePropertyViaRestApi:Found _databaseId:", dbAny._databaseId);
-    if (typeof dbAny._databaseId === "string") {
-      databaseId = dbAny._databaseId;
-      console.log("[repo] writePropertyViaRestApi:Database ID is string:", databaseId);
-    } else if (dbAny._databaseId._databaseId) {
-      databaseId = dbAny._databaseId._databaseId;
-      console.log("[repo] writePropertyViaRestApi:Database ID from _databaseId._databaseId:", databaseId);
-    } else if (dbAny._databaseId.databaseId) {
-      databaseId = dbAny._databaseId.databaseId;
-      console.log("[repo] writePropertyViaRestApi:Database ID from _databaseId.databaseId:", databaseId);
-    } else if (typeof dbAny._databaseId === "object") {
-      // Try any property that might be the database ID
-      const possibleId = Object.values(dbAny._databaseId).find((v: any) => typeof v === "string" && v.length > 0 && v !== "firestore" && v !== db.app.options.projectId);
-      if (possibleId) {
-        databaseId = possibleId as string;
-        console.log("[repo] writePropertyViaRestApi:Database ID from object values:", databaseId);
-      }
-    }
-  }
-  if (dbAny.databaseId && databaseId === "(default)") {
-    databaseId = dbAny.databaseId;
-    console.log("[repo] writePropertyViaRestApi:Database ID from dbAny.databaseId:", databaseId);
+  // CRITICAL FIX: For nam5 multi-region, use the standard global endpoint directly
+  // Do NOT use regional endpoints like nam5-firestore.googleapis.com
+  // Use (default) directly in the URL - no complex extraction needed
+  const projectId = db.app.options.projectId;
+  if (!projectId) {
+    throw new Error("Project ID not found in Firebase config");
   }
   
-  // CRITICAL CHECK: Make sure we didn't accidentally use project ID
-  if (databaseId === db.app.options.projectId) {
-    console.error("[repo] writePropertyViaRestApi:❌ ERROR: Database ID equals project ID! Using default.");
-    databaseId = "(default)";
-  }
+  // Simplified URL construction - use (default) directly
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/locations/${documentId}`;
   
-  // Ensure database ID is "(default)" format (with parentheses)
-  if (databaseId !== "(default)" && databaseId !== "default") {
-    console.warn("[repo] writePropertyViaRestApi:⚠️ Database ID is not '(default)':", databaseId);
-    // If it's not "(default)", we should still use it, but log a warning
-  } else {
-    databaseId = "(default)"; // Force to "(default)" format
-  }
-  
-  console.log("[repo] writePropertyViaRestApi:Final database ID:", databaseId);
-  
-  console.log("=".repeat(80));
-  console.log("[repo] writePropertyViaRestApi:🔍 Database ID Detection");
-  console.log("=".repeat(80));
-  console.log("[repo] writePropertyViaRestApi:Database ID extracted:", databaseId);
-  console.log("[repo] writePropertyViaRestApi:SDK database ID structure:", {
-    _databaseId: dbAny._databaseId,
-    _databaseId_type: typeof dbAny._databaseId,
-    _databaseId__databaseId: dbAny._databaseId?._databaseId,
-    _databaseId_databaseId: dbAny._databaseId?.databaseId,
-    databaseId_property: dbAny.databaseId,
-    allKeys: Object.keys(dbAny).filter(k => k.toLowerCase().includes("database")),
-    _databaseId_keys: typeof dbAny._databaseId === "object" ? Object.keys(dbAny._databaseId || {}) : "not an object",
+  console.log("🌐 REST API Write:", {
+    url,
+    documentId,
+    projectId,
+    fieldCount: Object.keys(restPayload).length,
   });
-  
-  // CRITICAL: Firestore REST API format for creating documents
-  // The docRef.path from SDK is like "locations/documentId"
-  // But REST API needs: /databases/(default)/documents/locations/documentId
-  // The docRef.path already includes the collection and document ID
-  const documentPath = docRef.path; // e.g., "locations/HSqhrJn9oQ4wVe1oewIs"
-  
-  // CRITICAL: For multi-region databases (like nam5), use the standard endpoint
-  // Single-region databases use: https://[REGION]-firestore.googleapis.com/...
-  // Multi-region databases use: https://firestore.googleapis.com/...
-  // 
-  // Database location 'nam5' is North America multi-region, so standard endpoint is correct
-  // CRITICAL: Database ID "(default)" needs URL encoding: encodeURIComponent("(default)") = "%28default%29"
-  // But Firestore REST API might expect literal "(default)" or URL-encoded version
-  // Try both formats - Firestore docs say to use "(default)" as-is in path, not encoded
-  const encodedDatabaseId = databaseId === "(default)" ? "(default)" : encodeURIComponent(databaseId);
-  let url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(db.app.options.projectId)}/databases/${encodedDatabaseId}/documents/${documentPath}`;
-  
-  console.log("[repo] writePropertyViaRestApi:Database ID (raw):", databaseId);
-  console.log("[repo] writePropertyViaRestApi:Database ID (encoded):", encodedDatabaseId);
-  console.log("[repo] writePropertyViaRestApi:Project ID (raw):", db.app.options.projectId);
-  console.log("[repo] writePropertyViaRestApi:Project ID (encoded):", encodeURIComponent(db.app.options.projectId));
-  
-  console.log("[repo] writePropertyViaRestApi:Using standard REST API endpoint (correct for nam5 multi-region)");
-  console.log("[repo] writePropertyViaRestApi:Database location: nam5 (North America multi-region)");
-  console.log("[repo] writePropertyViaRestApi:Standard endpoint is correct for multi-region databases");
-  
-  console.log("=".repeat(80));
-  console.log("[repo] writePropertyViaRestApi:🔍 REST API URL Construction");
-  console.log("=".repeat(80));
-  console.log("[repo] writePropertyViaRestApi:Project ID:", db.app.options.projectId);
-  console.log("[repo] writePropertyViaRestApi:Database ID:", databaseId);
-  console.log("[repo] writePropertyViaRestApi:Document path from SDK:", documentPath);
-  console.log("[repo] writePropertyViaRestApi:Full REST API URL:", url);
-  console.log("[repo] writePropertyViaRestApi:Expected format: /projects/{project}/databases/{database}/documents/{path}");
-  console.log("=".repeat(80));
-  console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
-  console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
-  console.log("[repo] writePropertyViaRestApi:Payload has partnerOrgId:", !!restPayload.partnerOrgId);
-  console.log("[repo] writePropertyViaRestApi:Payload has createdBy:", !!restPayload.createdBy);
-  console.log("[repo] writePropertyViaRestApi:Token length:", token.length);
-  
-  console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 About to send PATCH request (create/update document):", url);
-  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for PATCH request!");
-  console.log("[repo] writePropertyViaRestApi:CRITICAL - Using PATCH for document with specific ID");
-  console.log("[repo] writePropertyViaRestApi:POST is ONLY for auto-generated IDs (collection path)");
-  console.log("[repo] writePropertyViaRestApi:PATCH is for specific IDs (document path with ID)");
-  console.log("=".repeat(80));
-  
-  const fetchStartTime = Date.now();
-  // CRITICAL: Firestore REST API methods:
-  // - POST to /databases/(default)/documents/collection → creates with AUTO-GENERATED ID
-  // - PATCH to /databases/(default)/documents/collection/documentId → creates/updates with SPECIFIC ID
-  //
-  // We have a SPECIFIC document ID in the path, so we MUST use PATCH, not POST!
-  // POST with document ID in path returns 404 because that's not the correct endpoint format
-  console.log("[repo] writePropertyViaRestApi:Using PATCH method (required for specific document ID)");
-  console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
-  console.log("[repo] writePropertyViaRestApi:Full path:", docRef.path);
-  
-  // For Firestore REST API PATCH to CREATE a new document:
-  // - updateMask is ONLY needed for partial updates (updating existing documents)
-  // - For creating new documents, we can omit updateMask entirely
-  // - The fields in the body will be used to create all fields
-  //
-  // Since we're creating a NEW document (doesn't exist yet), we don't need updateMask
-  const fieldPaths = Object.keys(restPayload);
-  console.log("[repo] writePropertyViaRestApi:Creating NEW document - updateMask not needed");
-  console.log("[repo] writePropertyViaRestApi:Fields to create:", fieldPaths);
-  console.log("[repo] writePropertyViaRestApi:Full URL:", url);
   
   const response = await fetch(url, {
     method: "PATCH",
