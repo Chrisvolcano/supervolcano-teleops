@@ -296,7 +296,6 @@ export type TimestampLike =
 
 // Legacy property types (renamed to locations in new system)
 export type PropertyStatus = "scheduled" | "unassigned";
-export type LocationStatus = "active" | "inactive"; // New type
 
 export type TaskAssignment = "teleoperator" | "human";
 

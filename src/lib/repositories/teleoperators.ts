@@ -6,6 +6,7 @@
 
 import { adminDb, adminAuth } from "@/lib/firebaseAdmin";
 import type { Teleoperator, TeleoperatorStatus, UserRole } from "@/lib/types";
+import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
 
 const COLLECTION = "teleoperators";
@@ -76,7 +77,7 @@ export async function createTeleoperator(
 
   await adminDb.collection(COLLECTION).doc(teleoperatorId).set({
     ...teleoperator,
-    createdAt: adminDb.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 
   return { teleoperatorId, uid };
@@ -135,7 +136,7 @@ export async function updateTeleoperator(
 ): Promise<void> {
   const updateData: any = {
     ...updates,
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   };
 
   // If updating email, also update Firebase Auth
@@ -160,8 +161,8 @@ export async function updateTeleoperatorStatus(
 ): Promise<void> {
   await adminDb.collection(COLLECTION).doc(teleoperatorId).update({
     currentStatus: status,
-    lastActiveAt: adminDb.FieldValue.serverTimestamp(),
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    lastActiveAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 

@@ -6,6 +6,7 @@
 
 import { adminDb } from "@/lib/firebaseAdmin";
 import type { Location, LocationStatus } from "@/lib/types";
+import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
 
 const COLLECTION = "locations";
@@ -40,8 +41,8 @@ export async function createLocation(
 
   await adminDb.collection(COLLECTION).doc(locationId).set({
     ...location,
-    createdAt: adminDb.FieldValue.serverTimestamp(),
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return locationId;
@@ -88,7 +89,7 @@ export async function updateLocation(
 ): Promise<void> {
   const updateData: any = {
     ...updates,
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   };
 
   await adminDb.collection(COLLECTION).doc(locationId).update(updateData);
@@ -108,8 +109,8 @@ export async function assignTeleoperatorToLocation(
 
   if (!location.assignedTeleoperatorIds.includes(teleoperatorId)) {
     await adminDb.collection(COLLECTION).doc(locationId).update({
-      assignedTeleoperatorIds: adminDb.FieldValue.arrayUnion(teleoperatorId),
-      updatedAt: adminDb.FieldValue.serverTimestamp(),
+      assignedTeleoperatorIds: FieldValue.arrayUnion(teleoperatorId),
+      updatedAt: FieldValue.serverTimestamp(),
     });
   }
 }
@@ -122,8 +123,8 @@ export async function unassignTeleoperatorFromLocation(
   teleoperatorId: string,
 ): Promise<void> {
   await adminDb.collection(COLLECTION).doc(locationId).update({
-    assignedTeleoperatorIds: adminDb.FieldValue.arrayRemove(teleoperatorId),
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    assignedTeleoperatorIds: FieldValue.arrayRemove(teleoperatorId),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -133,7 +134,7 @@ export async function unassignTeleoperatorFromLocation(
 export async function deleteLocation(locationId: string): Promise<void> {
   await adminDb.collection(COLLECTION).doc(locationId).update({
     status: "inactive",
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 

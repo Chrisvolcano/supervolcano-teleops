@@ -6,6 +6,7 @@
 
 import { adminDb } from "@/lib/firebaseAdmin";
 import type { Task, TaskStatus } from "@/lib/types";
+import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
 
 const COLLECTION = "tasks";
@@ -14,7 +15,9 @@ const COLLECTION = "tasks";
  * Create a new task
  */
 export async function createTask(
-  data: Omit<Task, "taskId" | "createdAt" | "updatedAt" | "status" | "photosBefore" | "photosAfter" | "instructionIds">,
+  data: Omit<Task, "taskId" | "createdAt" | "updatedAt" | "photosBefore" | "photosAfter"> & {
+    instructionIds?: string[];
+  },
   createdBy: string,
 ): Promise<string> {
   const taskId = randomUUID();
@@ -44,8 +47,8 @@ export async function createTask(
 
   await adminDb.collection(COLLECTION).doc(taskId).set({
     ...task,
-    createdAt: adminDb.FieldValue.serverTimestamp(),
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return taskId;
@@ -102,7 +105,7 @@ export async function updateTask(
 ): Promise<void> {
   const updateData: any = {
     ...updates,
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   };
 
   await adminDb.collection(COLLECTION).doc(taskId).update(updateData);
@@ -118,7 +121,7 @@ export async function assignTaskToTeleoperator(
   await adminDb.collection(COLLECTION).doc(taskId).update({
     assignedTeleoperatorId: teleoperatorId,
     status: "assigned",
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -128,8 +131,8 @@ export async function assignTaskToTeleoperator(
 export async function startTask(taskId: string, teleoperatorId: string): Promise<void> {
   await adminDb.collection(COLLECTION).doc(taskId).update({
     status: "in-progress",
-    startedAt: adminDb.FieldValue.serverTimestamp(),
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    startedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -146,11 +149,11 @@ export async function completeTask(
 ): Promise<void> {
   await adminDb.collection(COLLECTION).doc(taskId).update({
     status: "completed",
-    completedAt: adminDb.FieldValue.serverTimestamp(),
+    completedAt: FieldValue.serverTimestamp(),
     photosAfter: data.photosAfter || [],
     teleoperatorNotes: data.teleoperatorNotes,
     issuesEncountered: data.issuesEncountered || [],
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -160,7 +163,7 @@ export async function completeTask(
 export async function deleteTask(taskId: string): Promise<void> {
   await adminDb.collection(COLLECTION).doc(taskId).update({
     status: "cancelled",
-    updatedAt: adminDb.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 }
 
