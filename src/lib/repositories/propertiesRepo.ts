@@ -238,8 +238,20 @@ export async function createProperty(input: {
       // Add a marker to track when setDoc is actually called
       const setDocCallTime = Date.now();
       console.log(`[repo] createProperty:Calling setDoc at ${setDocCallTime}...`);
+      console.log(`[repo] createProperty:setDoc payload:`, {
+        hasName: !!payload.name,
+        hasPartnerOrgId: !!payload.partnerOrgId,
+        hasCreatedBy: !!payload.createdBy,
+        keys: Object.keys(payload),
+        payloadSize: JSON.stringify(payload).length, // This might fail with serverTimestamp, but that's okay
+      });
       
-      const setDocPromise = setDoc(docRef, payload)
+      // CRITICAL: Try to force immediate write by checking if SDK will accept it
+      // If setDoc doesn't throw immediately, it should queue the write
+      // But if writes aren't being sent, this is where we'll see it
+      console.log("[repo] createProperty:About to call setDoc - if this hangs, SDK isn't sending writes");
+      
+      const setDocPromise = setDoc(docRef, payload, { merge: false })
         .then(() => {
           hasCompleted = true;
           if (timeoutId) clearTimeout(timeoutId);
