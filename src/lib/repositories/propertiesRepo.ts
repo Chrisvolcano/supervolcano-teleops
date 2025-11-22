@@ -74,7 +74,7 @@ export async function createProperty(input: {
       hasId: !!input.id,
     });
     
-    const payload = buildPayload(input);
+  const payload = buildPayload(input);
     console.log("[repo] createProperty:payload built", { 
       hasName: !!payload.name,
       hasPartnerOrgId: !!payload.partnerOrgId,
@@ -113,13 +113,32 @@ export async function createProperty(input: {
       hasToken: !!token,
     });
     
+    // Serialize payload to check for issues
+    try {
+      JSON.stringify(payload);
+      console.log("[repo] createProperty:payload is JSON-serializable");
+    } catch (serializeError) {
+      console.error("[repo] createProperty:payload NOT JSON-serializable!", serializeError);
+      throw new Error("Payload contains non-serializable data");
+    }
+    
     const startTime = Date.now();
     try {
-      console.log("[repo] createProperty:awaiting setDoc...");
-      // Add timeout wrapper
+      console.log("[repo] createProperty:awaiting setDoc...", {
+        docPath: docRef.path,
+        payloadKeys: Object.keys(payload),
+        payloadSize: JSON.stringify(payload).length,
+      });
+      
+      // Try setDoc with a timeout
       const setDocPromise = setDoc(docRef, payload);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("setDoc timed out after 10 seconds")), 10000)
+        setTimeout(() => {
+          const duration = Date.now() - startTime;
+          console.error(`[repo] createProperty:setDoc TIMED OUT after ${duration}ms`);
+          console.error("[repo] createProperty:This indicates a Firestore connection or rules issue");
+          reject(new Error(`setDoc timed out after ${duration}ms - check Firestore rules, network, and auth token`));
+        }, 10000)
       );
       
       await Promise.race([setDocPromise, timeoutPromise]);
@@ -164,14 +183,14 @@ export async function createProperty(input: {
     throw error;
   }
 }
-    if (input.id) {
+  if (input.id) {
       // If ID is provided, use it (for migrations or specific ID requirements)
       console.log("[repo] createProperty:using provided ID", input.id);
       const ref = doc(db, "locations", input.id);
-      await setDoc(ref, payload);
+    await setDoc(ref, payload);
       console.log("[repo] createProperty:setDoc completed", input.id);
-      return input.id;
-    }
+    return input.id;
+  }
     
     // Use addDoc to generate a unique Firestore UUID and save with admin's createdBy field
     // This ensures every location has a unique UUID and is associated with the creating admin
@@ -346,7 +365,7 @@ export async function createProperty(input: {
         throw raceError;
       }
       console.log("[repo] createProperty:addDoc SUCCESS", { id: docRef.id, path: docRef.path });
-      return docRef.id;
+  return docRef.id;
     } catch (addDocError) {
       const firestoreError = addDocError as any;
       console.error("[repo] createProperty:addDoc FAILED", {
