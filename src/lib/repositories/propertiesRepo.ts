@@ -244,13 +244,19 @@ function buildPayload(input: {
   const media = Array.isArray(input.media) ? input.media : [];
   const imageUrls = input.images ?? media.filter((item) => item.type === "image").map((item) => item.url);
   
+  // Clean media array - convert Date objects to ISO strings for Firestore compatibility
+  const cleanedMedia = media.map((item) => ({
+    ...item,
+    createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+  }));
+  
   return {
     name: trimmedName,
     partnerOrgId: trimmedPartnerOrgId,
     address: input.address?.trim() ?? "",
     description: input.description?.trim() ?? "",
     images: imageUrls,
-    media,
+    media: cleanedMedia,
     imageCount: media.filter((item) => item.type === "image").length || imageUrls.length,
     videoCount: media.filter((item) => item.type === "video").length,
     status: input.status ?? "unassigned",
