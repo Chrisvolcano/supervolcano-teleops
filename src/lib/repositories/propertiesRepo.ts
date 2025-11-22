@@ -25,7 +25,11 @@ async function writePropertyViaRestApi(
   payload: any,
   documentId: string,
 ): Promise<string> {
-  console.log("[repo] createProperty:Using REST API fallback...");
+  console.log("=".repeat(80));
+  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED 🚀🚀🚀");
+  console.log("=".repeat(80));
+  console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
+  console.log("[repo] writePropertyViaRestApi:Document path:", docRef.path);
   const { auth: firebaseAuth } = await import("@/lib/firebaseClient");
   const currentUser = firebaseAuth.currentUser;
   if (!currentUser) {
@@ -395,12 +399,29 @@ export async function createProperty(input: {
         
         // If SDK timed out, try REST API fallback
         if (errorMsg.includes("SDK_TIMEOUT") || errorMsg.includes("timed out")) {
-          console.warn("[repo] createProperty:SDK timed out, using REST API fallback...");
+          console.warn("=".repeat(80));
+          console.warn("[repo] ⚠️⚠️⚠️ SDK timed out, using REST API fallback... ⚠️⚠️⚠️");
+          console.warn("=".repeat(80));
+          console.warn("[repo] createProperty:Error message:", errorMsg);
+          console.warn("[repo] createProperty:Checking if errorMsg includes 'SDK_TIMEOUT':", errorMsg.includes("SDK_TIMEOUT"));
+          console.warn("[repo] createProperty:Checking if errorMsg includes 'timed out':", errorMsg.includes("timed out"));
+          
           try {
+            console.warn("[repo] createProperty:About to call writePropertyViaRestApi...");
             result = await writePropertyViaRestApi(docRef, payload, documentId);
-            console.log("[repo] createProperty:✅ REST API fallback succeeded!");
+            console.log("=".repeat(80));
+            console.log("[repo] ✅✅✅ REST API fallback SUCCEEDED! ✅✅✅");
+            console.log("=".repeat(80));
           } catch (restError) {
-            console.error("[repo] createProperty:REST API fallback also failed:", restError);
+            console.error("=".repeat(80));
+            console.error("[repo] ❌❌❌ REST API fallback FAILED! ❌❌❌");
+            console.error("=".repeat(80));
+            console.error("[repo] createProperty:REST API fallback error:", restError);
+            console.error("[repo] createProperty:REST API error details:", {
+              error: restError,
+              errorMessage: restError instanceof Error ? restError.message : String(restError),
+              errorStack: restError instanceof Error ? restError.stack : undefined,
+            });
             throw new Error(`Both SDK and REST API failed. SDK: ${errorMsg}. REST: ${restError instanceof Error ? restError.message : String(restError)}`);
           }
         } else if (firestoreError?.code === 'permission-denied' || firestoreError?.code === 7) {
