@@ -156,7 +156,16 @@ async function writePropertyViaRestApi(
   // Multi-region databases use: https://firestore.googleapis.com/...
   // 
   // Database location 'nam5' is North America multi-region, so standard endpoint is correct
-  let url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${documentPath}`;
+  // CRITICAL: Database ID "(default)" needs URL encoding: encodeURIComponent("(default)") = "%28default%29"
+  // But Firestore REST API might expect literal "(default)" or URL-encoded version
+  // Try both formats - Firestore docs say to use "(default)" as-is in path, not encoded
+  const encodedDatabaseId = databaseId === "(default)" ? "(default)" : encodeURIComponent(databaseId);
+  let url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(db.app.options.projectId)}/databases/${encodedDatabaseId}/documents/${documentPath}`;
+  
+  console.log("[repo] writePropertyViaRestApi:Database ID (raw):", databaseId);
+  console.log("[repo] writePropertyViaRestApi:Database ID (encoded):", encodedDatabaseId);
+  console.log("[repo] writePropertyViaRestApi:Project ID (raw):", db.app.options.projectId);
+  console.log("[repo] writePropertyViaRestApi:Project ID (encoded):", encodeURIComponent(db.app.options.projectId));
   
   console.log("[repo] writePropertyViaRestApi:Using standard REST API endpoint (correct for nam5 multi-region)");
   console.log("[repo] writePropertyViaRestApi:Database location: nam5 (North America multi-region)");
@@ -334,7 +343,7 @@ export async function createProperty(input: {
       hasId: !!input.id,
     });
     
-    const payload = buildPayload(input);
+  const payload = buildPayload(input);
     console.log("[repo] createProperty:payload built", { 
       hasName: !!payload.name,
       hasPartnerOrgId: !!payload.partnerOrgId,
