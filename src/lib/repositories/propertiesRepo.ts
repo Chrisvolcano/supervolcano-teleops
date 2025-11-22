@@ -81,6 +81,50 @@ export async function createProperty(input: {
       hasCreatedBy: !!payload.createdBy,
     });
     
+    // ALWAYS use setDoc with a generated ID instead of addDoc
+    // This works around potential Firestore SDK issues where addDoc hangs
+    console.log("[repo] createProperty:generating document ID...");
+    const collection = collectionRef();
+    const newDocRef = doc(collection);
+    const documentId = input.id || newDocRef.id;
+    console.log("[repo] createProperty:using document ID", documentId);
+    
+    const docRef = doc(db, "locations", documentId);
+    console.log("[repo] createProperty:calling setDoc with generated ID...");
+    console.log("[repo] createProperty:doc path", docRef.path);
+    
+    const startTime = Date.now();
+    try {
+      await setDoc(docRef, payload);
+      const duration = Date.now() - startTime;
+      console.log(`[repo] createProperty:setDoc completed in ${duration}ms`, documentId);
+      return documentId;
+    } catch (setDocError) {
+      const duration = Date.now() - startTime;
+      const firestoreError = setDocError as any;
+      console.error(`[repo] createProperty:setDoc failed after ${duration}ms`, {
+        error: setDocError,
+        errorCode: firestoreError?.code,
+        errorMessage: setDocError instanceof Error ? setDocError.message : String(setDocError),
+        firestoreCode: firestoreError?.code,
+        firestoreMessage: firestoreError?.message,
+        isPermissionError: firestoreError?.code === 'permission-denied' || firestoreError?.code === 7,
+        documentId,
+        payload: {
+          name: payload.name,
+          partnerOrgId: payload.partnerOrgId,
+          createdBy: payload.createdBy,
+        },
+      });
+      
+      if (firestoreError?.code === 'permission-denied' || firestoreError?.code === 7) {
+        throw new Error(`Firestore permission denied. Check: 1) Rules are published, 2) Token has admin role, 3) Rules allow create on /locations. Original: ${firestoreError?.message || String(setDocError)}`);
+      }
+      
+      throw setDocError;
+    }
+    
+    /* OLD CODE - REMOVED DUE TO addDoc HANGING
     if (input.id) {
       // If ID is provided, use it (for migrations or specific ID requirements)
       console.log("[repo] createProperty:using provided ID", input.id);
