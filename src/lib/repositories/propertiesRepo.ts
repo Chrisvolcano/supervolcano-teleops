@@ -81,25 +81,9 @@ export async function createProperty(input: {
       hasCreatedBy: !!payload.createdBy,
     });
     
-    // ALWAYS use setDoc with a generated ID instead of addDoc
-    // This works around potential Firestore SDK issues where addDoc hangs
-    console.log("[repo] createProperty:generating document ID...");
-    const collection = collectionRef();
-    const newDocRef = doc(collection);
-    const documentId = input.id || newDocRef.id;
-    console.log("[repo] createProperty:using document ID", documentId);
-    
-    // CRITICAL: Create docRef AFTER token refresh to ensure Firestore SDK uses fresh token
-    const docRef = doc(db, "locations", documentId);
-    console.log("[repo] createProperty:calling setDoc with generated ID...", {
-      docPath: docRef.path,
-      dbInstance: db.app.name,
-      dbProject: db.app.options.projectId,
-      documentId,
-    });
-    
-    // Verify auth state - use the auth instance from the same db instance
-    // Import it statically (not dynamically) to ensure we're using the same instance
+    // CRITICAL: Verify auth and refresh token FIRST, before creating any Firestore references
+    // The Firestore SDK may cache connection/auth state when docRef is created
+    // So we need fresh auth state BEFORE creating the document reference
     const { auth } = await import("@/lib/firebaseClient");
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -110,9 +94,9 @@ export async function createProperty(input: {
       email: currentUser.email,
     });
     
-    // CRITICAL: Force token refresh to ensure Firestore SDK uses fresh token with admin role
+    // CRITICAL: Force token refresh FIRST, before creating docRef
     // The Firestore SDK automatically uses the latest token from auth.currentUser
-    // By forcing a refresh here, we ensure the SDK picks up the latest token before setDoc
+    // By refreshing before creating docRef, we ensure the SDK uses the fresh token
     const token = await currentUser.getIdToken(true); // Force refresh!
     
     // Decode token to verify admin role is present
@@ -131,12 +115,32 @@ export async function createProperty(input: {
         throw new Error(`Token does not have admin role! Role is: "${tokenRole || 'undefined'}". Please sign out and sign back in, or run: npm run set-admin`);
       }
     } catch (decodeError) {
+      if (decodeError instanceof Error && decodeError.message.includes("admin role")) {
+        throw decodeError; // Re-throw admin role errors
+      }
       console.warn("[repo] createProperty:could not decode token (continuing anyway)", decodeError);
     }
     
     // Give Firestore SDK a moment to pick up the refreshed token
-    // This ensures setDoc uses the token we just refreshed
-    await new Promise(resolve => setTimeout(resolve, 200)); // Increased to 200ms
+    // This ensures any cached connections use the fresh token
+    await new Promise(resolve => setTimeout(resolve, 300)); // Increased to 300ms to ensure SDK picks up token
+    
+    // NOW create document reference AFTER token is refreshed
+    // This ensures the docRef is created with fresh auth state
+    console.log("[repo] createProperty:generating document ID...");
+    const collection = collectionRef();
+    const newDocRef = doc(collection);
+    const documentId = input.id || newDocRef.id;
+    console.log("[repo] createProperty:using document ID", documentId);
+    
+    // Create docRef AFTER token refresh to ensure Firestore SDK uses fresh token
+    const docRef = doc(db, "locations", documentId);
+    console.log("[repo] createProperty:calling setDoc with generated ID...", {
+      docPath: docRef.path,
+      dbInstance: db.app.name,
+      dbProject: db.app.options.projectId,
+      documentId,
+    });
     
     // Check payload structure (but don't JSON.stringify - serverTimestamp() and Date objects are valid for Firestore)
     console.log("[repo] createProperty:payload structure check", {
