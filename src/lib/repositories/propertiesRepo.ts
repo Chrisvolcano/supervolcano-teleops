@@ -78,7 +78,12 @@ async function writePropertyViaRestApi(
   if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
   if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
   
-  const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`;
+  // Get database ID - it might not be "(default)" if the database was created differently
+  // The SDK's db instance should have the database ID
+  const databaseId = (db as any).databaseId || (db as any)._databaseId || "(default)";
+  console.log("[repo] writePropertyViaRestApi:Database ID:", databaseId);
+  
+  const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${docRef.path}`;
   console.log("[repo] writePropertyViaRestApi:REST API URL:", url);
   console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
   console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
