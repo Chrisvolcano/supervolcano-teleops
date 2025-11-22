@@ -19,6 +19,85 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 
 const collectionRef = () => collection(db, "locations");
 
+// REST API fallback function for when SDK fails
+async function useRestApiFallback(
+  docRef: ReturnType<typeof doc>,
+  payload: any,
+  documentId: string,
+): Promise<string> {
+  console.log("[repo] createProperty:Using REST API fallback...");
+  const { auth: firebaseAuth } = await import("@/lib/firebaseClient");
+  const currentUser = firebaseAuth.currentUser;
+  if (!currentUser) {
+    throw new Error("No authenticated user for REST API fallback");
+  }
+  const token = await currentUser.getIdToken(true);
+  
+  // Convert payload to Firestore REST API format
+  const restPayload: any = {};
+  const now = new Date().toISOString();
+  
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === null || value === undefined) continue;
+    
+    // Skip serverTimestamp() - we'll add timestamps manually
+    if (value && typeof value === "object" && "toFirestore" in value) {
+      // serverTimestamp() - replace with actual timestamp
+      if (key === "createdAt" || key === "updatedAt") {
+        restPayload[key] = { timestampValue: now };
+      }
+      continue;
+    }
+    
+    if (typeof value === "string") {
+      restPayload[key] = { stringValue: value };
+    } else if (typeof value === "number") {
+      restPayload[key] = { integerValue: value.toString() };
+    } else if (typeof value === "boolean") {
+      restPayload[key] = { booleanValue: value };
+    } else if (Array.isArray(value)) {
+      if (value.length === 0) {
+        restPayload[key] = { arrayValue: { values: [] } };
+      } else if (typeof value[0] === "string") {
+        restPayload[key] = { arrayValue: { values: value.map(v => ({ stringValue: String(v) })) } };
+      } else {
+        // Complex array - skip for now or handle better
+        restPayload[key] = { arrayValue: { values: [] } };
+      }
+    } else if (value && typeof value === "object" && "toDate" in value) {
+      // Timestamp object
+      restPayload[key] = { timestampValue: (value as any).toDate().toISOString() };
+    }
+  }
+  
+  // Ensure timestamps are set
+  if (!restPayload.createdAt) restPayload.createdAt = { timestampValue: now };
+  if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
+  
+  const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`;
+  console.log("[repo] createProperty:REST API URL:", url);
+  console.log("[repo] createProperty:REST API payload keys:", Object.keys(restPayload));
+  
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields: restPayload }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[repo] createProperty:REST API failed:", response.status, errorText);
+    throw new Error(`REST API write failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  
+  const result = await response.json();
+  console.log("[repo] createProperty:✅✅✅ REST API write succeeded!", result);
+  return documentId;
+}
+
 type WatchOptions = {
   partnerOrgId?: string;
   includeInactive?: boolean;
