@@ -149,21 +149,38 @@ export async function createProperty(input: {
         },
       });
       
-      // Try setDoc with a timeout
-      const setDocPromise = setDoc(docRef, payload);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => {
-          const duration = Date.now() - startTime;
-          console.error(`[repo] createProperty:setDoc TIMED OUT after ${duration}ms`);
-          console.error("[repo] createProperty:This indicates a Firestore connection or rules issue");
-          reject(new Error(`setDoc timed out after ${duration}ms - check Firestore rules, network, and auth token`));
-        }, 10000)
-      );
+      // Try setDoc with a timeout - but also add error listener to catch permission errors early
+      let timeoutId: NodeJS.Timeout | null = null;
+      let hasCompleted = false;
       
-      await Promise.race([setDocPromise, timeoutPromise]);
-      const duration = Date.now() - startTime;
-      console.log(`[repo] createProperty:setDoc completed in ${duration}ms`, documentId);
-      return documentId;
+      const setDocPromise = setDoc(docRef, payload)
+        .then(() => {
+          hasCompleted = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          const duration = Date.now() - startTime;
+          console.log(`[repo] createProperty:setDoc completed in ${duration}ms`, documentId);
+          return documentId;
+        })
+        .catch((error) => {
+          hasCompleted = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          throw error;
+        });
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          if (!hasCompleted) {
+            const duration = Date.now() - startTime;
+            console.error(`[repo] createProperty:setDoc TIMED OUT after ${duration}ms`);
+            console.error("[repo] createProperty:This indicates a Firestore connection or rules issue");
+            console.error("[repo] createProperty:Check Network tab for blocked requests to firestore.googleapis.com");
+            reject(new Error(`setDoc timed out after ${duration}ms - This usually means: 1) Firestore rules are blocking (check token has admin role), 2) Network issue, or 3) Firestore service problem`));
+          }
+        }, 10000);
+      });
+      
+      const result = await Promise.race([setDocPromise, timeoutPromise]);
+      return result;
     } catch (setDocError) {
       const duration = Date.now() - startTime;
       const firestoreError = setDocError as any;
