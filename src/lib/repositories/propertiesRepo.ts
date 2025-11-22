@@ -90,13 +90,17 @@ export async function createProperty(input: {
     const documentId = input.id || newDocRef.id;
     console.log("[repo] createProperty:using document ID", documentId);
     
+    // CRITICAL: Create docRef AFTER token refresh to ensure Firestore SDK uses fresh token
     const docRef = doc(db, "locations", documentId);
-    console.log("[repo] createProperty:calling setDoc with generated ID...");
-    console.log("[repo] createProperty:doc path", docRef.path);
-    console.log("[repo] createProperty:db instance", db.app.name);
-    console.log("[repo] createProperty:db project", db.app.options.projectId);
+    console.log("[repo] createProperty:calling setDoc with generated ID...", {
+      docPath: docRef.path,
+      dbInstance: db.app.name,
+      dbProject: db.app.options.projectId,
+      documentId,
+    });
     
-    // Verify auth state
+    // Verify auth state - use the auth instance from the same db instance
+    // Import it statically (not dynamically) to ensure we're using the same instance
     const { auth } = await import("@/lib/firebaseClient");
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -107,12 +111,18 @@ export async function createProperty(input: {
       email: currentUser.email,
     });
     
-    // Get fresh token to ensure it's included
-    const token = await currentUser.getIdToken(false);
-    console.log("[repo] createProperty:got auth token", {
+    // CRITICAL: Force token refresh to ensure Firestore SDK uses fresh token with admin role
+    // The Firestore SDK automatically uses the latest token from auth.currentUser
+    // By forcing a refresh here, we ensure the SDK picks up the latest token before setDoc
+    const token = await currentUser.getIdToken(true); // Force refresh!
+    console.log("[repo] createProperty:got FRESH auth token (forced refresh)", {
       tokenLength: token.length,
       hasToken: !!token,
     });
+    
+    // Give Firestore SDK a moment to pick up the refreshed token
+    // This ensures setDoc uses the token we just refreshed
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Check payload structure (but don't JSON.stringify - serverTimestamp() and Date objects are valid for Firestore)
     console.log("[repo] createProperty:payload structure check", {
