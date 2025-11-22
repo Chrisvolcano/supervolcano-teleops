@@ -227,64 +227,20 @@ async function writePropertyViaRestApi(
     }),
   });
   
-  const fetchDuration = Date.now() - fetchStartTime;
-  console.log(`[repo] writePropertyViaRestApi:Fetch completed in ${fetchDuration}ms`);
-  console.log("[repo] writePropertyViaRestApi:Response status:", response.status);
-  console.log("[repo] writePropertyViaRestApi:Response ok:", response.ok);
-  
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error("=".repeat(80));
-    console.error("[repo] ❌❌❌ REST API FAILED! ❌❌❌");
-    console.error("=".repeat(80));
-    console.error("[repo] writePropertyViaRestApi:REST API failed:", response.status, errorText);
+    const errorData = await response.json().catch(() => ({ error: { message: await response.text() } }));
+    console.error("❌ REST API Error:", {
+      status: response.status,
+      error: errorData.error,
+      url,
+    });
     
-    // If 404 and error says database doesn't exist, try common regional endpoints
-    if (response.status === 404 && errorText.includes("does not exist")) {
-      console.warn("[repo] writePropertyViaRestApi:404 error - trying regional endpoints...");
-      
-      // Common Firestore regions
-      const regions = ["us-central1", "us-east1", "us-west1", "europe-west1", "asia-northeast1"];
-      
-      for (const region of regions) {
-        const regionalUrl = `https://${region}-firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${documentPath}`;
-        console.log(`[repo] writePropertyViaRestApi:Trying regional endpoint: ${region}`);
-        
-        try {
-          const regionalResponse = await fetch(regionalUrl, {
-            method: "PATCH",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ fields: restPayload }),
-          });
-          
-          if (regionalResponse.ok) {
-            console.log(`[repo] ✅✅✅ Regional endpoint ${region} worked! ✅✅✅`);
-            const result = await regionalResponse.json();
-            return documentId;
-          } else {
-            const regionalErrorText = await regionalResponse.text();
-            console.log(`[repo] Regional endpoint ${region} failed:`, regionalResponse.status, regionalErrorText.substring(0, 200));
-          }
-        } catch (regionalError) {
-          console.log(`[repo] Regional endpoint ${region} error:`, regionalError);
-        }
-      }
-      
-      console.error("[repo] writePropertyViaRestApi:All regional endpoints failed");
-      console.error("[repo] writePropertyViaRestApi:Please check Firebase Console → Firestore → Settings");
-      console.error("[repo] writePropertyViaRestApi:Note the database location/region and update the code");
-    }
-    
-    throw new Error(`REST API write failed: ${response.status} ${response.statusText} - ${errorText}`);
+    throw new Error(`REST API write failed: ${response.status} ${errorData.error?.message || "Unknown error"}`);
   }
   
-  const result = await response.json();
-  console.log("=".repeat(80));
-  console.log("[repo] ✅✅✅ REST API write SUCCEEDED! ✅✅✅", result);
-  console.log("=".repeat(80));
+  const responseData = await response.json();
+  console.log("✅ REST API Write successful:", responseData.name || documentId);
+  
   return documentId;
 }
 
