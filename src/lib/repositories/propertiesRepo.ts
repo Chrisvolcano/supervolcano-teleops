@@ -92,10 +92,37 @@ export async function createProperty(input: {
     const docRef = doc(db, "locations", documentId);
     console.log("[repo] createProperty:calling setDoc with generated ID...");
     console.log("[repo] createProperty:doc path", docRef.path);
+    console.log("[repo] createProperty:db instance", db.app.name);
+    console.log("[repo] createProperty:db project", db.app.options.projectId);
+    
+    // Verify auth state
+    const { auth } = await import("@/lib/firebaseClient");
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("No authenticated user - cannot create location");
+    }
+    console.log("[repo] createProperty:auth user", {
+      uid: currentUser.uid,
+      email: currentUser.email,
+    });
+    
+    // Get fresh token to ensure it's included
+    const token = await currentUser.getIdToken(false);
+    console.log("[repo] createProperty:got auth token", {
+      tokenLength: token.length,
+      hasToken: !!token,
+    });
     
     const startTime = Date.now();
     try {
-      await setDoc(docRef, payload);
+      console.log("[repo] createProperty:awaiting setDoc...");
+      // Add timeout wrapper
+      const setDocPromise = setDoc(docRef, payload);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("setDoc timed out after 10 seconds")), 10000)
+      );
+      
+      await Promise.race([setDocPromise, timeoutPromise]);
       const duration = Date.now() - startTime;
       console.log(`[repo] createProperty:setDoc completed in ${duration}ms`, documentId);
       return documentId;
