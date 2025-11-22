@@ -80,29 +80,56 @@ async function writePropertyViaRestApi(
   
   // CRITICAL: Extract database ID from SDK instance
   // The SDK knows which database it's connected to
+  // The error shows "database super-volcano-oem-portal does not exist" - that's the PROJECT ID!
+  // This means databaseId extraction is failing and we're using project ID instead
   const dbAny = db as any;
-  let databaseId = "(default)"; // Default fallback
+  let databaseId = "(default)"; // Default fallback - MUST be "(default)" with parentheses
   
   // Try to extract database ID from SDK instance (it's stored internally)
   // The Firestore SDK v9 stores it in _databaseId._databaseId
+  console.log("[repo] writePropertyViaRestApi:Attempting to extract database ID from SDK...");
+  console.log("[repo] writePropertyViaRestApi:dbAny keys:", Object.keys(dbAny));
+  
   if (dbAny._databaseId) {
+    console.log("[repo] writePropertyViaRestApi:Found _databaseId:", dbAny._databaseId);
     if (typeof dbAny._databaseId === "string") {
       databaseId = dbAny._databaseId;
+      console.log("[repo] writePropertyViaRestApi:Database ID is string:", databaseId);
     } else if (dbAny._databaseId._databaseId) {
       databaseId = dbAny._databaseId._databaseId;
+      console.log("[repo] writePropertyViaRestApi:Database ID from _databaseId._databaseId:", databaseId);
     } else if (dbAny._databaseId.databaseId) {
       databaseId = dbAny._databaseId.databaseId;
+      console.log("[repo] writePropertyViaRestApi:Database ID from _databaseId.databaseId:", databaseId);
     } else if (typeof dbAny._databaseId === "object") {
       // Try any property that might be the database ID
-      const possibleId = Object.values(dbAny._databaseId).find((v: any) => typeof v === "string" && v.length > 0 && v !== "firestore");
+      const possibleId = Object.values(dbAny._databaseId).find((v: any) => typeof v === "string" && v.length > 0 && v !== "firestore" && v !== db.app.options.projectId);
       if (possibleId) {
         databaseId = possibleId as string;
+        console.log("[repo] writePropertyViaRestApi:Database ID from object values:", databaseId);
       }
     }
   }
   if (dbAny.databaseId && databaseId === "(default)") {
     databaseId = dbAny.databaseId;
+    console.log("[repo] writePropertyViaRestApi:Database ID from dbAny.databaseId:", databaseId);
   }
+  
+  // CRITICAL CHECK: Make sure we didn't accidentally use project ID
+  if (databaseId === db.app.options.projectId) {
+    console.error("[repo] writePropertyViaRestApi:❌ ERROR: Database ID equals project ID! Using default.");
+    databaseId = "(default)";
+  }
+  
+  // Ensure database ID is "(default)" format (with parentheses)
+  if (databaseId !== "(default)" && databaseId !== "default") {
+    console.warn("[repo] writePropertyViaRestApi:⚠️ Database ID is not '(default)':", databaseId);
+    // If it's not "(default)", we should still use it, but log a warning
+  } else {
+    databaseId = "(default)"; // Force to "(default)" format
+  }
+  
+  console.log("[repo] writePropertyViaRestApi:Final database ID:", databaseId);
   
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:🔍 Database ID Detection");
