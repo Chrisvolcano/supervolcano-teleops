@@ -224,11 +224,18 @@ export default function AdminPropertiesPage() {
     if (!filteredProperties.length) {
       return;
     }
-    if (!selectedPropertyId || !filteredProperties.some((property) => property.id === selectedPropertyId)) {
-      setSelectedPropertyId(filteredProperties[0].id);
-      setActiveTab("summary");
+    // Only update selectedPropertyId if it's not set or the selected property doesn't exist in the filtered list
+    // Use a ref or additional check to prevent infinite loops
+    const currentSelectedExists = selectedPropertyId && filteredProperties.some((property) => property.id === selectedPropertyId);
+    if (!selectedPropertyId || !currentSelectedExists) {
+      const firstPropertyId = filteredProperties[0]?.id;
+      if (firstPropertyId && firstPropertyId !== selectedPropertyId) {
+        setSelectedPropertyId(firstPropertyId);
+        setActiveTab("summary");
+      }
     }
-  }, [filteredProperties, selectedPropertyId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredProperties.length, selectedPropertyId]); // Only depend on length and selectedPropertyId to avoid re-running on property reference changes
 
   const operatorTaskCount = useMemo(() => {
     return tasks.filter((task) => task.assignment === "teleoperator").length;
