@@ -67,7 +67,8 @@ export async function createProperty(input: {
   createdBy: string;
 }) {
   try {
-    console.log("[repo] createProperty:start", { 
+    // VERSION: 2.0 - Using setDoc directly (NOT addDoc) - Cache bust
+    console.log("[repo] createProperty:start V2.0 (setDoc only)", { 
       name: input.name, 
       partnerOrgId: input.partnerOrgId,
       createdBy: input.createdBy,
