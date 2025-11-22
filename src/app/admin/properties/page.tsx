@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -175,10 +174,27 @@ export default function AdminPropertiesPage() {
   const [editingTask, setEditingTask] = useState<PortalTask | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
+  // Use a ref to store previous properties array to prevent unnecessary recalculations
+  const propertiesRef = useRef(properties);
+  const selectedPropertyIdRef = useRef(selectedPropertyId);
+  
+  // Only update refs when actual values change (not just reference)
+  useEffect(() => {
+    const propsChanged = properties.length !== propertiesRef.current.length || 
+      properties.some((p, i) => p.id !== propertiesRef.current[i]?.id);
+    if (propsChanged) {
+      propertiesRef.current = properties;
+    }
+    if (selectedPropertyId !== selectedPropertyIdRef.current) {
+      selectedPropertyIdRef.current = selectedPropertyId;
+    }
+  }, [properties, selectedPropertyId]);
+  
   const selectedProperty = useMemo(() => {
     if (!selectedPropertyId) return null;
-    return properties.find((item) => item.id === selectedPropertyId) ?? null;
-  }, [properties, selectedPropertyId]);
+    // Use stable reference to properties array
+    return propertiesRef.current.find((item) => item.id === selectedPropertyId) ?? null;
+  }, [selectedPropertyId]); // Only depend on selectedPropertyId, not properties array
 
   const editingProperty = useMemo(() => {
     if (!editingPropertyId) return null;
@@ -826,11 +842,13 @@ export default function AdminPropertiesPage() {
                     <Button variant="default" size="sm" onClick={() => openTaskDrawer()}>
                       <FilePlus2 className="mr-2 h-4 w-4" /> Add task
                     </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/property/${selectedProperty.id}`}>
-                        <ExternalLink className="mr-2 h-4 w-4" /> Open property page
-                      </Link>
-                    </Button>
+                    {selectedPropertyId && (
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/property/${selectedPropertyId}`} prefetch={false}>
+                          <ExternalLink className="mr-2 h-4 w-4" /> Open property page
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
