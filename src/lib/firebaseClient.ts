@@ -39,9 +39,11 @@ function getFirebaseApp(): FirebaseApp {
 
 export const firebaseApp = getFirebaseApp();
 
-if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_FIRESTORE_DEBUG === "true") {
+// Enable Firestore debug logging in development
+if (typeof window !== "undefined" && (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_FIRESTORE_DEBUG === "true")) {
   try {
     setLogLevel("debug");
+    console.log("[firebase] Firestore debug logging enabled");
   } catch (error) {
     console.warn("Failed to set Firestore log level", error);
   }

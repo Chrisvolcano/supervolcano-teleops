@@ -144,6 +144,18 @@ export async function createProperty(input: {
         payloadSize: JSON.stringify(payload).length,
       });
       
+      // Check Firestore connection state
+      try {
+        const { enableNetwork, disableNetwork, waitForPendingWrites } = await import("firebase/firestore");
+        console.log("[repo] createProperty:checking Firestore connection state...");
+        // Note: enableNetwork/disableNetwork are not available in all Firestore versions
+        // But we can try to ensure network is enabled
+        await enableNetwork(db);
+        console.log("[repo] createProperty:Firestore network enabled");
+      } catch (networkError) {
+        console.warn("[repo] createProperty:could not check/enable network", networkError);
+      }
+      
       // Try addDoc with a longer timeout to see if it's just slow
       // Also log when the promise actually starts
       console.log("[repo] createProperty:starting addDoc promise...");
