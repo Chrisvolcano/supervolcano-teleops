@@ -12,7 +12,7 @@ export default function AdminDashboardPage() {
   const role = (claims?.role as string | undefined) ?? "operator";
   const isAdmin = role === "admin";
 
-  const { data: properties } = useCollection({ path: "properties", enabled: isAdmin });
+  const { data: properties } = useCollection({ path: "locations", enabled: isAdmin });
  
   const { data: tasks } = useCollection({ path: "tasks", enabled: isAdmin });
  

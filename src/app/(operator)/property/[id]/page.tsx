@@ -112,7 +112,7 @@ export default function PropertyDetailPage() {
     loading: propertyLoading,
     error: propertyError,
   } = useDoc<PropertyDoc>({
-    path: "properties",
+    path: "locations",
     docId: propertyId!,
     enabled: Boolean(propertyId),
     parse: (doc) => {

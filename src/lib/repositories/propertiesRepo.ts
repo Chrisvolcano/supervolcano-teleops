@@ -378,8 +378,8 @@ function normalize(id: string, data: DocumentData): SVProperty {
     taskCount: Number.isFinite(data.taskCount) ? Number(data.taskCount) : 0,
     createdBy: typeof data.createdBy === "string" ? data.createdBy : data.created_by ?? null,
     updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : data.updated_by ?? null,
-    createdAt: data.createdAt ?? data.created_at ?? null,
-    updatedAt: data.updatedAt ?? data.updated_at ?? null,
+    createdAt: toTimestampLike(data.createdAt ?? data.created_at),
+    updatedAt: toTimestampLike(data.updatedAt ?? data.updated_at),
   };
 }
 
