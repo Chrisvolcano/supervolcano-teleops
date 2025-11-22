@@ -19,8 +19,16 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 
 const collectionRef = () => collection(db, "locations");
 
+// Cache the discovered database ID to avoid testing on every write
+let cachedDatabaseId: string | null = null;
+
 // Helper function to discover the correct database ID by trying to read an existing document
 async function discoverDatabaseId(projectId: string, token: string): Promise<string> {
+  // Return cached value if available
+  if (cachedDatabaseId) {
+    console.log("[repo] ✅ Using cached database ID:", cachedDatabaseId);
+    return cachedDatabaseId;
+  }
   // Since database exists and we can see collections, try reading an existing document
   // This will tell us the correct database ID
   const testDocId = "test-manual-123"; // From the user's screenshot
@@ -41,6 +49,7 @@ async function discoverDatabaseId(projectId: string, token: string): Promise<str
     
     if (response.ok) {
       console.log("[repo] ✅ Database ID (default) works! Document read successful");
+      cachedDatabaseId = "(default)";
       return "(default)";
     } else if (response.status === 404) {
       // Try without parentheses - some multi-region databases use "default" not "(default)"
@@ -57,22 +66,27 @@ async function discoverDatabaseId(projectId: string, token: string): Promise<str
       
       if (response2.ok) {
         console.log("[repo] ✅ Database ID 'default' (without parentheses) works!");
+        cachedDatabaseId = "default";
         return "default";
       } else {
         console.error("[repo] ❌ Both (default) and default failed. Status:", response.status, response2.status);
         // Still return (default) as fallback - might work for writes even if reads fail
+        cachedDatabaseId = "(default)";
         return "(default)";
       }
     } else if (response.status === 403) {
       // 403 = database exists but no permission - that's fine, it exists!
       console.log("[repo] ✅ Database (default) exists (403 = permission denied, but DB exists)");
+      cachedDatabaseId = "(default)";
       return "(default)";
     } else {
       console.warn("[repo] ⚠️ Unexpected status:", response.status, "- using (default) as fallback");
+      cachedDatabaseId = "(default)";
       return "(default)";
     }
   } catch (error) {
     console.warn("[repo] ⚠️ Error testing database ID, using (default):", error);
+    cachedDatabaseId = "(default)";
     return "(default)";
   }
 }
