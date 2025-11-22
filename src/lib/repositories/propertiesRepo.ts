@@ -20,12 +20,15 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 const collectionRef = () => collection(db, "locations");
 
 // REST API fallback function for when SDK fails
+// FIXED: Simplified for nam5 multi-region database
 async function writePropertyViaRestApi(
   docRef: ReturnType<typeof doc>,
   payload: any,
   documentId: string,
 ): Promise<string> {
   console.log("=".repeat(80));
+  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (FIXED VERSION) 🚀🚀🚀");
+  console.log("=".repeat(80));console.log("=".repeat(80));
   console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED 🚀🚀🚀");
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
