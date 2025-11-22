@@ -19,15 +19,56 @@ import type { PropertyMediaItem, PropertyStatus, SVProperty } from "@/lib/types"
 
 const collectionRef = () => collection(db, "locations");
 
+// Helper function to discover the correct database ID
+async function discoverDatabaseId(projectId: string, token: string): Promise<string> {
+  // Try to list databases via REST API
+  const listUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases`;
+  console.log("[repo] 🔍 Discovering database ID...", { listUrl });
+  
+  try {
+    const response = await fetch(listUrl, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const databases = data.databases || [];
+      console.log("[repo] 📋 Found databases:", databases.map((db: any) => db.name));
+      
+      if (databases.length > 0) {
+        // Extract database ID from name (format: projects/{project}/databases/{databaseId})
+        const firstDb = databases[0];
+        const dbName = firstDb.name || "";
+        const dbIdMatch = dbName.match(/\/databases\/([^/]+)/);
+        if (dbIdMatch && dbIdMatch[1]) {
+          const dbId = dbIdMatch[1];
+          console.log("[repo] ✅ Using database ID:", dbId);
+          return dbId;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn("[repo] ⚠️ Could not list databases, falling back to (default):", error);
+  }
+  
+  // Fallback to (default)
+  console.log("[repo] ⚠️ Using default database ID: (default)");
+  return "(default)";
+}
+
 // REST API fallback function for when SDK fails
-// FIXED: Simplified for nam5 multi-region database
+// V5.0: Auto-discover database ID for nam5 multi-region
 async function writePropertyViaRestApi(
   docRef: ReturnType<typeof doc>,
   payload: any,
   documentId: string,
 ): Promise<string> {
   console.log("=".repeat(80));
-  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (V4.0 - POST for new docs) 🚀🚀🚀");
+  console.log("[repo] 🚀🚀🚀 writePropertyViaRestApi: CALLED (V5.0 - Auto-discover DB ID) 🚀🚀🚀");
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:Document ID:", documentId);
   console.log("[repo] writePropertyViaRestApi:Document path:", docRef.path);
@@ -43,6 +84,9 @@ async function writePropertyViaRestApi(
   if (!projectId) {
     throw new Error("Project ID not found in Firebase config");
   }
+  
+  // Discover the correct database ID
+  const databaseId = await discoverDatabaseId(projectId, token);
   
   // Convert payload to Firestore REST API format
   const fields: any = {};
@@ -90,11 +134,8 @@ async function writePropertyViaRestApi(
   if (!fields.createdAt) fields.createdAt = { timestampValue: now };
   if (!fields.updatedAt) fields.updatedAt = { timestampValue: now };
   
-  // CRITICAL: For creating NEW documents with a specific ID, use POST to the collection
-  // Then update the document name in the response to use our ID
-  // Actually, Firestore REST API allows POST with documentId in path for new documents
-  // But let's try POST to collection first, then PATCH if that fails
-  const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+  // Use discovered database ID
+  const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents`;
   
   // Try POST first (create new document with specific ID)
   const postUrl = `${baseUrl}/locations?documentId=${documentId}`;
@@ -102,6 +143,7 @@ async function writePropertyViaRestApi(
     url: postUrl,
     documentId,
     projectId,
+    databaseId,
     fieldCount: Object.keys(fields).length,
   });
   
@@ -114,7 +156,7 @@ async function writePropertyViaRestApi(
     body: JSON.stringify({ fields }),
   });
   
-  // If POST fails with 404 (database doesn't exist), try PATCH as fallback
+  // If POST fails with 404, try PATCH as fallback
   if (!response.ok && response.status === 404) {
     console.warn("⚠️ POST failed with 404, trying PATCH with document ID in path...");
     const patchUrl = `${baseUrl}/locations/${documentId}`;
@@ -122,6 +164,7 @@ async function writePropertyViaRestApi(
       url: patchUrl,
       documentId,
       projectId,
+      databaseId,
     });
     
     response = await fetch(patchUrl, {
@@ -148,13 +191,14 @@ async function writePropertyViaRestApi(
       statusText: response.statusText,
       error: errorData.error,
       url: response.url,
+      databaseId,
       triedPost: true,
       triedPatch: response.status === 404,
     });
     
     // More detailed error message
     const errorMsg = errorData.error?.message || "Unknown error";
-    throw new Error(`REST API write failed: ${response.status} ${errorMsg}. URL: ${response.url}`);
+    throw new Error(`REST API write failed: ${response.status} ${errorMsg}. URL: ${response.url}. Database ID: ${databaseId}`);
   }
   
   const responseData = await response.json();
