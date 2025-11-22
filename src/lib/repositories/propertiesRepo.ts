@@ -183,19 +183,8 @@ export async function createProperty(input: {
     throw error;
   }
 }
-  if (input.id) {
-      // If ID is provided, use it (for migrations or specific ID requirements)
-      console.log("[repo] createProperty:using provided ID", input.id);
-      const ref = doc(db, "locations", input.id);
-    await setDoc(ref, payload);
-      console.log("[repo] createProperty:setDoc completed", input.id);
-    return input.id;
-  }
-    
-    // Use addDoc to generate a unique Firestore UUID and save with admin's createdBy field
-    // This ensures every location has a unique UUID and is associated with the creating admin
-    console.log("[repo] createProperty:calling addDoc...");
-    const collection = collectionRef();
+
+export async function updateProperty(
     console.log("[repo] createProperty:collection ref obtained", collection.path);
     console.log("[repo] createProperty:payload to save", {
       name: payload.name,
