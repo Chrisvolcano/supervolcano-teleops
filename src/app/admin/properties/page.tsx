@@ -238,12 +238,27 @@ export default function AdminPropertiesPage() {
 
   // Use ref to track if we've already set the initial property to prevent loops
   const hasSetInitialProperty = useRef(false);
+  const lastPropertyIdsRef = useRef<string>("");
   
+  // Only update selectedPropertyId when property IDs actually change (not on every render)
   useEffect(() => {
     if (!filteredProperties.length) {
       hasSetInitialProperty.current = false;
+      lastPropertyIdsRef.current = "";
       return;
     }
+    
+    // Create stable ID string to compare (only IDs, not full objects)
+    const currentPropertyIds = filteredProperties.map(p => p.id).sort().join(",");
+    const idsChanged = currentPropertyIds !== lastPropertyIdsRef.current;
+    
+    // Only proceed if IDs actually changed (not just array reference)
+    if (!idsChanged && hasSetInitialProperty.current) {
+      return;
+    }
+    
+    // Update the ref
+    lastPropertyIdsRef.current = currentPropertyIds;
     
     // Only set initial property once when properties first load
     if (!hasSetInitialProperty.current && !selectedPropertyId) {
@@ -728,7 +743,7 @@ export default function AdminPropertiesPage() {
           <CardContent className="space-y-3 text-sm text-neutral-500">
             <p>This area is reserved for administrators.</p>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/properties">Go back to operator portal</Link>
+              <Link href="/properties" prefetch={false}>Go back to operator portal</Link>
             </Button>
           </CardContent>
         </Card>
