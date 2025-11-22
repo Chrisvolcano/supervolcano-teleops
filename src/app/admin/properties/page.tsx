@@ -663,7 +663,7 @@ export default function AdminPropertiesPage() {
 
   async function handleTogglePropertyStatus(property: AdminProperty, checked: boolean) {
     const nextStatus: PropertyStatus = checked ? "scheduled" : "unassigned";
-    await updateDoc(doc(firestore, "properties", property.id), {
+      await updateDoc(doc(firestore, "locations", property.id), {
       status: nextStatus,
       updatedAt: serverTimestamp(),
     });
