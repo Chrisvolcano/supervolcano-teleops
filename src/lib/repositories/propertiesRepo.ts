@@ -198,14 +198,38 @@ export async function createProperty(input: {
       // Firestore uses persistent connections (WebSocket/gRPC-Web) which might not show in Network tab
       // But we can verify the connection state
       try {
-        const { waitForPendingWrites } = await import("firebase/firestore");
+        const { waitForPendingWrites, enableNetwork } = await import("firebase/firestore");
         console.log("[repo] createProperty:Checking Firestore connection state...");
-        // This will throw if Firestore is offline or disconnected
+        
+        // Ensure network is enabled (in case it was disabled)
+        await enableNetwork(db);
+        console.log("[repo] createProperty:Network explicitly enabled");
+        
+        // Wait for any pending writes to complete (this verifies connection)
         await waitForPendingWrites(db);
         console.log("[repo] createProperty:Firestore connection verified - pending writes completed");
       } catch (connectionError) {
         console.warn("[repo] createProperty:Firestore connection check failed (continuing anyway):", connectionError);
+        // Try to enable network anyway
+        try {
+          const { enableNetwork } = await import("firebase/firestore");
+          await enableNetwork(db);
+          console.log("[repo] createProperty:Network enabled after error");
+        } catch (enableError) {
+          console.error("[repo] createProperty:Failed to enable network:", enableError);
+        }
       }
+      
+      // Log the exact document path that will be written
+      console.log("[repo] createProperty:Document to write:", {
+        fullPath: docRef.path,
+        documentId,
+        collection: "locations",
+        apiEndpoint: `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`,
+      });
+      
+      // Give a moment for network to stabilize
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Try setDoc with a timeout - but also add error listener to catch permission errors early
       let timeoutId: NodeJS.Timeout | null = null;
