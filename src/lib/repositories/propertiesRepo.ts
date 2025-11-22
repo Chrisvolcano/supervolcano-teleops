@@ -251,7 +251,68 @@ export async function createProperty(input: {
       // But if writes aren't being sent, this is where we'll see it
       console.log("[repo] createProperty:About to call setDoc - if this hangs, SDK isn't sending writes");
       
-      const setDocPromise = setDoc(docRef, payload, { merge: false })
+      // WORKAROUND: Since SDK isn't sending writes, try REST API as fallback
+      // First try SDK, but if it times out, use REST API directly
+      const setDocPromise = (async () => {
+        try {
+          // Try SDK first
+          return await setDoc(docRef, payload, { merge: false });
+        } catch (sdkError) {
+          console.warn("[repo] createProperty:SDK setDoc failed, trying REST API fallback...", sdkError);
+          // Fallback to REST API if SDK fails
+          const { auth: firebaseAuth } = await import("@/lib/firebaseClient");
+          const currentUser = firebaseAuth.currentUser;
+          if (!currentUser) {
+            throw new Error("No authenticated user for REST API fallback");
+          }
+          const token = await currentUser.getIdToken(true);
+          
+          // Convert payload to Firestore REST API format
+          const restPayload: any = {};
+          for (const [key, value] of Object.entries(payload)) {
+            if (value === null || value === undefined) continue;
+            if (typeof value === "string") {
+              restPayload[key] = { stringValue: value };
+            } else if (typeof value === "number") {
+              restPayload[key] = { integerValue: value.toString() };
+            } else if (typeof value === "boolean") {
+              restPayload[key] = { booleanValue: value };
+            } else if (Array.isArray(value)) {
+              restPayload[key] = { arrayValue: { values: value.map(v => ({ stringValue: String(v) })) } };
+            } else if (value && typeof value === "object" && "toDate" in value) {
+              // Timestamp
+              restPayload[key] = { timestampValue: (value as any).toDate().toISOString() };
+            } else {
+              // Skip serverTimestamp() and other special values for now
+              continue;
+            }
+          }
+          
+          // Add timestamps manually for REST API
+          restPayload.createdAt = { timestampValue: new Date().toISOString() };
+          restPayload.updatedAt = { timestampValue: new Date().toISOString() };
+          
+          const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`;
+          console.log("[repo] createProperty:Attempting REST API write...", url);
+          
+          const response = await fetch(url, {
+            method: "PATCH",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ fields: restPayload }),
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`REST API write failed: ${response.status} ${response.statusText} - ${errorText}`);
+          }
+          
+          console.log("[repo] createProperty:✅ REST API write succeeded!");
+          return documentId;
+        }
+      })()
         .then(() => {
           hasCompleted = true;
           if (timeoutId) clearTimeout(timeoutId);
