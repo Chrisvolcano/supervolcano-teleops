@@ -128,15 +128,42 @@ export async function createProperty(input: {
         tokenPreview: freshToken.substring(0, 20) + "...",
       });
       
+      // Try addDoc - but first verify the collection reference is valid
+      console.log("[repo] createProperty:collection details", {
+        id: collection.id,
+        path: collection.path,
+        parent: collection.parent?.path,
+      });
+      
+      // Verify payload is serializable
+      console.log("[repo] createProperty:payload check", {
+        hasName: !!payload.name,
+        hasPartnerOrgId: !!payload.partnerOrgId,
+        hasCreatedBy: !!payload.createdBy,
+        payloadKeys: Object.keys(payload),
+        payloadSize: JSON.stringify(payload).length,
+      });
+      
       // Try addDoc with a longer timeout to see if it's just slow
       // Also log when the promise actually starts
       console.log("[repo] createProperty:starting addDoc promise...");
-      const addDocPromise = addDoc(collection, payload);
+      const startTime = Date.now();
+      
+      const addDocPromise = addDoc(collection, payload).then((ref) => {
+        const duration = Date.now() - startTime;
+        console.log(`[repo] createProperty:addDoc completed in ${duration}ms`);
+        return ref;
+      }).catch((err) => {
+        const duration = Date.now() - startTime;
+        console.error(`[repo] createProperty:addDoc failed after ${duration}ms`, err);
+        throw err;
+      });
       
       // Add timeout but make it longer (30 seconds) to see if it's just propagation delay
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => {
-          console.error("[repo] createProperty:TIMEOUT - addDoc took longer than 30 seconds");
+          const duration = Date.now() - startTime;
+          console.error(`[repo] createProperty:TIMEOUT - addDoc took longer than 30 seconds (${duration}ms)`);
           reject(new Error("addDoc timed out after 30 seconds - this usually means Firestore rules are blocking the write or there's a network issue"));
         }, 30000)
       );
