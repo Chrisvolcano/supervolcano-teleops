@@ -79,9 +79,19 @@ async function writePropertyViaRestApi(
   if (!restPayload.updatedAt) restPayload.updatedAt = { timestampValue: now };
   
   const url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`;
-  console.log("[repo] createProperty:REST API URL:", url);
-  console.log("[repo] createProperty:REST API payload keys:", Object.keys(restPayload));
+  console.log("[repo] writePropertyViaRestApi:REST API URL:", url);
+  console.log("[repo] writePropertyViaRestApi:REST API payload keys:", Object.keys(restPayload));
+  console.log("[repo] writePropertyViaRestApi:Payload has name:", !!restPayload.name);
+  console.log("[repo] writePropertyViaRestApi:Payload has partnerOrgId:", !!restPayload.partnerOrgId);
+  console.log("[repo] writePropertyViaRestApi:Payload has createdBy:", !!restPayload.createdBy);
+  console.log("[repo] writePropertyViaRestApi:Token length:", token.length);
   
+  console.log("=".repeat(80));
+  console.log("[repo] 🚀🚀🚀 About to send PATCH request to:", url);
+  console.log("[repo] 🚀🚀🚀 Check Network tab NOW for PATCH request!");
+  console.log("=".repeat(80));
+  
+  const fetchStartTime = Date.now();
   const response = await fetch(url, {
     method: "PATCH",
     headers: {
@@ -91,14 +101,24 @@ async function writePropertyViaRestApi(
     body: JSON.stringify({ fields: restPayload }),
   });
   
+  const fetchDuration = Date.now() - fetchStartTime;
+  console.log(`[repo] writePropertyViaRestApi:Fetch completed in ${fetchDuration}ms`);
+  console.log("[repo] writePropertyViaRestApi:Response status:", response.status);
+  console.log("[repo] writePropertyViaRestApi:Response ok:", response.ok);
+  
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[repo] createProperty:REST API failed:", response.status, errorText);
+    console.error("=".repeat(80));
+    console.error("[repo] ❌❌❌ REST API FAILED! ❌❌❌");
+    console.error("=".repeat(80));
+    console.error("[repo] writePropertyViaRestApi:REST API failed:", response.status, errorText);
     throw new Error(`REST API write failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
   
   const result = await response.json();
-  console.log("[repo] createProperty:✅✅✅ REST API write succeeded!", result);
+  console.log("=".repeat(80));
+  console.log("[repo] ✅✅✅ REST API write SUCCEEDED! ✅✅✅", result);
+  console.log("=".repeat(80));
   return documentId;
 }
 
