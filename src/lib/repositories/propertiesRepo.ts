@@ -220,12 +220,15 @@ export async function createProperty(input: {
           hasCompleted = true;
           if (timeoutId) clearTimeout(timeoutId);
           const duration = Date.now() - startTime;
-          console.log(`[repo] createProperty:setDoc completed in ${duration}ms`, documentId);
+          const callToCompleteDuration = Date.now() - setDocCallTime;
+          console.log(`[repo] ✅✅✅ createProperty:setDoc SUCCESS in ${duration}ms (call-to-complete: ${callToCompleteDuration}ms)`, documentId);
           return documentId;
         })
         .catch((error) => {
           hasCompleted = true;
           if (timeoutId) clearTimeout(timeoutId);
+          const callToErrorDuration = Date.now() - setDocCallTime;
+          console.error(`[repo] createProperty:setDoc rejected after ${callToErrorDuration}ms`, error);
           throw error;
         });
       
