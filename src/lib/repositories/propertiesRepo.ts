@@ -187,7 +187,12 @@ export async function createProperty(input: {
           hasUpdatedAt: !!payload.updatedAt,
           mediaCount: Array.isArray(payload.media) ? payload.media.length : 0,
         },
+        firestoreEndpoint: `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/(default)/documents/${docRef.path}`,
       });
+      
+      // Log that we're about to make the network request
+      console.log("[repo] createProperty:INITIATING setDoc network request NOW...");
+      console.log("[repo] createProperty:Check Network tab for request to firestore.googleapis.com");
       
       // Try setDoc with a timeout - but also add error listener to catch permission errors early
       let timeoutId: NodeJS.Timeout | null = null;
