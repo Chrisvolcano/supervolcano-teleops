@@ -117,7 +117,14 @@ async function writePropertyViaRestApi(
   });
   
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: { message: await response.text() } }));
+    let errorData: any;
+    try {
+      errorData = await response.json();
+    } catch {
+      const errorText = await response.text();
+      errorData = { error: { message: errorText } };
+    }
+    
     console.error("❌ REST API Error:", {
       status: response.status,
       error: errorData.error,
