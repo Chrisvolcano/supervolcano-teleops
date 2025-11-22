@@ -289,32 +289,49 @@ export async function createProperty(input: {
         }, 10000);
       });
       
-      const result = await Promise.race([setDocPromise, timeoutPromise]);
-      return result;
-    } catch (setDocError) {
-      const duration = Date.now() - startTime;
-      const firestoreError = setDocError as any;
-      console.error(`[repo] createProperty:setDoc failed after ${duration}ms`, {
-        error: setDocError,
-        errorCode: firestoreError?.code,
-        errorMessage: setDocError instanceof Error ? setDocError.message : String(setDocError),
-        firestoreCode: firestoreError?.code,
-        firestoreMessage: firestoreError?.message,
-        isPermissionError: firestoreError?.code === 'permission-denied' || firestoreError?.code === 7,
-        documentId,
-        payload: {
-          name: payload.name,
-          partnerOrgId: payload.partnerOrgId,
-          createdBy: payload.createdBy,
-        },
-      });
-      
-      if (firestoreError?.code === 'permission-denied' || firestoreError?.code === 7) {
-        throw new Error(`Firestore permission denied. Check: 1) Rules are published, 2) Token has admin role, 3) Rules allow create on /locations. Original: ${firestoreError?.message || String(setDocError)}`);
+      // Try SDK first with timeout
+      let result: string;
+      try {
+        result = await Promise.race([setDocPromise, timeoutPromise]);
+      } catch (setDocError) {
+        const duration = Date.now() - startTime;
+        const firestoreError = setDocError as any;
+        const errorMsg = setDocError instanceof Error ? setDocError.message : String(setDocError);
+        
+        console.error(`[repo] createProperty:setDoc failed after ${duration}ms`, {
+          error: setDocError,
+          errorCode: firestoreError?.code,
+          errorMessage: errorMsg,
+          firestoreCode: firestoreError?.code,
+          firestoreMessage: firestoreError?.message,
+          isPermissionError: firestoreError?.code === 'permission-denied' || firestoreError?.code === 7,
+          isTimeout: errorMsg.includes("SDK_TIMEOUT") || errorMsg.includes("timed out"),
+          documentId,
+          payload: {
+            name: payload.name,
+            partnerOrgId: payload.partnerOrgId,
+            createdBy: payload.createdBy,
+          },
+        });
+        
+        // If SDK timed out, try REST API fallback
+        if (errorMsg.includes("SDK_TIMEOUT") || errorMsg.includes("timed out")) {
+          console.warn("[repo] createProperty:SDK timed out, using REST API fallback...");
+          try {
+            result = await useRestApiFallback(docRef, payload, documentId);
+            console.log("[repo] createProperty:✅ REST API fallback succeeded!");
+          } catch (restError) {
+            console.error("[repo] createProperty:REST API fallback also failed:", restError);
+            throw new Error(`Both SDK and REST API failed. SDK: ${errorMsg}. REST: ${restError instanceof Error ? restError.message : String(restError)}`);
+          }
+        } else if (firestoreError?.code === 'permission-denied' || firestoreError?.code === 7) {
+          throw new Error(`Firestore permission denied. Check: 1) Rules are published, 2) Token has admin role, 3) Rules allow create on /locations. Original: ${firestoreError?.message || String(setDocError)}`);
+        } else {
+          throw setDocError;
+        }
       }
       
-      throw setDocError;
-    }
+      return result;
   } catch (error) {
     console.error("[repo] createProperty:error", {
       error,
