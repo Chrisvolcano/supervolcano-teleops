@@ -153,7 +153,7 @@ export async function createProperty(input: {
       hasId: !!input.id,
     });
     
-  const payload = buildPayload(input);
+    const payload = buildPayload(input);
     console.log("[repo] createProperty:payload built", { 
       hasName: !!payload.name,
       hasPartnerOrgId: !!payload.partnerOrgId,
@@ -411,8 +411,23 @@ export async function createProperty(input: {
       }
       
       return result;
+    } catch (error) {
+      // This catch is for the inner try block that starts at line 257
+      console.error("[repo] createProperty:error", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        input: {
+          name: input.name,
+          partnerOrgId: input.partnerOrgId,
+          createdBy: input.createdBy,
+        },
+      });
+      throw error;
+    }
   } catch (error) {
-    console.error("[repo] createProperty:error", {
+    // This catch is for the outer try block that starts at line 147
+    console.error("[repo] createProperty:outer error", {
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
