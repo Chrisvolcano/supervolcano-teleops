@@ -151,14 +151,16 @@ async function writePropertyViaRestApi(
   // The docRef.path already includes the collection and document ID
   const documentPath = docRef.path; // e.g., "locations/HSqhrJn9oQ4wVe1oewIs"
   
-  // Try standard endpoint first (works for most regions)
-  // If this fails with 404, the database might be in a specific region
-  // Common regions: us-central1, us-east1, europe-west1, asia-northeast1
+  // CRITICAL: For multi-region databases (like nam5), use the standard endpoint
+  // Single-region databases use: https://[REGION]-firestore.googleapis.com/...
+  // Multi-region databases use: https://firestore.googleapis.com/...
+  // 
+  // Database location 'nam5' is North America multi-region, so standard endpoint is correct
   let url = `https://firestore.googleapis.com/v1/projects/${db.app.options.projectId}/databases/${databaseId}/documents/${documentPath}`;
   
-  console.log("[repo] writePropertyViaRestApi:Using standard REST API endpoint");
-  console.log("[repo] writePropertyViaRestApi:If this fails with 404, database might be regional");
-  console.log("[repo] writePropertyViaRestApi:Check Firebase Console → Firestore → Settings for database location");
+  console.log("[repo] writePropertyViaRestApi:Using standard REST API endpoint (correct for nam5 multi-region)");
+  console.log("[repo] writePropertyViaRestApi:Database location: nam5 (North America multi-region)");
+  console.log("[repo] writePropertyViaRestApi:Standard endpoint is correct for multi-region databases");
   
   console.log("=".repeat(80));
   console.log("[repo] writePropertyViaRestApi:🔍 REST API URL Construction");
