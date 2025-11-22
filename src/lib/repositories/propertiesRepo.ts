@@ -150,8 +150,20 @@ export async function createProperty(input: {
       
       throw setDocError;
     }
-    
-    /* OLD CODE - REMOVED DUE TO addDoc HANGING
+  } catch (error) {
+    console.error("[repo] createProperty:error", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      input: {
+        name: input.name,
+        partnerOrgId: input.partnerOrgId,
+        createdBy: input.createdBy,
+      },
+    });
+    throw error;
+  }
+}
     if (input.id) {
       // If ID is provided, use it (for migrations or specific ID requirements)
       console.log("[repo] createProperty:using provided ID", input.id);
