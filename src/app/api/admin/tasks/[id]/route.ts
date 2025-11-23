@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -27,47 +26,40 @@ export async function PATCH(
     
     const body = await request.json();
     
-    // Update SQL
-    await sql`
-      UPDATE tasks SET
-        title = ${body.title},
-        description = ${body.description || null},
-        category = ${body.category || null},
-        estimated_duration_minutes = ${body.estimatedDurationMinutes || null},
-        priority = ${body.priority || null},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${params.id}
-    `;
+    // Find task in Firestore to get locationId
+    // Tasks are in location subcollections, so we need to search
+    const locationsSnap = await adminDb.collection('locations').get();
+    let taskRef: FirebaseFirestore.DocumentReference | null = null;
+    let locationId: string | null = null;
     
-    // Get location ID from task
-    const taskResult = await sql`
-      SELECT location_id FROM tasks WHERE id = ${params.id}
-    `;
+    for (const locDoc of locationsSnap.docs) {
+      const taskDoc = await locDoc.ref.collection('tasks').doc(params.id).get();
+      if (taskDoc.exists) {
+        taskRef = taskDoc.ref;
+        locationId = locDoc.id;
+        break;
+      }
+    }
     
-    if (taskResult.rows.length === 0) {
+    if (!taskRef || !locationId) {
       return NextResponse.json(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
     }
     
-    const locationId = taskResult.rows[0].location_id;
-    
-    // Update Firestore
-    const taskRef = adminDb
-      .collection('locations')
-      .doc(locationId)
-      .collection('tasks')
-      .doc(params.id);
-    
-    await taskRef.update({
-      title: body.title,
-      description: body.description || '',
-      category: body.category || '',
-      estimatedDuration: body.estimatedDurationMinutes || null,
-      priority: body.priority || null,
+    // Update ONLY in Firestore (source of truth)
+    const updateData: any = {
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.description !== undefined) updateData.description = body.description || '';
+    if (body.category !== undefined) updateData.category = body.category || '';
+    if (body.estimatedDurationMinutes !== undefined) updateData.estimatedDuration = body.estimatedDurationMinutes || null;
+    if (body.priority !== undefined) updateData.priority = body.priority || null;
+    
+    await taskRef.update(updateData);
     
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -98,31 +90,38 @@ export async function DELETE(
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
-    // Get location ID from task
-    const taskResult = await sql`
-      SELECT location_id FROM tasks WHERE id = ${params.id}
-    `;
+    // Find task in Firestore to get locationId
+    // Tasks are in location subcollections, so we need to search
+    const locationsSnap = await adminDb.collection('locations').get();
+    let taskRef: FirebaseFirestore.DocumentReference | null = null;
+    let locationId: string | null = null;
     
-    if (taskResult.rows.length === 0) {
+    for (const locDoc of locationsSnap.docs) {
+      const taskDoc = await locDoc.ref.collection('tasks').doc(params.id).get();
+      if (taskDoc.exists) {
+        taskRef = taskDoc.ref;
+        locationId = locDoc.id;
+        break;
+      }
+    }
+    
+    if (!taskRef || !locationId) {
       return NextResponse.json(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
     }
     
-    const locationId = taskResult.rows[0].location_id;
-    
-    // Delete from SQL (cascades to moments/media via foreign keys)
-    await sql`DELETE FROM tasks WHERE id = ${params.id}`;
-    
-    // Delete from Firestore
-    const taskRef = adminDb
-      .collection('locations')
-      .doc(locationId)
-      .collection('tasks')
-      .doc(params.id);
-    
+    // Delete ONLY from Firestore (source of truth)
     await taskRef.delete();
+    
+    // Also delete instructions subcollection if it exists
+    const instructionsSnap = await taskRef.collection('instructions').get();
+    if (instructionsSnap.docs.length > 0) {
+      const batch = adminDb.batch();
+      instructionsSnap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
     
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
@@ -42,19 +41,7 @@ export async function POST(request: NextRequest) {
     // Generate UUID for task ID
     const taskId = crypto.randomUUID();
     
-    // Create in SQL
-    const result = await sql`
-      INSERT INTO tasks (
-        id, location_id, title, description, category,
-        estimated_duration_minutes, priority
-      ) VALUES (
-        ${taskId}, ${locationId}, ${title}, ${description || null},
-        ${category || null}, ${estimatedDurationMinutes || null}, ${priority || null}
-      )
-      RETURNING id
-    `;
-    
-    // Also create in Firestore for teleop portal
+    // Create ONLY in Firestore (source of truth)
     // Tasks are stored in location subcollections
     const locationRef = adminDb.collection('locations').doc(locationId);
     const taskRef = locationRef.collection('tasks').doc(taskId);

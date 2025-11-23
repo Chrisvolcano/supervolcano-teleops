@@ -203,6 +203,25 @@ export default function RobotIntelligencePage() {
         </div>
       </div>
       
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-900 mb-2">How This Works</h4>
+        <div className="text-sm text-blue-800 space-y-1">
+          <p>
+            • <strong>Firestore</strong> is the source of truth for locations, tasks, and organizations
+          </p>
+          <p>
+            • <strong>SQL Database</strong> stores robot-specific data (moments, preferences, execution logs)
+          </p>
+          <p>
+            • Click <strong>&quot;Sync from Firestore&quot;</strong> to copy locations/tasks to SQL for robot queries
+          </p>
+          <p>
+            • Manage locations/tasks in the Locations tab - they automatically appear here after sync
+          </p>
+        </div>
+      </div>
+      
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard

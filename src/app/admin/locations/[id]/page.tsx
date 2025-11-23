@@ -42,8 +42,8 @@ export default function AdminLocationDetailPage() {
       const token = await getIdToken();
       if (!token) return;
 
-      // Load from SQL database (synced from Firestore)
-      const response = await fetch(`/api/admin/locations/${locationId}`, {
+      // Load from Firestore (source of truth)
+      const response = await fetch(`/api/admin/locations/${locationId}/firestore`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -90,7 +90,8 @@ export default function AdminLocationDetailPage() {
       const token = await getIdToken();
       if (!token) return;
 
-      const response = await fetch(`/api/admin/locations/${locationId}/tasks`, {
+      // Load tasks from Firestore (source of truth)
+      const response = await fetch(`/api/admin/locations/${locationId}/tasks/firestore`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -149,24 +150,24 @@ export default function AdminLocationDetailPage() {
               <p className="text-sm text-gray-600 mb-4">{location.address}</p>
               
               <div className="flex items-center gap-6 text-sm">
-                {location.organization_name && (
+                {(location.assignedOrganizationName || location.organization_name) && (
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.organization_name}</span>
+                    <span className="text-gray-600">{location.assignedOrganizationName || location.organization_name}</span>
                   </div>
                 )}
                 
-                {location.contact_phone && (
+                {(location.contactPhone || location.contact_phone) && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.contact_phone}</span>
+                    <span className="text-gray-600">{location.contactPhone || location.contact_phone}</span>
                   </div>
                 )}
                 
-                {location.contact_email && (
+                {(location.contactEmail || location.contact_email) && (
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.contact_email}</span>
+                    <span className="text-gray-600">{location.contactEmail || location.contact_email}</span>
                   </div>
                 )}
               </div>
@@ -311,11 +312,11 @@ export default function AdminLocationDetailPage() {
       </div>
       
       {/* Access Instructions */}
-      {location.access_instructions && (
+      {(location.accessInstructions || location.access_instructions) && (
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
           <h3 className="font-semibold text-gray-900 mb-3">Access Instructions</h3>
           <p className="text-sm text-gray-600 whitespace-pre-wrap">
-            {location.access_instructions}
+            {location.accessInstructions || location.access_instructions}
           </p>
         </div>
       )}

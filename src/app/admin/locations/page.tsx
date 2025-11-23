@@ -28,7 +28,8 @@ export default function AdminLocationsPage() {
       const token = await getIdToken();
       if (!token) return;
 
-      const response = await fetch('/api/admin/locations', {
+      // Query Firestore (source of truth)
+      const response = await fetch('/api/admin/locations/firestore', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -49,7 +50,7 @@ export default function AdminLocationsPage() {
   const filteredLocations = locations.filter(loc =>
     loc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     loc.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    loc.organization_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    loc.assignedOrganizationName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   return (
@@ -84,6 +85,14 @@ export default function AdminLocationsPage() {
         />
       </div>
       
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-900">
+          <strong>{locations.length} locations</strong> in Firestore (source of truth). 
+          Use the "Sync from Firestore" button in Robot Intelligence to update the SQL database for robot queries.
+        </p>
+      </div>
+      
       {/* Locations Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -116,21 +125,10 @@ export default function AdminLocationsPage() {
               </h3>
               <p className="text-sm text-gray-600 mb-3">{location.address}</p>
               
-              {location.organization_name && (
+              {location.assignedOrganizationName && (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Building2 className="h-3 w-3" />
-                  <span>{location.organization_name}</span>
-                </div>
-              )}
-              
-              {(location.task_count > 0 || location.moment_count > 0) && (
-                <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
-                  {location.task_count > 0 && (
-                    <span>{location.task_count} task{location.task_count !== 1 ? 's' : ''}</span>
-                  )}
-                  {location.moment_count > 0 && (
-                    <span>{location.moment_count} moment{location.moment_count !== 1 ? 's' : ''}</span>
-                  )}
+                  <span>{location.assignedOrganizationName}</span>
                 </div>
               )}
             </button>
