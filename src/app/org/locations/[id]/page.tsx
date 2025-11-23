@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TaskCompletionModal } from "@/components/org/TaskCompletionModal";
-import LocationPreferencesPanel from "@/components/org/LocationPreferencesPanel";
 import toast from "react-hot-toast";
 
 export default function OrgLocationDetailPage() {
@@ -30,9 +29,6 @@ export default function OrgLocationDetailPage() {
   const [completingTask, setCompletingTask] = useState<any>(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [filter, setFilter] = useState<"all" | "todo" | "completed">("all");
-  const [showPreferences, setShowPreferences] = useState(false);
-  const [moments, setMoments] = useState<any[]>([]);
-  const [loadingMoments, setLoadingMoments] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -175,28 +171,6 @@ export default function OrgLocationDetailPage() {
     }
   }, [user, locationId, router, claims, getIdToken]);
 
-  async function loadMomentsForPreferences() {
-    setLoadingMoments(true);
-    try {
-      const token = await getIdToken();
-      if (!token) return;
-
-      const response = await fetch(`/api/org/locations/${locationId}/moments`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setMoments(data.moments);
-      }
-    } catch (error) {
-      console.error("Failed to load moments:", error);
-    } finally {
-      setLoadingMoments(false);
-    }
-  }
 
   // Task completion handler - session creation is handled by API route
   async function handleTaskCompletion(completionData: any) {
