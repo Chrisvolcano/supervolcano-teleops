@@ -89,7 +89,7 @@ export default function RobotIntelligencePage() {
         params.append('humanVerified', filters.humanVerified.toString());
       }
       
-      const response = await fetch(`/api/admin/moments?${params}`, {
+      const response = await fetch(`/api/admin/moments?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
