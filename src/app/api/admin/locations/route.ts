@@ -53,17 +53,29 @@ export async function GET(request: NextRequest) {
     console.log(`[admin/locations] Found ${missingLocations.length} locations to sync:`, missingLocations.map((l: any) => ({ id: l.id, name: l.name || 'Unnamed' })));
     
     // Sync missing locations to SQL
+    const syncResults: Array<{ id: string; name: string; success: boolean; error?: string }> = [];
     for (const location of missingLocations) {
       try {
-        console.log(`[admin/locations] Syncing location ${location.id} (${location.name})...`);
+        console.log(`[admin/locations] Syncing location ${location.id} (${location.name || 'Unnamed'})...`);
         const result = await syncLocation(location.id);
         if (result.success) {
-          console.log(`[admin/locations] Successfully synced location ${location.id}`);
+          console.log(`[admin/locations] ✅ Successfully synced location ${location.id}`);
+          syncResults.push({ id: location.id, name: location.name || 'Unnamed', success: true });
         } else {
-          console.error(`[admin/locations] Failed to sync location ${location.id}:`, result.error);
+          console.error(`[admin/locations] ❌ Failed to sync location ${location.id}:`, result.error);
+          syncResults.push({ id: location.id, name: location.name || 'Unnamed', success: false, error: result.error });
         }
       } catch (error: any) {
-        console.error(`[admin/locations] Error syncing location ${location.id}:`, error.message, error.stack);
+        console.error(`[admin/locations] ❌ Error syncing location ${location.id}:`, error.message, error.stack);
+        syncResults.push({ id: location.id, name: location.name || 'Unnamed', success: false, error: error.message });
+      }
+    }
+    
+    if (missingLocations.length > 0) {
+      console.log(`[admin/locations] Sync summary: ${syncResults.filter(r => r.success).length}/${missingLocations.length} locations synced successfully`);
+      const failed = syncResults.filter(r => !r.success);
+      if (failed.length > 0) {
+        console.error(`[admin/locations] Failed locations:`, failed.map(f => ({ id: f.id, name: f.name, error: f.error })));
       }
     }
     

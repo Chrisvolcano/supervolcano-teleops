@@ -22,6 +22,10 @@ export async function syncLocation(locationId: string) {
       organizationId: location?.assignedOrganizationId
     });
     
+    // Get organization_id - use partnerOrgId as fallback if assignedOrganizationId is missing
+    const organizationId = location?.assignedOrganizationId || location?.partnerOrgId || 'unassigned';
+    const organizationName = location?.assignedOrganizationName || null;
+    
     await sql`
       INSERT INTO locations (
         id, organization_id, organization_name, name, address,
@@ -29,13 +33,13 @@ export async function syncLocation(locationId: string) {
         metadata, synced_at
       ) VALUES (
         ${locationId},
-        ${location?.assignedOrganizationId || null},
-        ${location?.assignedOrganizationName || null},
+        ${organizationId},
+        ${organizationName},
         ${location?.name || 'Unnamed'},
         ${location?.address || null},
-        ${location?.contactName || location?.contact_name || null},
-        ${location?.contactPhone || location?.contact_phone || null},
-        ${location?.contactEmail || location?.contact_email || null},
+        ${location?.contactName || location?.contact_name || location?.primaryContact?.name || null},
+        ${location?.contactPhone || location?.contact_phone || location?.primaryContact?.phone || null},
+        ${location?.contactEmail || location?.contact_email || location?.primaryContact?.email || null},
         ${location?.accessInstructions || location?.access_instructions || null},
         ${JSON.stringify(location)},
         NOW()
