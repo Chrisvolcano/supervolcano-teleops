@@ -24,18 +24,18 @@ export async function POST(request: NextRequest) {
     // TODO: Verify user has access to this location
     
     const body = await request.json();
-    const { locationId, momentId, customInstruction, createdBy } = body;
+    const { locationId, taskId, customInstruction, createdBy } = body; // Changed from momentId
     
-    if (!locationId || !momentId || !customInstruction || !createdBy) {
+    if (!locationId || !taskId || !customInstruction || !createdBy) {
       return NextResponse.json(
-        { error: 'Missing required fields: locationId, momentId, customInstruction, createdBy' },
+        { error: 'Missing required fields: locationId, taskId, customInstruction, createdBy' },
         { status: 400 }
       );
     }
     
     const result = await setLocationPreference({
       locationId,
-      momentId,
+      taskId, // Changed from momentId
       customInstruction,
       createdBy,
     });

@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const locationId = searchParams.get('locationId');
     
-    let queryText = 'SELECT id, title, location_id, category FROM tasks';
+    // Query jobs table (high-level assignments)
+    let queryText = 'SELECT id, title, location_id, category FROM jobs';
     const params: any[] = [];
     
     if (locationId) {
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     
     const result = await sql.query(queryText, params);
     
-    return NextResponse.json({ success: true, tasks: result.rows });
+    return NextResponse.json({ success: true, tasks: result.rows }); // Still called "tasks" in response for backward compatibility
   } catch (error: any) {
     console.error('Get tasks error:', error);
     return NextResponse.json(

@@ -22,17 +22,17 @@ export async function GET(request: Request) {
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     // Get stats from SQL database
-    const [locationsResult, shiftsResult, momentsResult, executionsResult] = await Promise.all([
+    const [locationsResult, shiftsResult, tasksResult, executionsResult] = await Promise.all([
       sql`SELECT COUNT(*) as count FROM locations`,
       sql`SELECT COUNT(*) as count FROM shifts`,
-      sql`SELECT COUNT(*) as count FROM moments`,
+      sql`SELECT COUNT(*) as count FROM tasks`, // Changed from moments
       sql`SELECT COUNT(*) as count FROM robot_executions`,
     ]);
     
     return NextResponse.json({
       locations: parseInt(locationsResult.rows[0].count as string) || 0,
       shifts: parseInt(shiftsResult.rows[0].count as string) || 0,
-      moments: parseInt(momentsResult.rows[0].count as string) || 0,
+      tasks: parseInt(tasksResult.rows[0].count as string) || 0, // Changed from moments
       executions: parseInt(executionsResult.rows[0].count as string) || 0,
     });
     

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     
     const body = await request.json();
     const {
-      momentId,
+      taskId, // Changed from momentId
       robotId,
       locationId,
       success,
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       softwareVersion
     } = body;
     
-    if (!momentId || !robotId || !locationId || success === undefined) {
+    if (!taskId || !robotId || !locationId || success === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -41,17 +41,17 @@ export async function POST(request: NextRequest) {
     // Insert execution log
     await sql`
       INSERT INTO robot_executions (
-        moment_id, robot_id, location_id, started_at, completed_at,
+        task_id, robot_id, location_id, started_at, completed_at,
         duration_seconds, success, error_message, execution_notes,
         robot_type, software_version
       ) VALUES (
-        ${momentId}, ${robotId}, ${locationId}, ${startedAt}, ${completedAt},
+        ${taskId}, ${robotId}, ${locationId}, ${startedAt}, ${completedAt},
         ${durationSeconds}, ${success}, ${errorMessage || null}, ${notes || null},
         ${robotType || null}, ${softwareVersion || null}
       )
     `;
     
-    // Trigger will auto-update moment stats
+    // Trigger will auto-update task stats
     
     return NextResponse.json({
       success: true,

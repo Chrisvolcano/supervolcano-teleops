@@ -2,16 +2,16 @@
 
 import { sql } from '@/lib/db/postgres';
 
-export interface CreateMomentInput {
+export interface CreateTaskInput {
   organizationId: string;
   locationId: string;
-  taskId: string;
+  jobId: string; // Changed from taskId - now references jobs table
   shiftId?: string;
   
   title: string;
   description: string;
   
-  momentType: 'action' | 'observation' | 'decision' | 'navigation' | 'manipulation';
+  taskType: 'action' | 'observation' | 'decision' | 'navigation' | 'manipulation';
   actionVerb: string;
   objectTarget?: string;
   roomLocation?: string;
@@ -22,7 +22,7 @@ export interface CreateMomentInput {
   tags: string[];
   keywords: string[];
   
-  source: 'manual_entry' | 'task_instruction' | 'video_ai' | 'robot_learning';
+  source: 'manual_entry' | 'job_instruction' | 'video_ai' | 'robot_learning';
   humanVerified: boolean;
   confidenceScore?: number;
   
@@ -30,16 +30,16 @@ export interface CreateMomentInput {
 }
 
 /**
- * Create a new moment
+ * Create a new task (atomic robot-executable step)
  */
-export async function createMoment(data: CreateMomentInput) {
+export async function createTask(data: CreateTaskInput) {
   try {
     // Use sql.query for arrays support
     const queryText = `
-      INSERT INTO moments (
-        organization_id, location_id, task_id, shift_id,
+      INSERT INTO tasks (
+        organization_id, location_id, job_id, shift_id,
         title, description,
-        moment_type, action_verb, object_target, room_location,
+        task_type, action_verb, object_target, room_location,
         sequence_order, estimated_duration_seconds,
         tags, keywords,
         source, human_verified, confidence_score,
@@ -59,11 +59,11 @@ export async function createMoment(data: CreateMomentInput) {
     const params = [
       data.organizationId,
       data.locationId,
-      data.taskId,
+      data.jobId,
       data.shiftId || null,
       data.title,
       data.description,
-      data.momentType,
+      data.taskType,
       data.actionVerb,
       data.objectTarget || null,
       data.roomLocation || null,
@@ -81,18 +81,18 @@ export async function createMoment(data: CreateMomentInput) {
     
     return { success: true, id: result.rows[0].id };
   } catch (error: any) {
-    console.error('Failed to create moment:', error);
-    return { success: false, error: error.message || 'Failed to create moment' };
+    console.error('Failed to create task:', error);
+    return { success: false, error: error.message || 'Failed to create task' };
   }
 }
 
 /**
- * Get all moments with filters
+ * Get all tasks with filters
  */
-export async function getMoments(filters?: {
+export async function getTasks(filters?: {
   locationId?: string;
-  taskId?: string;
-  momentType?: string;
+  jobId?: string; // Changed from taskId
+  taskType?: string; // Changed from momentType
   humanVerified?: boolean;
   limit?: number;
   offset?: number;
@@ -100,8 +100,8 @@ export async function getMoments(filters?: {
   try {
     const {
       locationId,
-      taskId,
-      momentType,
+      jobId,
+      taskType,
       humanVerified,
       limit = 50,
       offset = 0
@@ -112,22 +112,22 @@ export async function getMoments(filters?: {
     let paramIndex = 1;
     
     if (locationId) {
-      conditions.push(`m.location_id = $${paramIndex++}`);
+      conditions.push(`t.location_id = $${paramIndex++}`);
       params.push(locationId);
     }
     
-    if (taskId) {
-      conditions.push(`m.task_id = $${paramIndex++}`);
-      params.push(taskId);
+    if (jobId) {
+      conditions.push(`t.job_id = $${paramIndex++}`);
+      params.push(jobId);
     }
     
-    if (momentType) {
-      conditions.push(`m.moment_type = $${paramIndex++}`);
-      params.push(momentType);
+    if (taskType) {
+      conditions.push(`t.task_type = $${paramIndex++}`);
+      params.push(taskType);
     }
     
     if (humanVerified !== undefined) {
-      conditions.push(`m.human_verified = $${paramIndex++}`);
+      conditions.push(`t.human_verified = $${paramIndex++}`);
       params.push(humanVerified);
     }
     
@@ -135,62 +135,62 @@ export async function getMoments(filters?: {
     
     const queryText = `
       SELECT 
-        m.*,
+        t.*,
         l.name as location_name,
         l.address as location_address,
-        t.title as task_title,
-        t.category as task_category
-      FROM moments m
-      JOIN locations l ON m.location_id = l.id
-      JOIN tasks t ON m.task_id = t.id
+        j.title as job_title,
+        j.category as job_category
+      FROM tasks t
+      JOIN locations l ON t.location_id = l.id
+      JOIN jobs j ON t.job_id = j.id
       WHERE ${conditions.join(' AND ')}
-      ORDER BY m.created_at DESC
+      ORDER BY t.created_at DESC
       LIMIT $${paramIndex++}
       OFFSET $${paramIndex}
     `;
     
     const result = await sql.query(queryText, params);
     
-    return { success: true, moments: result.rows };
+    return { success: true, tasks: result.rows };
   } catch (error: any) {
-    console.error('Failed to get moments:', error);
-    return { success: false, error: error.message || 'Failed to get moments', moments: [] };
+    console.error('Failed to get tasks:', error);
+    return { success: false, error: error.message || 'Failed to get tasks', tasks: [] };
   }
 }
 
 /**
- * Get moment by ID
+ * Get task by ID
  */
-export async function getMoment(id: string) {
+export async function getTask(id: string) {
   try {
     const result = await sql`
       SELECT 
-        m.*,
+        t.*,
         l.name as location_name,
         l.address as location_address,
-        t.title as task_title,
-        t.description as task_description
-      FROM moments m
-      JOIN locations l ON m.location_id = l.id
-      JOIN tasks t ON m.task_id = t.id
-      WHERE m.id = ${id}
+        j.title as job_title,
+        j.description as job_description
+      FROM tasks t
+      JOIN locations l ON t.location_id = l.id
+      JOIN jobs j ON t.job_id = j.id
+      WHERE t.id = ${id}
     `;
     
     if (result.rows.length === 0) {
-      return { success: false, error: 'Moment not found' };
+      return { success: false, error: 'Task not found' };
     }
     
-    return { success: true, moment: result.rows[0] };
+    return { success: true, task: result.rows[0] };
   } catch (error: any) {
-    console.error('Failed to get moment:', error);
-    return { success: false, error: error.message || 'Failed to get moment' };
+    console.error('Failed to get task:', error);
+    return { success: false, error: error.message || 'Failed to get task' };
   }
 }
 
 /**
- * Update moment
+ * Update task
  */
-export async function updateMoment(id: string, data: Partial<CreateMomentInput>) {
+export async function updateTask(id: string, data: Partial<CreateTaskInput>) {
   try {
     const updates: string[] = [];
     const values: any[] = [];
@@ -206,9 +206,9 @@ export async function updateMoment(id: string, data: Partial<CreateMomentInput>)
       values.push(data.description);
     }
     
-    if (data.momentType) {
-      updates.push(`moment_type = $${paramIndex++}`);
-      values.push(data.momentType);
+    if (data.taskType) {
+      updates.push(`task_type = $${paramIndex++}`);
+      values.push(data.taskType);
     }
     
     if (data.actionVerb) {
@@ -259,81 +259,81 @@ export async function updateMoment(id: string, data: Partial<CreateMomentInput>)
     values.push(id);
     
     await sql.query(
-      `UPDATE moments SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+      `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
       values
     );
     
     return { success: true };
   } catch (error: any) {
-    console.error('Failed to update moment:', error);
-    return { success: false, error: error.message || 'Failed to update moment' };
+    console.error('Failed to update task:', error);
+    return { success: false, error: error.message || 'Failed to update task' };
   }
 }
 
 /**
- * Delete moment
+ * Delete task
  */
-export async function deleteMoment(id: string) {
+export async function deleteTask(id: string) {
   try {
-    await sql`DELETE FROM moments WHERE id = ${id}`;
+    await sql`DELETE FROM tasks WHERE id = ${id}`;
     return { success: true };
   } catch (error: any) {
-    console.error('Failed to delete moment:', error);
-    return { success: false, error: error.message || 'Failed to delete moment' };
+    console.error('Failed to delete task:', error);
+    return { success: false, error: error.message || 'Failed to delete task' };
   }
 }
 
 /**
- * Get moments count by task
+ * Get tasks count by job
  */
-export async function getMomentCountByTask(taskId: string) {
+export async function getTaskCountByJob(jobId: string) {
   try {
     const result = await sql`
       SELECT COUNT(*) as count
-      FROM moments
-      WHERE task_id = ${taskId}
+      FROM tasks
+      WHERE job_id = ${jobId}
     `;
     
     return { success: true, count: parseInt(result.rows[0].count as string) || 0 };
   } catch (error: any) {
-    console.error('Failed to get moment count:', error);
+    console.error('Failed to get task count:', error);
     return { success: false, count: 0 };
   }
 }
 
 /**
- * Auto-generate moments from task instructions (helper)
+ * Auto-generate tasks from job instructions (helper)
  */
-export async function generateMomentsFromInstructions(
-  taskId: string,
+export async function generateTasksFromInstructions(
+  jobId: string,
   locationId: string,
   organizationId: string,
   createdBy: string
 ) {
   try {
-    // Get task with instructions from Firestore
-    // Tasks are stored in location subcollections
+    // Get job with instructions from Firestore
+    // Jobs are stored in location subcollections as "tasks"
     const { adminDb } = await import('@/lib/firebaseAdmin');
     
-    const taskDoc = await adminDb
+    const jobDoc = await adminDb
       .collection('locations')
       .doc(locationId)
       .collection('tasks')
-      .doc(taskId)
+      .doc(jobId)
       .get();
     
-    if (!taskDoc.exists) {
-      return { success: false, error: 'Task not found' };
+    if (!jobDoc.exists) {
+      return { success: false, error: 'Job not found' };
     }
     
-    const task = taskDoc.data();
+    const job = jobDoc.data();
     
-    // Get instructions from task subcollection
+    // Get instructions from job subcollection
     const instructionsSnap = await adminDb
       .collection('locations')
       .doc(locationId)
       .collection('tasks')
-      .doc(taskId)
+      .doc(jobId)
       .collection('instructions')
       .orderBy('stepNumber', 'asc')
       .get();
@@ -350,15 +350,15 @@ export async function generateMomentsFromInstructions(
     });
     
     if (instructions.length === 0) {
-      return { success: false, error: 'No instructions found for this task' };
+      return { success: false, error: 'No instructions found for this job' };
     }
     
-    // Get existing moment count for this task to set sequence order
-    const existingCountResult = await getMomentCountByTask(taskId);
+    // Get existing task count for this job to set sequence order
+    const existingCountResult = await getTaskCountByJob(jobId);
     const existingCount = existingCountResult.count || 0;
     
-    // Create a moment for each instruction
-    const createdMoments = [];
+    // Create a task for each instruction
+    const createdTasks = [];
     
     for (let i = 0; i < instructions.length; i++) {
       const instruction = instructions[i];
@@ -374,42 +374,42 @@ export async function generateMomentsFromInstructions(
       const titleWords = instructionTitle.toLowerCase().split(' ');
       const actionVerb = titleWords[0] || 'perform';
       
-      const taskCategory = (task?.category as string) || undefined;
+      const jobCategory = (job?.category as string) || undefined;
       
-      const momentData: CreateMomentInput = {
+      const taskData: CreateTaskInput = {
         organizationId,
         locationId,
-        taskId,
+        jobId,
         title: instructionTitle || `Step ${i + 1}`,
         description: instruction.description || instructionTitle || '',
-        momentType: 'action', // Default, can be refined
+        taskType: 'action', // Default, can be refined
         actionVerb: actionVerb,
         objectTarget: undefined,
-        roomLocation: instruction.room || taskCategory || undefined,
+        roomLocation: instruction.room || jobCategory || undefined,
         sequenceOrder: existingCount + i + 1,
         estimatedDurationSeconds: 60, // Default 1 minute
-        tags: [taskCategory, 'auto-generated'].filter(Boolean) as string[],
+        tags: [jobCategory, 'auto-generated'].filter(Boolean) as string[],
         keywords: keywords,
-        source: 'task_instruction',
+        source: 'job_instruction',
         humanVerified: false,
         confidenceScore: 0.8,
         createdBy,
       };
       
-      const result = await createMoment(momentData);
+      const result = await createTask(taskData);
       if (result.success) {
-        createdMoments.push(result.id);
+        createdTasks.push(result.id);
       }
     }
     
     return {
       success: true,
-      count: createdMoments.length,
-      momentIds: createdMoments
+      count: createdTasks.length,
+      taskIds: createdTasks
     };
   } catch (error: any) {
-    console.error('Failed to generate moments:', error);
-    return { success: false, error: error.message || 'Failed to generate moments' };
+    console.error('Failed to generate tasks:', error);
+    return { success: false, error: error.message || 'Failed to generate tasks' };
   }
 }
 

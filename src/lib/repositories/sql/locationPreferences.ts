@@ -16,11 +16,11 @@ export interface LocationPreference {
 }
 
 /**
- * Create or update location preference for a moment
+ * Create or update location preference for a task
  */
 export async function setLocationPreference(data: {
   locationId: string;
-  momentId: string;
+  taskId: string; // Changed from momentId
   customInstruction: string;
   createdBy: string;
 }) {
@@ -29,7 +29,7 @@ export async function setLocationPreference(data: {
     const existing = await sql`
       SELECT id FROM location_preferences
       WHERE location_id = ${data.locationId}
-      AND moment_id = ${data.momentId}
+      AND task_id = ${data.taskId}
     `;
     
     if (existing.rows.length > 0) {
@@ -45,10 +45,10 @@ export async function setLocationPreference(data: {
       // Create new
       const result = await sql`
         INSERT INTO location_preferences (
-          location_id, moment_id, preference_type,
+          location_id, task_id, preference_type,
           custom_instruction, created_by
         ) VALUES (
-          ${data.locationId}, ${data.momentId}, 'custom_instruction',
+          ${data.locationId}, ${data.taskId}, 'custom_instruction',
           ${data.customInstruction}, ${data.createdBy}
         )
         RETURNING id
@@ -69,12 +69,12 @@ export async function getLocationPreferences(locationId: string) {
     const result = await sql`
       SELECT 
         lp.*,
-        m.title as moment_title,
-        m.description as moment_description,
-        t.title as task_title
+        t.title as task_title,
+        t.description as task_description,
+        j.title as job_title
       FROM location_preferences lp
-      LEFT JOIN moments m ON lp.moment_id = m.id
       LEFT JOIN tasks t ON lp.task_id = t.id
+      LEFT JOIN jobs j ON t.job_id = j.id
       WHERE lp.location_id = ${locationId}
       ORDER BY lp.created_at DESC
     `;
@@ -87,14 +87,14 @@ export async function getLocationPreferences(locationId: string) {
 }
 
 /**
- * Get preferences for a specific moment at a location
+ * Get preferences for a specific task at a location
  */
-export async function getMomentPreference(locationId: string, momentId: string) {
+export async function getTaskPreference(locationId: string, taskId: string) {
   try {
     const result = await sql`
       SELECT * FROM location_preferences
       WHERE location_id = ${locationId}
-      AND moment_id = ${momentId}
+      AND task_id = ${taskId}
       LIMIT 1
     `;
     
@@ -127,45 +127,45 @@ export async function deleteLocationPreference(preferenceId: string) {
 }
 
 /**
- * Get moments for a location with preferences applied
+ * Get tasks for a location with preferences applied
  */
-export async function getMomentsWithPreferences(locationId: string, taskId?: string) {
+export async function getTasksWithPreferences(locationId: string, jobId?: string) {
   try {
     let queryText = `
       SELECT 
-        m.*,
+        t.*,
         l.name as location_name,
-        t.title as task_title,
+        j.title as job_title,
         lp.id as preference_id,
         lp.custom_instruction,
         lp.preference_type,
         lp.created_by as preference_created_by,
         lp.updated_at as preference_updated_at
-      FROM moments m
-      JOIN locations l ON m.location_id = l.id
-      JOIN tasks t ON m.task_id = t.id
+      FROM tasks t
+      JOIN locations l ON t.location_id = l.id
+      JOIN jobs j ON t.job_id = j.id
       LEFT JOIN location_preferences lp ON (
-        lp.location_id = m.location_id 
-        AND lp.moment_id = m.id
+        lp.location_id = t.location_id 
+        AND lp.task_id = t.id
       )
-      WHERE m.location_id = $1
+      WHERE t.location_id = $1
     `;
     
     const params: any[] = [locationId];
     
-    if (taskId) {
-      queryText += ' AND m.task_id = $2';
-      params.push(taskId);
+    if (jobId) {
+      queryText += ' AND t.job_id = $2';
+      params.push(jobId);
     }
     
-    queryText += ' ORDER BY m.sequence_order ASC';
+    queryText += ' ORDER BY t.sequence_order ASC';
     
     const result = await sql.query(queryText, params);
     
-    return { success: true, moments: result.rows };
+    return { success: true, tasks: result.rows };
   } catch (error: any) {
-    console.error('Failed to get moments with preferences:', error);
-    return { success: false, moments: [], error: error.message };
+    console.error('Failed to get tasks with preferences:', error);
+    return { success: false, tasks: [], error: error.message };
   }
 }
 

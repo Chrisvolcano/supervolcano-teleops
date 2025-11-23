@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMomentsWithPreferences } from '@/lib/repositories/sql/locationPreferences';
+import { getTasksWithPreferences } from '@/lib/repositories/sql/locationPreferences';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
@@ -27,15 +27,15 @@ export async function GET(
     // TODO: Verify user has access to this specific location
     
     const searchParams = request.nextUrl.searchParams;
-    const taskId = searchParams.get('taskId') || undefined;
+    const jobId = searchParams.get('jobId') || undefined; // Changed from taskId
     
-    const result = await getMomentsWithPreferences(params.locationId, taskId);
+    const result = await getTasksWithPreferences(params.locationId, jobId);
     
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Get moments error:', error);
+    console.error('Get tasks error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get moments' },
+      { error: error.message || 'Failed to get tasks' },
       { status: 500 }
     );
   }

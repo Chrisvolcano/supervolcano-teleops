@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
  * Example:
  * {
  *   "locationId": "abc123",
- *   "taskTitle": "clean kitchen",
+ *   "jobTitle": "clean kitchen",
  *   "actionVerb": "wipe",
+ *   "taskType": "action",
  *   "roomLocation": "kitchen",
  *   "keywords": ["counter"],
  *   "humanVerifiedOnly": true
@@ -28,9 +29,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       locationId,
-      taskTitle,
+      jobTitle, // Changed from taskTitle - now refers to jobs
       actionVerb,
-      momentType,
+      taskType, // Changed from momentType
       roomLocation,
       keywords = [],
       tags = [],
@@ -48,39 +49,39 @@ export async function POST(request: NextRequest) {
       params.push(locationId);
     }
     
-    if (taskTitle) {
-      conditions.push(`t.title ILIKE $${paramIndex++}`);
-      params.push(`%${taskTitle}%`);
+    if (jobTitle) {
+      conditions.push(`j.title ILIKE $${paramIndex++}`);
+      params.push(`%${jobTitle}%`);
     }
     
     if (actionVerb) {
-      conditions.push(`m.action_verb = $${paramIndex++}`);
+      conditions.push(`t.action_verb = $${paramIndex++}`);
       params.push(actionVerb);
     }
     
-    if (momentType) {
-      conditions.push(`m.moment_type = $${paramIndex++}`);
-      params.push(momentType);
+    if (taskType) {
+      conditions.push(`t.task_type = $${paramIndex++}`);
+      params.push(taskType);
     }
     
     if (roomLocation) {
-      conditions.push(`m.room_location = $${paramIndex++}`);
+      conditions.push(`t.room_location = $${paramIndex++}`);
       params.push(roomLocation);
     }
     
     if (humanVerifiedOnly) {
-      conditions.push(`m.human_verified = TRUE`);
+      conditions.push(`t.human_verified = TRUE`);
     }
     
     // Keywords search (array overlap)
     if (keywords.length > 0) {
-      conditions.push(`m.keywords && $${paramIndex++}`);
+      conditions.push(`t.keywords && $${paramIndex++}`);
       params.push(keywords);
     }
     
     // Tags search
     if (tags.length > 0) {
-      conditions.push(`m.tags && $${paramIndex++}`);
+      conditions.push(`t.tags && $${paramIndex++}`);
       params.push(tags);
     }
     
@@ -88,19 +89,19 @@ export async function POST(request: NextRequest) {
     
     const query = `
       SELECT 
-        m.*,
+        t.*,
         l.name as location_name,
         l.address as location_address,
-        t.title as task_title,
-        t.description as task_description,
+        j.title as job_title,
+        j.description as job_description,
         COALESCE(json_agg(
           json_build_object(
             'mediaId', med.id,
             'mediaType', med.media_type,
             'storageUrl', med.storage_url,
             'thumbnailUrl', med.thumbnail_url,
-            'role', mm.media_role,
-            'timeOffset', mm.time_offset_seconds
+            'role', tm.media_role,
+            'timeOffset', tm.time_offset_seconds
           )
         ) FILTER (WHERE med.id IS NOT NULL), '[]') as media,
         (
@@ -111,17 +112,17 @@ export async function POST(request: NextRequest) {
             'updatedAt', lp.updated_at
           )
           FROM location_preferences lp
-          WHERE lp.moment_id = m.id
+          WHERE lp.task_id = t.id
           LIMIT 1
         ) as location_preference
-      FROM moments m
-      JOIN locations l ON m.location_id = l.id
-      JOIN tasks t ON m.task_id = t.id
-      LEFT JOIN moment_media mm ON m.id = mm.moment_id
-      LEFT JOIN media med ON mm.media_id = med.id
+      FROM tasks t
+      JOIN locations l ON t.location_id = l.id
+      JOIN jobs j ON t.job_id = j.id
+      LEFT JOIN task_media tm ON t.id = tm.task_id
+      LEFT JOIN media med ON tm.media_id = med.id
       WHERE ${conditions.join(' AND ')}
-      GROUP BY m.id, l.name, l.address, t.title, t.description
-      ORDER BY m.sequence_order ASC
+      GROUP BY t.id, l.name, l.address, j.title, j.description
+      ORDER BY t.sequence_order ASC
       LIMIT $${paramIndex}
     `;
     
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       query: body,
       results: {
         count: result.rows.length,
-        moments: result.rows.map((row: any) => ({
+        tasks: result.rows.map((row: any) => ({
           id: row.id,
           action: {
             verb: row.action_verb,
@@ -144,9 +145,9 @@ export async function POST(request: NextRequest) {
             address: row.location_address,
             room: row.room_location,
           },
-          task: {
-            id: row.task_id,
-            title: row.task_title,
+          job: {
+            id: row.job_id,
+            title: row.job_title,
           },
           timing: {
             sequenceOrder: row.sequence_order,

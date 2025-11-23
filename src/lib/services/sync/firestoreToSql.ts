@@ -126,37 +126,38 @@ export async function syncShift(sessionId: string) {
 }
 
 /**
- * Sync task from Firestore to SQL
- * Note: Tasks are stored in location subcollections in Firestore
+ * Sync job from Firestore to SQL
+ * Note: Jobs are stored in location subcollections in Firestore as "tasks"
+ * After migration: Firestore "tasks" → SQL "jobs" (high-level assignments)
  */
-export async function syncTask(locationId: string, taskId: string) {
+export async function syncJob(locationId: string, jobId: string) {
   try {
-    const taskDoc = await adminDb
+    const jobDoc = await adminDb
       .collection('locations')
       .doc(locationId)
       .collection('tasks')
-      .doc(taskId)
+      .doc(jobId)
       .get();
     
-    if (!taskDoc.exists) {
-      return { success: false, error: 'Task not found' };
+    if (!jobDoc.exists) {
+      return { success: false, error: 'Job not found' };
     }
     
-    const task = taskDoc.data();
+    const job = jobDoc.data();
     
     await sql`
-      INSERT INTO tasks (
+      INSERT INTO jobs (
         id, location_id, title, description, category,
         estimated_duration_minutes, priority, metadata, synced_at
       ) VALUES (
-        ${taskId},
+        ${jobId},
         ${locationId},
-        ${task?.title || 'Unnamed Task'},
-        ${task?.description || null},
-        ${task?.category || null},
-        ${task?.estimatedDuration || null},
-        ${task?.priority || null},
-        ${JSON.stringify(task)},
+        ${job?.title || 'Unnamed Job'},
+        ${job?.description || null},
+        ${job?.category || null},
+        ${job?.estimatedDuration || null},
+        ${job?.priority || null},
+        ${JSON.stringify(job)},
         NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -171,7 +172,7 @@ export async function syncTask(locationId: string, taskId: string) {
     
     return { success: true };
   } catch (error) {
-    console.error('Failed to sync task:', error);
+    console.error('Failed to sync job:', error);
     return { success: false, error: 'Sync failed' };
   }
 }
@@ -208,32 +209,32 @@ export async function syncAllData() {
       }
     }
     
-    // Sync tasks (from location subcollections)
-    console.log('Syncing tasks...');
-    const locationsForTasks = await adminDb.collection('locations').get();
-    console.log(`Checking ${locationsForTasks.docs.length} locations for tasks`);
+    // Sync jobs (from location subcollections - Firestore "tasks" → SQL "jobs")
+    console.log('Syncing jobs...');
+    const locationsForJobs = await adminDb.collection('locations').get();
+    console.log(`Checking ${locationsForJobs.docs.length} locations for jobs`);
     
-    for (const locDoc of locationsForTasks.docs) {
+    for (const locDoc of locationsForJobs.docs) {
       try {
-        const tasksSnapshot = await locDoc.ref.collection('tasks').get();
-        console.log(`Location ${locDoc.id} has ${tasksSnapshot.docs.length} tasks`);
+        const jobsSnapshot = await locDoc.ref.collection('tasks').get();
+        console.log(`Location ${locDoc.id} has ${jobsSnapshot.docs.length} jobs`);
         
-        for (const taskDoc of tasksSnapshot.docs) {
+        for (const jobDoc of jobsSnapshot.docs) {
           try {
-            const result = await syncTask(locDoc.id, taskDoc.id);
+            const result = await syncJob(locDoc.id, jobDoc.id);
             if (result.success) {
               tasksSynced++;
             } else {
               tasksErrors++;
-              console.error(`Failed to sync task ${taskDoc.id}:`, result.error);
+              console.error(`Failed to sync job ${jobDoc.id}:`, result.error);
             }
           } catch (error: any) {
             tasksErrors++;
-            console.error(`Error syncing task ${taskDoc.id}:`, error.message);
+            console.error(`Error syncing job ${jobDoc.id}:`, error.message);
           }
         }
       } catch (error: any) {
-        console.error(`Error accessing tasks for location ${locDoc.id}:`, error.message);
+        console.error(`Error accessing jobs for location ${locDoc.id}:`, error.message);
       }
     }
     
@@ -259,7 +260,7 @@ export async function syncAllData() {
     
     console.log('Sync complete:', {
       locations: { synced: locationsSynced, errors: locationsErrors },
-      tasks: { synced: tasksSynced, errors: tasksErrors },
+      jobs: { synced: tasksSynced, errors: tasksErrors },
       shifts: { synced: shiftsSynced, errors: shiftsErrors },
     });
     
@@ -268,11 +269,13 @@ export async function syncAllData() {
       message: 'All data synced',
       stats: {
         locations: locationsSynced,
-        tasks: tasksSynced,
+        jobs: tasksSynced, // Note: variable name kept as tasksSynced for backward compatibility
+        tasks: tasksSynced, // Alias for backward compatibility
         shifts: shiftsSynced,
         errors: {
           locations: locationsErrors,
-          tasks: tasksErrors,
+          jobs: tasksErrors,
+          tasks: tasksErrors, // Alias for backward compatibility
           shifts: shiftsErrors,
         }
       }

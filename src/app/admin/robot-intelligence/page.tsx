@@ -21,21 +21,21 @@ import { useAuth } from '@/hooks/useAuth';
 interface Stats {
   locations: number;
   shifts: number;
-  moments: number;
+  tasks: number; // Changed from moments
   executions: number;
 }
 
-interface Moment {
+interface Task {
   id: string;
   title: string;
   description: string;
-  moment_type: string;
+  task_type: string; // Changed from moment_type
   action_verb: string;
   object_target?: string;
   room_location?: string;
   sequence_order: number;
   human_verified: boolean;
-  task_title: string;
+  job_title: string; // Changed from task_title
   location_name: string;
   tags?: string[];
   keywords?: string[];
@@ -47,10 +47,10 @@ export default function RobotIntelligencePage() {
   const { getIdToken, claims } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [moments, setMoments] = useState<Moment[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    momentType: '',
+    taskType: '', // Changed from momentType
     humanVerified: undefined as boolean | undefined,
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -58,7 +58,7 @@ export default function RobotIntelligencePage() {
   
   useEffect(() => {
     loadStats();
-    loadMoments();
+    loadTasks();
   }, []);
   
   async function loadStats() {
@@ -79,17 +79,17 @@ export default function RobotIntelligencePage() {
     }
   }
   
-  async function loadMoments() {
+  async function loadTasks() {
     setLoading(true);
     try {
       const token = await getIdToken();
       const params = new URLSearchParams();
-      if (filters.momentType) params.append('momentType', filters.momentType);
+      if (filters.taskType) params.append('taskType', filters.taskType);
       if (filters.humanVerified !== undefined) {
         params.append('humanVerified', filters.humanVerified.toString());
       }
       
-      const response = await fetch(`/api/admin/moments?${params.toString()}`, {
+      const response = await fetch(`/api/admin/tasks?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -98,10 +98,10 @@ export default function RobotIntelligencePage() {
       const data = await response.json();
       
       if (data.success) {
-        setMoments(data.moments);
+        setTasks(data.tasks);
       }
     } catch (error) {
-      console.error('Failed to load moments:', error);
+      console.error('Failed to load tasks:', error);
     } finally {
       setLoading(false);
     }
@@ -198,7 +198,7 @@ export default function RobotIntelligencePage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Create Moment
+            Create Task
           </button>
         </div>
       </div>
@@ -237,8 +237,8 @@ export default function RobotIntelligencePage() {
           color="purple"
         />
         <StatCard
-          label="Moments Created"
-          value={stats?.moments || 0}
+          label="Tasks Created"
+          value={stats?.tasks || 0}
           icon={Sparkles}
           color="green"
         />
@@ -255,8 +255,8 @@ export default function RobotIntelligencePage() {
         <div className="flex items-center gap-3 flex-wrap">
           <Filter className="h-5 w-5 text-gray-400" />
           <select
-            value={filters.momentType}
-            onChange={(e) => setFilters({...filters, momentType: e.target.value})}
+            value={filters.taskType}
+            onChange={(e) => setFilters({...filters, taskType: e.target.value})}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
             <option value="">All Types</option>
@@ -287,11 +287,11 @@ export default function RobotIntelligencePage() {
             Apply Filters
           </button>
           
-          {(filters.momentType || filters.humanVerified !== undefined) && (
+          {(filters.taskType || filters.humanVerified !== undefined) && (
             <button
               onClick={() => {
-                setFilters({ momentType: '', humanVerified: undefined });
-                setTimeout(loadMoments, 100);
+                setFilters({ taskType: '', humanVerified: undefined });
+                setTimeout(loadTasks, 100);
               }}
               className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
             >
@@ -301,11 +301,11 @@ export default function RobotIntelligencePage() {
         </div>
       </div>
       
-      {/* Moments List */}
+      {/* Tasks List */}
       <div className="bg-white border border-gray-200 rounded-lg">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Moments ({moments.length})
+            Tasks ({tasks.length})
           </h3>
         </div>
         
@@ -313,76 +313,76 @@ export default function RobotIntelligencePage() {
           {loading ? (
             <div className="p-12 text-center text-gray-500">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-gray-400" />
-              Loading moments...
+              Loading tasks...
             </div>
-          ) : moments.length === 0 ? (
+          ) : tasks.length === 0 ? (
             <div className="p-12 text-center">
               <Sparkles className="h-12 w-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">
-                No moments yet. Create your first moment to start building the robot database.
+                No tasks yet. Create your first task to start building the robot database.
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Create First Moment
+                Create First Task
               </button>
             </div>
           ) : (
-            moments.map((moment) => (
-              <div key={moment.id} className="p-6 hover:bg-gray-50 transition-colors">
+            tasks.map((task) => (
+              <div key={task.id} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      {moment.human_verified ? (
+                      {task.human_verified ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       ) : (
                         <Circle className="h-5 w-5 text-gray-400" />
                       )}
                       <h4 className="font-semibold text-gray-900">
-                        {moment.title}
+                        {task.title}
                       </h4>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        moment.moment_type === 'action' ? 'bg-blue-100 text-blue-800' :
-                        moment.moment_type === 'observation' ? 'bg-green-100 text-green-800' :
-                        moment.moment_type === 'decision' ? 'bg-purple-100 text-purple-800' :
-                        moment.moment_type === 'navigation' ? 'bg-yellow-100 text-yellow-800' :
+                        task.task_type === 'action' ? 'bg-blue-100 text-blue-800' :
+                        task.task_type === 'observation' ? 'bg-green-100 text-green-800' :
+                        task.task_type === 'decision' ? 'bg-purple-100 text-purple-800' :
+                        task.task_type === 'navigation' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {moment.moment_type}
+                        {task.task_type}
                       </span>
                     </div>
                     
                     <p className="text-sm text-gray-600 mb-3">
-                      {moment.description}
+                      {task.description}
                     </p>
                     
                     <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-                      <span>Task: {moment.task_title}</span>
+                      <span>Job: {task.job_title}</span>
                       <span>•</span>
-                      <span>Location: {moment.location_name}</span>
+                      <span>Location: {task.location_name}</span>
                       <span>•</span>
-                      <span>Action: {moment.action_verb}</span>
-                      {moment.object_target && (
+                      <span>Action: {task.action_verb}</span>
+                      {task.object_target && (
                         <>
                           <span>•</span>
-                          <span>Target: {moment.object_target}</span>
+                          <span>Target: {task.object_target}</span>
                         </>
                       )}
-                      {moment.room_location && (
+                      {task.room_location && (
                         <>
                           <span>•</span>
-                          <span>Room: {moment.room_location}</span>
+                          <span>Room: {task.room_location}</span>
                         </>
                       )}
                       <span>•</span>
-                      <span>Sequence: #{moment.sequence_order}</span>
+                      <span>Sequence: #{task.sequence_order}</span>
                     </div>
                     
-                    {moment.tags && moment.tags.length > 0 && (
+                    {task.tags && task.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
-                        {moment.tags.map((tag: string, i: number) => (
+                        {task.tags.map((tag: string, i: number) => (
                           <span
                             key={i}
                             className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
@@ -396,16 +396,16 @@ export default function RobotIntelligencePage() {
                   
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => router.push(`/admin/robot-intelligence/moments/${moment.id}`)}
+                      onClick={() => router.push(`/admin/robot-intelligence/tasks/${task.id}`)}
                       className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      aria-label="Edit moment"
+                      aria-label="Edit task"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => deleteMoment(moment.id)}
+                      onClick={() => deleteTask(task.id)}
                       className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      aria-label="Delete moment"
+                      aria-label="Delete task"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -417,13 +417,13 @@ export default function RobotIntelligencePage() {
         </div>
       </div>
       
-      {/* Create Modal - Placeholder */}
+      {/* Create Modal */}
       {showCreateModal && (
-        <CreateMomentModal
+        <CreateTaskModal
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            loadMoments();
+            loadTasks();
             loadStats();
           }}
         />
@@ -453,19 +453,19 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
   );
 }
 
-function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function CreateTaskModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { getIdToken, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string }>>([]);
+  const [jobs, setJobs] = useState<Array<{ id: string; title: string }>>([]); // Changed from tasks to jobs
   const [loadingLocations, setLoadingLocations] = useState(true);
-  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(false); // Changed from loadingTasks
   const [formData, setFormData] = useState({
     locationId: '',
-    taskId: '',
+    jobId: '', // Changed from taskId
     title: '',
     description: '',
-    momentType: 'action' as 'action' | 'observation' | 'decision' | 'navigation' | 'manipulation',
+    taskType: 'action' as 'action' | 'observation' | 'decision' | 'navigation' | 'manipulation', // Changed from momentType
     actionVerb: '',
     objectTarget: '',
     roomLocation: '',
@@ -482,10 +482,10 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
   
   useEffect(() => {
     if (formData.locationId) {
-      loadTasks(formData.locationId);
+      loadJobs(formData.locationId);
     } else {
-      setTasks([]);
-      setFormData(prev => ({ ...prev, taskId: '' }));
+      setJobs([]);
+      setFormData(prev => ({ ...prev, jobId: '' }));
     }
   }, [formData.locationId]);
   
@@ -511,11 +511,12 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
     }
   }
   
-  async function loadTasks(locationId: string) {
-    setLoadingTasks(true);
+  async function loadJobs(locationId: string) {
+    setLoadingJobs(true);
     try {
       const token = await getIdToken();
-      const response = await fetch(`/api/admin/robot-intelligence/tasks?locationId=${locationId}`, {
+      // Load jobs from Firestore (they're stored as "tasks" in location subcollections)
+      const response = await fetch(`/api/admin/locations/${locationId}/tasks/firestore`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -524,13 +525,13 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setTasks(data.tasks || []);
+          setJobs(data.tasks || []); // Firestore returns "tasks" but they're actually jobs
         }
       }
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      console.error('Failed to load jobs:', error);
     } finally {
-      setLoadingTasks(false);
+      setLoadingJobs(false);
     }
   }
   
@@ -544,7 +545,7 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       // Get organization ID from claims
       const organizationId = (claims as any)?.organizationId || 'system';
       
-      const response = await fetch('/api/admin/moments', {
+      const response = await fetch('/api/admin/tasks', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -553,10 +554,10 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
         body: JSON.stringify({
           organizationId,
           locationId: formData.locationId,
-          taskId: formData.taskId,
+          jobId: formData.jobId, // Changed from taskId
           title: formData.title,
           description: formData.description,
-          momentType: formData.momentType,
+          taskType: formData.taskType, // Changed from momentType
           actionVerb: formData.actionVerb,
           objectTarget: formData.objectTarget || undefined,
           roomLocation: formData.roomLocation || undefined,
@@ -575,11 +576,11 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       if (data.success) {
         onSuccess();
       } else {
-        alert('Failed to create moment: ' + (data.error || 'Unknown error'));
+        alert('Failed to create task: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Failed to create moment:', error);
-      alert('Failed to create moment');
+      console.error('Failed to create task:', error);
+      alert('Failed to create task');
     } finally {
       setLoading(false);
     }
@@ -590,7 +591,7 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-gray-900">
-            Create Moment
+            Create Task
           </h3>
           <button
             onClick={onClose}
@@ -614,7 +615,7 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
               ) : (
                 <select
                   value={formData.locationId}
-                  onChange={(e) => setFormData({...formData, locationId: e.target.value, taskId: ''})}
+                  onChange={(e) => setFormData({...formData, locationId: e.target.value, jobId: ''})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 >
@@ -635,34 +636,34 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Task *
+                Job *
               </label>
               {!formData.locationId ? (
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
                   Select a location first
                 </div>
-              ) : loadingTasks ? (
+              ) : loadingJobs ? (
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
-                  Loading tasks...
+                  Loading jobs...
                 </div>
               ) : (
                 <select
-                  value={formData.taskId}
-                  onChange={(e) => setFormData({...formData, taskId: e.target.value})}
+                  value={formData.jobId}
+                  onChange={(e) => setFormData({...formData, jobId: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 >
-                  <option value="">Select a task</option>
-                  {tasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.title}
+                  <option value="">Select a job</option>
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title}
                     </option>
                   ))}
                 </select>
               )}
-              {tasks.length === 0 && formData.locationId && !loadingTasks && (
+              {jobs.length === 0 && formData.locationId && !loadingJobs && (
                 <p className="text-xs text-orange-600 mt-1">
-                  No tasks found for this location.
+                  No jobs found for this location.
                 </p>
               )}
             </div>
@@ -697,11 +698,11 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Moment Type *
+                Task Type *
               </label>
               <select
-                value={formData.momentType}
-                onChange={(e) => setFormData({...formData, momentType: e.target.value as any})}
+                value={formData.taskType}
+                onChange={(e) => setFormData({...formData, taskType: e.target.value as any})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 required
               >

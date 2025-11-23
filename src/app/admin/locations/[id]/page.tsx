@@ -25,8 +25,8 @@ export default function AdminLocationDetailPage() {
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPreferences, setShowPreferences] = useState(false);
-  const [moments, setMoments] = useState<any[]>([]);
-  const [loadingMoments, setLoadingMoments] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]); // Changed from moments
+  const [loadingTasks, setLoadingTasks] = useState(false); // Changed from loadingMoments
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -61,13 +61,14 @@ export default function AdminLocationDetailPage() {
     }
   }
   
-  async function loadMomentsForPreferences() {
-    setLoadingMoments(true);
+  async function loadTasksForPreferences() {
+    setLoadingTasks(true);
     try {
       const token = await getIdToken();
       if (!token) return;
 
-      const response = await fetch(`/api/org/locations/${locationId}/moments`, {
+      // Load tasks (atomic robot steps) for preferences
+      const response = await fetch(`/api/admin/tasks?locationId=${locationId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -75,12 +76,12 @@ export default function AdminLocationDetailPage() {
       
       const data = await response.json();
       if (data.success) {
-        setMoments(data.moments);
+        setTasks(data.tasks);
       }
     } catch (error) {
-      console.error('Failed to load moments:', error);
+      console.error('Failed to load tasks:', error);
     } finally {
-      setLoadingMoments(false);
+      setLoadingTasks(false);
     }
   }
   
@@ -205,24 +206,24 @@ export default function AdminLocationDetailPage() {
         
         {showPreferences && (
           <div className="p-6">
-            {loadingMoments ? (
+            {loadingTasks ? (
               <div className="text-center py-8 text-gray-500">
                 Loading customization options...
               </div>
-            ) : moments.length === 0 ? (
+            ) : tasks.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-600 mb-2">
-                  No moments available yet for this location.
+                  No tasks available yet for this location.
                 </p>
                 <p className="text-sm text-gray-500">
-                  Moments are created from tasks and synced to the robot database.
+                  Tasks are atomic robot-executable steps created in Robot Intelligence.
                 </p>
               </div>
             ) : (
               <LocationPreferencesPanel
                 locationId={locationId}
-                moments={moments}
-                onUpdate={loadMomentsForPreferences}
+                tasks={tasks}
+                onUpdate={loadTasksForPreferences}
               />
             )}
           </div>

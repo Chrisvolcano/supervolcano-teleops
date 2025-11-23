@@ -6,33 +6,33 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface LocationPreferencesPanelProps {
   locationId: string;
-  moments: any[];
+  tasks: any[]; // Changed from moments
   onUpdate: () => void;
 }
 
 export default function LocationPreferencesPanel({ 
   locationId, 
-  moments, 
+  tasks, // Changed from moments
   onUpdate 
 }: LocationPreferencesPanelProps) {
   const { getIdToken, claims } = useAuth();
-  const [editingMoment, setEditingMoment] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<string | null>(null); // Changed from editingMoment
   const [customInstruction, setCustomInstruction] = useState('');
   const [saving, setSaving] = useState(false);
   
-  // Group moments by task
-  const momentsByTask = moments.reduce((acc: any, moment) => {
-    if (!acc[moment.task_id]) {
-      acc[moment.task_id] = {
-        taskTitle: moment.task_title,
-        moments: [],
+  // Group tasks by job
+  const tasksByJob = tasks.reduce((acc: any, task) => {
+    if (!acc[task.job_id]) {
+      acc[task.job_id] = {
+        jobTitle: task.job_title, // Changed from task_title
+        tasks: [], // Changed from moments
       };
     }
-    acc[moment.task_id].moments.push(moment);
+    acc[task.job_id].tasks.push(task);
     return acc;
   }, {});
   
-  async function savePreference(momentId: string) {
+  async function savePreference(taskId: string) { // Changed from momentId
     if (!customInstruction.trim()) return;
     
     setSaving(true);
@@ -48,7 +48,7 @@ export default function LocationPreferencesPanel({
         },
         body: JSON.stringify({
           locationId,
-          momentId,
+          taskId, // Changed from momentId
           customInstruction: customInstruction.trim(),
           createdBy,
         }),
@@ -57,7 +57,7 @@ export default function LocationPreferencesPanel({
       const data = await response.json();
       
       if (data.success) {
-        setEditingMoment(null);
+        setEditingTask(null); // Changed from setEditingMoment
         setCustomInstruction('');
         onUpdate();
       } else {
@@ -98,9 +98,9 @@ export default function LocationPreferencesPanel({
     }
   }
   
-  function startEditing(moment: any) {
-    setEditingMoment(moment.id);
-    setCustomInstruction(moment.custom_instruction || '');
+  function startEditing(task: any) { // Changed from moment
+    setEditingTask(task.id); // Changed from setEditingMoment
+    setCustomInstruction(task.custom_instruction || '');
   }
   
   return (
@@ -121,31 +121,31 @@ export default function LocationPreferencesPanel({
         </div>
       </div>
       
-      {/* Moments by Task */}
-      {Object.entries(momentsByTask).map(([taskId, taskData]: [string, any]) => (
-        <div key={taskId} className="border border-gray-200 rounded-lg overflow-hidden">
+      {/* Tasks by Job */}
+      {Object.entries(tasksByJob).map(([jobId, jobData]: [string, any]) => (
+        <div key={jobId} className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">{taskData.taskTitle}</h3>
+            <h3 className="font-semibold text-gray-900">{jobData.jobTitle}</h3>
           </div>
           
           <div className="divide-y divide-gray-200">
-            {taskData.moments.map((moment: any) => (
-              <div key={moment.id} className="p-4">
+            {jobData.tasks.map((task: any) => (
+              <div key={task.id} className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-semibold text-sm">
-                    {moment.sequence_order}
+                    {task.sequence_order}
                   </div>
                   
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900 mb-1">
-                      {moment.title}
+                      {task.title}
                     </h4>
                     <p className="text-sm text-gray-600 mb-2">
-                      Default: {moment.description}
+                      Default: {task.description}
                     </p>
                     
                     {/* Existing Preference */}
-                    {moment.custom_instruction && editingMoment !== moment.id && (
+                    {task.custom_instruction && editingTask !== task.id && (
                       <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -156,24 +156,24 @@ export default function LocationPreferencesPanel({
                               </span>
                             </div>
                             <p className="text-sm text-orange-900">
-                              {moment.custom_instruction}
+                              {task.custom_instruction}
                             </p>
-                            {moment.preference_updated_at && (
+                            {task.preference_updated_at && (
                               <p className="text-xs text-orange-600 mt-1">
-                                Last updated: {new Date(moment.preference_updated_at).toLocaleDateString()}
+                                Last updated: {new Date(task.preference_updated_at).toLocaleDateString()}
                               </p>
                             )}
                           </div>
                           <div className="flex gap-1">
                             <button
-                              onClick={() => startEditing(moment)}
+                              onClick={() => startEditing(task)}
                               className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
                               aria-label="Edit preference"
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => deletePreference(moment.preference_id)}
+                              onClick={() => deletePreference(task.preference_id)}
                               className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
                               aria-label="Delete preference"
                             >
@@ -185,7 +185,7 @@ export default function LocationPreferencesPanel({
                     )}
                     
                     {/* Edit Mode */}
-                    {editingMoment === moment.id && (
+                    {editingTask === task.id && (
                       <div className="mt-3 space-y-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -201,7 +201,7 @@ export default function LocationPreferencesPanel({
                         </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => savePreference(moment.id)}
+                            onClick={() => savePreference(task.id)}
                             disabled={saving || !customInstruction.trim()}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
@@ -210,7 +210,7 @@ export default function LocationPreferencesPanel({
                           </button>
                           <button
                             onClick={() => {
-                              setEditingMoment(null);
+                              setEditingTask(null);
                               setCustomInstruction('');
                             }}
                             disabled={saving}
@@ -223,9 +223,9 @@ export default function LocationPreferencesPanel({
                     )}
                     
                     {/* Add Preference Button */}
-                    {!moment.custom_instruction && editingMoment !== moment.id && (
+                    {!task.custom_instruction && editingTask !== task.id && (
                       <button
-                        onClick={() => startEditing(moment)}
+                        onClick={() => startEditing(task)}
                         className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                       >
                         <Settings className="h-4 w-4" />

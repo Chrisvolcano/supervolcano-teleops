@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateMomentsFromInstructions } from '@/lib/repositories/sql/moments';
+import { generateTasksFromInstructions } from '@/lib/repositories/sql/tasks';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,17 +21,17 @@ export async function POST(request: NextRequest) {
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     const body = await request.json();
-    const { taskId, locationId, organizationId, createdBy } = body;
+    const { jobId, locationId, organizationId, createdBy } = body; // Changed taskId to jobId
     
-    if (!taskId || !locationId || !organizationId || !createdBy) {
+    if (!jobId || !locationId || !organizationId || !createdBy) {
       return NextResponse.json(
-        { error: 'Missing required fields: taskId, locationId, organizationId, createdBy' },
+        { error: 'Missing required fields: jobId, locationId, organizationId, createdBy' },
         { status: 400 }
       );
     }
     
-    const result = await generateMomentsFromInstructions(
-      taskId,
+    const result = await generateTasksFromInstructions(
+      jobId,
       locationId,
       organizationId,
       createdBy
@@ -43,9 +43,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 400 });
     }
   } catch (error: any) {
-    console.error('Generate moments error:', error);
+    console.error('Generate tasks error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate moments' },
+      { error: error.message || 'Failed to generate tasks' },
       { status: 500 }
     );
   }
