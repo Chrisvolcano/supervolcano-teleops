@@ -91,7 +91,7 @@ export default function RobotIntelligencePage() {
       
       const response = await fetch(`/api/admin/moments?${params.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       
