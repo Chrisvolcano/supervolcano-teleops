@@ -413,3 +413,44 @@ export async function generateTasksFromInstructions(
   }
 }
 
+/**
+ * Link media to a task
+ */
+export async function linkMediaToTask(taskId: string, mediaId: string, role?: string) {
+  try {
+    await sql`
+      INSERT INTO task_media (task_id, media_id, media_role)
+      VALUES (${taskId}, ${mediaId}, ${role || 'reference'})
+      ON CONFLICT (task_id, media_id) DO NOTHING
+    `;
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to link media to task:', error);
+    return { success: false, error: error.message || 'Failed to link media' };
+  }
+}
+
+/**
+ * Get all media for a task
+ */
+export async function getTaskMedia(taskId: string) {
+  try {
+    const result = await sql`
+      SELECT 
+        m.*,
+        tm.media_role,
+        tm.time_offset_seconds
+      FROM media m
+      JOIN task_media tm ON m.id = tm.media_id
+      WHERE tm.task_id = ${taskId}
+      ORDER BY m.uploaded_at DESC
+    `;
+    
+    return { success: true, media: result.rows };
+  } catch (error: any) {
+    console.error('Failed to get task media:', error);
+    return { success: false, media: [], error: error.message };
+  }
+}
+

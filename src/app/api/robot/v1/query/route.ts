@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     let paramIndex = 1;
     
     if (locationId) {
-      conditions.push(`m.location_id = $${paramIndex++}`);
+      conditions.push(`t.location_id = $${paramIndex++}`);
       params.push(locationId);
     }
     
@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
             'mediaType', med.media_type,
             'storageUrl', med.storage_url,
             'thumbnailUrl', med.thumbnail_url,
+            'durationSeconds', med.duration_seconds,
             'role', tm.media_role,
             'timeOffset', tm.time_offset_seconds
           )

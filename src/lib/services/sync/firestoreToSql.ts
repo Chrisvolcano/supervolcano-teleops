@@ -178,6 +178,103 @@ export async function syncJob(locationId: string, jobId: string) {
 }
 
 /**
+ * Sync media from Firestore to SQL
+ */
+export async function syncMedia(mediaId: string) {
+  try {
+    const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
+    
+    if (!mediaDoc.exists) {
+      return { success: false, error: 'Media not found' };
+    }
+    
+    const media = mediaDoc.data();
+    
+    // Handle Firestore Timestamp conversion
+    const uploadedAt = media?.uploadedAt?.toDate 
+      ? media.uploadedAt.toDate() 
+      : (media?.uploadedAt ? new Date(media.uploadedAt) : new Date());
+    
+    await sql`
+      INSERT INTO media (
+        id, organization_id, location_id, job_id, shift_id,
+        media_type, storage_url, thumbnail_url,
+        duration_seconds, resolution, fps,
+        processing_status, ai_processed, moments_extracted,
+        uploaded_by, uploaded_at, tags, synced_at
+      ) VALUES (
+        ${mediaId},
+        (SELECT organization_id FROM locations WHERE id = ${media.locationId} LIMIT 1),
+        ${media.locationId},
+        ${media.taskId || null},
+        ${media.shiftId || null},
+        ${media.mediaType},
+        ${media.storageUrl},
+        ${media.thumbnailUrl || null},
+        ${media.durationSeconds || null},
+        ${media.resolution || null},
+        ${media.fps || null},
+        ${media.processingStatus || 'completed'},
+        ${media.aiProcessed || false},
+        ${media.momentsExtracted || 0},
+        ${media.uploadedBy},
+        ${uploadedAt},
+        ${media.tags || []},
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        storage_url = EXCLUDED.storage_url,
+        thumbnail_url = EXCLUDED.thumbnail_url,
+        processing_status = EXCLUDED.processing_status,
+        ai_processed = EXCLUDED.ai_processed,
+        moments_extracted = EXCLUDED.moments_extracted,
+        synced_at = NOW()
+    `;
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to sync media:', error);
+    return { success: false, error: 'Sync failed' };
+  }
+}
+
+/**
+ * After syncing media, automatically link it to any tasks for the same job
+ */
+export async function autoLinkMediaToTasks(jobId: string) {
+  try {
+    // Get all media for this job from SQL
+    const mediaResult = await sql`
+      SELECT id FROM media WHERE job_id = ${jobId}
+    `;
+    
+    // Get all tasks for this job from SQL
+    const tasksResult = await sql`
+      SELECT id FROM tasks WHERE job_id = ${jobId}
+    `;
+    
+    // Link each media to each task (visual reference for the entire job)
+    let linksCreated = 0;
+    for (const media of mediaResult.rows) {
+      for (const task of tasksResult.rows) {
+        await sql`
+          INSERT INTO task_media (task_id, media_id, media_role)
+          VALUES (${task.id}, ${media.id}, 'job_reference')
+          ON CONFLICT (task_id, media_id) DO NOTHING
+        `;
+        linksCreated++;
+      }
+    }
+    
+    console.log(`Auto-linked ${linksCreated} media-task relationships for job ${jobId}`);
+    return { success: true, linksCreated };
+  } catch (error) {
+    console.error('Failed to auto-link media:', error);
+    return { success: false, error: 'Auto-link failed' };
+  }
+}
+
+/**
  * Batch sync all data (run periodically or on-demand)
  */
 export async function syncAllData() {
@@ -258,10 +355,54 @@ export async function syncAllData() {
       }
     }
     
+    // Sync media (CRITICAL FOR VISUAL DATABASE)
+    console.log('Syncing media...');
+    const mediaSnapshot = await adminDb.collection('media').get();
+    console.log(`Found ${mediaSnapshot.docs.length} media files in Firestore`);
+    
+    let mediaSynced = 0;
+    let mediaErrors = 0;
+    
+    for (const doc of mediaSnapshot.docs) {
+      try {
+        const result = await syncMedia(doc.id);
+        if (result.success) {
+          mediaSynced++;
+        } else {
+          mediaErrors++;
+          console.error(`Failed to sync media ${doc.id}:`, result.error);
+        }
+      } catch (error: any) {
+        mediaErrors++;
+        console.error(`Error syncing media ${doc.id}:`, error.message);
+      }
+    }
+    
+    // Auto-link media to tasks
+    console.log('Auto-linking media to tasks...');
+    const jobsWithMedia = await sql`
+      SELECT DISTINCT job_id FROM media WHERE job_id IS NOT NULL
+    `;
+    
+    let totalLinks = 0;
+    for (const row of jobsWithMedia.rows) {
+      try {
+        const result = await autoLinkMediaToTasks(row.job_id);
+        if (result.success) {
+          totalLinks += result.linksCreated || 0;
+        }
+      } catch (error: any) {
+        console.error(`Error auto-linking media for job ${row.job_id}:`, error.message);
+      }
+    }
+    console.log(`Created ${totalLinks} media-task links`);
+    
     console.log('Sync complete:', {
       locations: { synced: locationsSynced, errors: locationsErrors },
       jobs: { synced: tasksSynced, errors: tasksErrors },
       shifts: { synced: shiftsSynced, errors: shiftsErrors },
+      media: { synced: mediaSynced, errors: mediaErrors },
+      mediaTaskLinks: totalLinks,
     });
     
     return { 
@@ -272,11 +413,14 @@ export async function syncAllData() {
         jobs: tasksSynced, // Note: variable name kept as tasksSynced for backward compatibility
         tasks: tasksSynced, // Alias for backward compatibility
         shifts: shiftsSynced,
+        media: mediaSynced,
+        mediaTaskLinks: totalLinks,
         errors: {
           locations: locationsErrors,
           jobs: tasksErrors,
           tasks: tasksErrors, // Alias for backward compatibility
           shifts: shiftsErrors,
+          media: mediaErrors,
         }
       }
     };

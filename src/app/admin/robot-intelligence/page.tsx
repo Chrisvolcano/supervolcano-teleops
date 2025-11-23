@@ -14,32 +14,42 @@ import {
   Trash2,
   Sparkles,
   Loader2,
-  X
+  X,
+  Video
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface Stats {
   locations: number;
   shifts: number;
-  tasks: number; // Changed from moments
+  tasks: number;
   executions: number;
+  media: number;
 }
 
 interface Task {
   id: string;
   title: string;
   description: string;
-  task_type: string; // Changed from moment_type
+  task_type: string;
   action_verb: string;
   object_target?: string;
   room_location?: string;
   sequence_order: number;
   human_verified: boolean;
-  job_title: string; // Changed from task_title
+  job_title: string;
   location_name: string;
   tags?: string[];
   keywords?: string[];
   created_at: string;
+  media?: Array<{
+    mediaId: string;
+    mediaType: string;
+    storageUrl: string;
+    thumbnailUrl?: string;
+    durationSeconds?: number;
+    role?: string;
+  }>;
 }
 
 export default function RobotIntelligencePage() {
@@ -204,26 +214,29 @@ export default function RobotIntelligencePage() {
       </div>
       
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <h4 className="font-medium text-blue-900 mb-2">How This Works</h4>
         <div className="text-sm text-blue-800 space-y-1">
           <p>
-            • <strong>Firestore</strong> is the source of truth for locations, tasks, and organizations
+            • <strong>Firestore</strong> is the source of truth for locations, jobs, and media metadata
           </p>
           <p>
-            • <strong>SQL Database</strong> stores robot-specific data (tasks, preferences, execution logs)
+            • <strong>Firebase Storage</strong> stores actual video/image files
           </p>
           <p>
-            • Click <strong>&quot;Sync from Firestore&quot;</strong> to copy locations/tasks to SQL for robot queries
+            • <strong>SQL Database</strong> stores robot-specific data (tasks, preferences, execution logs) + synced copies
           </p>
           <p>
-            • Manage locations/tasks in the Locations tab - they automatically appear here after sync
+            • Click <strong>&quot;Sync from Firestore&quot;</strong> to copy locations/jobs/media to SQL for robot queries
+          </p>
+          <p>
+            • <strong>Visual Job Database:</strong> Robots query tasks WITH videos showing how to perform them
           </p>
         </div>
       </div>
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <StatCard
           label="Locations Synced"
           value={stats?.locations || 0}
@@ -247,6 +260,12 @@ export default function RobotIntelligencePage() {
           value={stats?.executions || 0}
           icon={Database}
           color="orange"
+        />
+        <StatCard
+          label="Media Files"
+          value={stats?.media || 0}
+          icon={Video}
+          color="purple"
         />
       </div>
       
@@ -390,6 +409,16 @@ export default function RobotIntelligencePage() {
                             {tag}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    
+                    {/* Media Display */}
+                    {task.media && task.media.length > 0 && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <Video className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm text-purple-600 font-medium">
+                          {task.media.length} video{task.media.length > 1 ? 's' : ''} attached
+                        </span>
                       </div>
                     )}
                   </div>
