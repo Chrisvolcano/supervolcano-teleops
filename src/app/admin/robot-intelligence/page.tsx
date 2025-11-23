@@ -133,12 +133,12 @@ export default function RobotIntelligencePage() {
     }
   }
   
-  async function deleteMoment(id: string) {
-    if (!confirm('Are you sure you want to delete this moment?')) return;
+  async function deleteTask(id: string) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
     
     try {
       const token = await getIdToken();
-      const response = await fetch(`/api/admin/moments/${id}`, {
+      const response = await fetch(`/api/admin/tasks/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -146,20 +146,20 @@ export default function RobotIntelligencePage() {
       });
       
       if (response.ok) {
-        loadMoments();
+        loadTasks();
         loadStats();
       } else {
         const data = await response.json();
         alert('Failed to delete: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Failed to delete moment:', error);
-      alert('Failed to delete moment');
+      console.error('Failed to delete task:', error);
+      alert('Failed to delete task');
     }
   }
   
   async function handleApplyFilters() {
-    await loadMoments();
+    await loadTasks();
   }
   
   if (loading && !stats) {
@@ -211,7 +211,7 @@ export default function RobotIntelligencePage() {
             • <strong>Firestore</strong> is the source of truth for locations, tasks, and organizations
           </p>
           <p>
-            • <strong>SQL Database</strong> stores robot-specific data (moments, preferences, execution logs)
+            • <strong>SQL Database</strong> stores robot-specific data (tasks, preferences, execution logs)
           </p>
           <p>
             • Click <strong>&quot;Sync from Firestore&quot;</strong> to copy locations/tasks to SQL for robot queries
