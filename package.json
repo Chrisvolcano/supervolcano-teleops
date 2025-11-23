@@ -22,7 +22,8 @@
     "create:org-manager": "tsx scripts/create-org-manager.ts",
     "assign:manager": "tsx scripts/assign-manager-to-org.ts",
     "reset:password": "tsx scripts/reset-teleoperator-password.ts",
-    "test:firebase": "echo 'Run: curl http://localhost:3000/api/test-firebase && curl http://localhost:3000/api/test-firebase/env'"
+    "test:firebase": "echo 'Run: curl http://localhost:3000/api/test-firebase && curl http://localhost:3000/api/test-firebase/env'",
+    "db:schema": "tsx scripts/run-schema.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -31,6 +32,7 @@
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-switch": "^1.2.6",
+    "@vercel/postgres": "^0.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -38,6 +40,7 @@
     "firebase-admin": "^11.11.1",
     "lucide-react": "^0.464.0",
     "next": "14.2.11",
+    "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
