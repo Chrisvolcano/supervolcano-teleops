@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createLocation, listLocations } from "@/lib/repositories/locations";
 import { getUserClaims, requireRole } from "@/lib/utils/auth";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { sql } from "@/lib/db/postgres";
+import { syncLocation } from "@/lib/services/sync/firestoreToSql";
 import type { LocationStatus, LocationType } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -181,6 +183,21 @@ export async function POST(request: NextRequest) {
 
     // Note: Teleoperators are now assigned via organizations, not directly to locations
     // If you need to assign teleoperators, assign the location to their organization instead
+
+    // Immediately sync to SQL database for admin view
+    try {
+      console.log("[api] POST /api/v1/locations - Syncing to SQL database...");
+      const syncResult = await syncLocation(locationId);
+      if (syncResult.success) {
+        console.log("[api] POST /api/v1/locations - Successfully synced to SQL");
+      } else {
+        console.error("[api] POST /api/v1/locations - Failed to sync to SQL:", syncResult.error);
+        // Don't fail the request if sync fails - location is still created in Firestore
+      }
+    } catch (error: any) {
+      console.error("[api] POST /api/v1/locations - Error syncing to SQL:", error.message);
+      // Don't fail the request if sync fails
+    }
 
     console.log("[api] POST /api/v1/locations - Success:", { locationId });
     return NextResponse.json({ locationId }, { status: 201 });

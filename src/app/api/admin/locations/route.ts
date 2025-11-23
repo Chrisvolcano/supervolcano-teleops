@@ -43,17 +43,27 @@ export async function GET(request: NextRequest) {
     const firestoreLocations = firestoreSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as any[];
+    
+    console.log(`[admin/locations] Found ${firestoreLocations.length} locations in Firestore, ${sqlResult.rows.length} in SQL`);
     
     // Find locations in Firestore that aren't in SQL yet
     const missingLocations = firestoreLocations.filter(loc => !sqlLocationIds.has(loc.id));
     
+    console.log(`[admin/locations] Found ${missingLocations.length} locations to sync:`, missingLocations.map((l: any) => ({ id: l.id, name: l.name || 'Unnamed' })));
+    
     // Sync missing locations to SQL
     for (const location of missingLocations) {
       try {
-        await syncLocation(location.id);
-      } catch (error) {
-        console.error(`Failed to sync location ${location.id}:`, error);
+        console.log(`[admin/locations] Syncing location ${location.id} (${location.name})...`);
+        const result = await syncLocation(location.id);
+        if (result.success) {
+          console.log(`[admin/locations] Successfully synced location ${location.id}`);
+        } else {
+          console.error(`[admin/locations] Failed to sync location ${location.id}:`, result.error);
+        }
+      } catch (error: any) {
+        console.error(`[admin/locations] Error syncing location ${location.id}:`, error.message, error.stack);
       }
     }
     

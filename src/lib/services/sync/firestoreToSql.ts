@@ -11,10 +11,16 @@ export async function syncLocation(locationId: string) {
     const locationDoc = await adminDb.collection('locations').doc(locationId).get();
     
     if (!locationDoc.exists) {
+      console.error(`[sync] Location ${locationId} not found in Firestore`);
       return { success: false, error: 'Location not found' };
     }
     
     const location = locationDoc.data();
+    console.log(`[sync] Syncing location ${locationId}:`, {
+      name: location?.name,
+      address: location?.address,
+      organizationId: location?.assignedOrganizationId
+    });
     
     await sql`
       INSERT INTO locations (
@@ -27,10 +33,10 @@ export async function syncLocation(locationId: string) {
         ${location?.assignedOrganizationName || null},
         ${location?.name || 'Unnamed'},
         ${location?.address || null},
-        ${location?.contactName || null},
-        ${location?.contactPhone || null},
-        ${location?.contactEmail || null},
-        ${location?.accessInstructions || null},
+        ${location?.contactName || location?.contact_name || null},
+        ${location?.contactPhone || location?.contact_phone || null},
+        ${location?.contactEmail || location?.contact_email || null},
+        ${location?.accessInstructions || location?.access_instructions || null},
         ${JSON.stringify(location)},
         NOW()
       )
@@ -47,10 +53,11 @@ export async function syncLocation(locationId: string) {
         synced_at = NOW()
     `;
     
+    console.log(`[sync] Successfully synced location ${locationId}`);
     return { success: true };
-  } catch (error) {
-    console.error('Failed to sync location:', error);
-    return { success: false, error: 'Sync failed' };
+  } catch (error: any) {
+    console.error(`[sync] Failed to sync location ${locationId}:`, error.message, error.stack);
+    return { success: false, error: error.message || 'Sync failed' };
   }
 }
 
