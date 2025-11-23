@@ -25,8 +25,8 @@ export default function AdminLocationDetailPage() {
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPreferences, setShowPreferences] = useState(false);
-  const [tasks, setTasks] = useState<any[]>([]); // Changed from moments
-  const [loadingTasks, setLoadingTasks] = useState(false); // Changed from loadingMoments
+  const [tasksForPreferences, setTasksForPreferences] = useState<any[]>([]);
+  const [loadingTasksForPreferences, setLoadingTasksForPreferences] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -62,7 +62,7 @@ export default function AdminLocationDetailPage() {
   }
   
   async function loadTasksForPreferences() {
-    setLoadingTasks(true);
+    setLoadingTasksForPreferences(true);
     try {
       const token = await getIdToken();
       if (!token) return;
@@ -76,12 +76,12 @@ export default function AdminLocationDetailPage() {
       
       const data = await response.json();
       if (data.success) {
-        setTasks(data.tasks);
+        setTasksForPreferences(data.tasks);
       }
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      console.error('Failed to load tasks for preferences:', error);
     } finally {
-      setLoadingTasks(false);
+      setLoadingTasksForPreferences(false);
     }
   }
   
@@ -192,8 +192,8 @@ export default function AdminLocationDetailPage() {
             <button
               onClick={() => {
                 setShowPreferences(!showPreferences);
-                if (!showPreferences && moments.length === 0) {
-                  loadMomentsForPreferences();
+                if (!showPreferences && tasksForPreferences.length === 0) {
+                  loadTasksForPreferences();
                 }
               }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
@@ -206,11 +206,11 @@ export default function AdminLocationDetailPage() {
         
         {showPreferences && (
           <div className="p-6">
-            {loadingTasks ? (
+            {loadingTasksForPreferences ? (
               <div className="text-center py-8 text-gray-500">
                 Loading customization options...
               </div>
-            ) : tasks.length === 0 ? (
+            ) : tasksForPreferences.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-600 mb-2">
                   No tasks available yet for this location.
@@ -222,7 +222,7 @@ export default function AdminLocationDetailPage() {
             ) : (
               <LocationPreferencesPanel
                 locationId={locationId}
-                tasks={tasks}
+                tasks={tasksForPreferences}
                 onUpdate={loadTasksForPreferences}
               />
             )}
