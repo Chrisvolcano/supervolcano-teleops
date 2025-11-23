@@ -437,6 +437,10 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
 function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { getIdToken, claims } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string }>>([]);
+  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(false);
   const [formData, setFormData] = useState({
     locationId: '',
     taskId: '',
@@ -452,6 +456,64 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
     keywords: '',
     humanVerified: false,
   });
+  
+  useEffect(() => {
+    loadLocations();
+  }, []);
+  
+  useEffect(() => {
+    if (formData.locationId) {
+      loadTasks(formData.locationId);
+    } else {
+      setTasks([]);
+      setFormData(prev => ({ ...prev, taskId: '' }));
+    }
+  }, [formData.locationId]);
+  
+  async function loadLocations() {
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/robot-intelligence/locations', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setLocations(data.locations || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  }
+  
+  async function loadTasks(locationId: string) {
+    setLoadingTasks(true);
+    try {
+      const token = await getIdToken();
+      const response = await fetch(`/api/admin/robot-intelligence/tasks?locationId=${locationId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTasks(data.tasks || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  }
   
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -524,28 +586,66 @@ function CreateMomentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location ID *
+                Location *
               </label>
-              <input
-                type="text"
-                value={formData.locationId}
-                onChange={(e) => setFormData({...formData, locationId: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                required
-              />
+              {loadingLocations ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
+                  Loading locations...
+                </div>
+              ) : (
+                <select
+                  value={formData.locationId}
+                  onChange={(e) => setFormData({...formData, locationId: e.target.value, taskId: ''})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select a location</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {locations.length === 0 && !loadingLocations && (
+                <p className="text-xs text-orange-600 mt-1">
+                  No locations found. Sync from Firestore first.
+                </p>
+              )}
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Task ID *
+                Task *
               </label>
-              <input
-                type="text"
-                value={formData.taskId}
-                onChange={(e) => setFormData({...formData, taskId: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                required
-              />
+              {!formData.locationId ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
+                  Select a location first
+                </div>
+              ) : loadingTasks ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
+                  Loading tasks...
+                </div>
+              ) : (
+                <select
+                  value={formData.taskId}
+                  onChange={(e) => setFormData({...formData, taskId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select a task</option>
+                  {tasks.map((task) => (
+                    <option key={task.id} value={task.id}>
+                      {task.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tasks.length === 0 && formData.locationId && !loadingTasks && (
+                <p className="text-xs text-orange-600 mt-1">
+                  No tasks found for this location.
+                </p>
+              )}
             </div>
           </div>
           
