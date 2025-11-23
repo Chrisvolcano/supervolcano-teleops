@@ -1,11 +1,7 @@
 -- ============================================
 -- Migration: Rename Tasks/Moments to Jobs/Tasks
 -- ============================================
--- This migration renames the hierarchical architecture:
--- - "tasks" (high-level) → "jobs" 
--- - "moments" (atomic) → "tasks"
---
--- IMPORTANT: Views must be created AFTER location_preferences migration
+-- Simplified version without DO blocks
 -- ============================================
 
 BEGIN;
@@ -43,16 +39,48 @@ ALTER INDEX IF EXISTS idx_moments_fulltext RENAME TO idx_tasks_fulltext;
 ALTER INDEX IF EXISTS idx_moment_media_moment RENAME TO idx_task_media_task;
 ALTER INDEX IF EXISTS idx_moment_media_media RENAME TO idx_task_media_media;
 
--- Step 7: Drop old views (will recreate after location_preferences migration)
+-- Step 7: Update views
 DROP VIEW IF EXISTS moments_enriched;
+CREATE VIEW tasks_enriched AS
+SELECT 
+    t.*,
+    COUNT(DISTINCT tm.media_id) as media_count,
+    ARRAY_AGG(DISTINCT med.media_type) FILTER (WHERE med.media_type IS NOT NULL) as available_media_types,
+    l.name as location_name,
+    j.title as job_title,
+    EXISTS(
+        SELECT 1 FROM location_preferences lp 
+        WHERE lp.task_id = t.id
+    ) as has_location_preference
+FROM tasks t
+LEFT JOIN task_media tm ON t.id = tm.task_id
+LEFT JOIN media med ON tm.media_id = med.id
+JOIN locations l ON t.location_id = l.id
+JOIN jobs j ON t.job_id = j.id
+GROUP BY t.id, l.name, j.title;
+
 DROP VIEW IF EXISTS task_performance;
+CREATE VIEW job_performance AS
+SELECT 
+    j.id as job_id,
+    j.title as job_title,
+    l.id as location_id,
+    l.name as location_name,
+    COUNT(DISTINCT t.id) as task_count,
+    AVG(t.robot_success_rate) as avg_success_rate,
+    SUM(t.robot_execution_count) as total_executions,
+    MAX(t.updated_at) as last_updated
+FROM jobs j
+JOIN locations l ON j.location_id = l.id
+LEFT JOIN tasks t ON j.id = t.job_id
+GROUP BY j.id, j.title, l.id, l.name;
 
 -- Step 8: Update functions/triggers
 DROP TRIGGER IF EXISTS trigger_update_moment_stats ON robot_executions;
 DROP FUNCTION IF EXISTS update_moment_stats();
 
 CREATE OR REPLACE FUNCTION update_task_stats()
-RETURNS TRIGGER AS $func$
+RETURNS TRIGGER AS $$
 BEGIN
     UPDATE tasks SET
         robot_execution_count = (
@@ -72,7 +100,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$func$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_task_stats
 AFTER INSERT ON robot_executions
@@ -130,43 +158,5 @@ ALTER TABLE robot_executions RENAME COLUMN moment_id TO task_id;
 -- Step 11: Update media table to reference jobs
 ALTER TABLE media RENAME COLUMN task_id TO job_id;
 
--- Step 12: Create views (AFTER all migrations are complete)
-CREATE VIEW tasks_enriched AS
-SELECT 
-    t.*,
-    COUNT(DISTINCT tm.media_id) as media_count,
-    ARRAY_AGG(DISTINCT med.media_type) FILTER (WHERE med.media_type IS NOT NULL) as available_media_types,
-    l.name as location_name,
-    j.title as job_title,
-    EXISTS(
-        SELECT 1 FROM location_preferences lp 
-        WHERE lp.task_id = t.id
-    ) as has_location_preference
-FROM tasks t
-LEFT JOIN task_media tm ON t.id = tm.task_id
-LEFT JOIN media med ON tm.media_id = med.id
-JOIN locations l ON t.location_id = l.id
-JOIN jobs j ON t.job_id = j.id
-GROUP BY t.id, l.name, j.title;
-
-CREATE VIEW job_performance AS
-SELECT 
-    j.id as job_id,
-    j.title as job_title,
-    l.id as location_id,
-    l.name as location_name,
-    COUNT(DISTINCT t.id) as task_count,
-    AVG(t.robot_success_rate) as avg_success_rate,
-    SUM(t.robot_execution_count) as total_executions,
-    MAX(t.updated_at) as last_updated
-FROM jobs j
-JOIN locations l ON j.location_id = l.id
-LEFT JOIN tasks t ON j.id = t.job_id
-GROUP BY j.id, j.title, l.id, l.name;
-
 COMMIT;
 
--- Verification queries (run these to verify the migration)
--- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('jobs', 'tasks', 'task_media');
--- SELECT column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'job_id';
--- SELECT column_name FROM information_schema.columns WHERE table_name = 'location_preferences' AND column_name IN ('job_id', 'task_id');
