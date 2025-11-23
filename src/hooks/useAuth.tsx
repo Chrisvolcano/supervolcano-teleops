@@ -100,9 +100,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
       console.info("[auth] attempting login", email);
       try {
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
+        const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
         console.info("[auth] login succeeded", email);
-        router.replace("/properties");
+        
+        // Get token to check user role (force refresh to get latest claims)
+        const tokenResult = await userCredential.user.getIdTokenResult(true);
+        const role = tokenResult.claims.role as string | undefined;
+        
+        // Update claims state
+        setClaims(tokenResult.claims);
+        
+        // Redirect based on role
+        if (role === "superadmin" || role === "partner_admin" || role === "admin") {
+          router.replace("/admin");
+        } else if (role === "org_manager" || role === "teleoperator") {
+          router.replace("/org/dashboard");
+        } else {
+          // Fallback to properties for other roles or no role
+          router.replace("/properties");
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unexpected authentication error.";

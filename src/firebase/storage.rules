@@ -23,6 +23,14 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    // Specific rule for instruction images (MUST come before general locations rule)
+    // This allows authenticated users to upload instruction images
+    match /locations/{locationId}/instructions/{instructionId}/{filename} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // General rule for other location files (requires admin)
     match /locations/{locationId}/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();

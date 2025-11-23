@@ -12,12 +12,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 function AccessDenied() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-50 px-6 py-16 text-neutral-900">
-      <Card className="w-full max-w-md border-neutral-200 shadow-sm">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 py-16 text-slate-900">
+      <Card className="w-full max-w-md border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">Admin access required</CardTitle>
+          <CardTitle className="text-xl font-semibold text-slate-900">Admin access required</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-neutral-600">
+        <CardContent className="space-y-3 text-sm text-slate-600">
           <p>Your account does not have administrator privileges.</p>
           <Button asChild variant="outline" className="w-full">
             <Link href="/properties">Return to properties</Link>
@@ -62,8 +62,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (initializing || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading admin portal…</p>
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
       </main>
     );
   }
@@ -77,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <AdminHeader />
       <div className="mx-auto flex w-full max-w-7xl gap-8 px-6 py-10">
         <AdminNav />

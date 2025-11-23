@@ -13,27 +13,63 @@ import type { UserRole, UserClaims } from "@/lib/types";
 export async function getUserClaims(token: string): Promise<UserClaims | null> {
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
+    
+    // Firebase Admin SDK puts custom claims directly on the decoded token
+    // Access them directly from decodedToken (not decodedToken.claims)
+    const role = (decodedToken as any).role as UserRole | undefined;
+    const partnerId = (decodedToken as any).partnerId as string | undefined;
+    const teleoperatorId = (decodedToken as any).teleoperatorId as string | undefined;
+    const organizationId = (decodedToken as any).organizationId as string | undefined;
+    
+    console.log("[auth] getUserClaims - Decoded token:", {
+      uid: decodedToken.uid,
+      role,
+      partnerId,
+      teleoperatorId,
+      organizationId,
+      hasRole: !!role,
+    });
+    
+    if (!role) {
+      console.warn("[auth] getUserClaims - No role found in token. User may need to sign out and sign back in.");
+      // Return null if no role - this will trigger unauthorized error
+      return null;
+    }
+    
     return {
-      role: decodedToken.role as UserRole,
-      partnerId: decodedToken.partnerId as string | undefined,
-      teleoperatorId: decodedToken.teleoperatorId as string | undefined,
+      role,
+      partnerId: partnerId || undefined,
+      teleoperatorId: teleoperatorId || undefined,
+      organizationId: organizationId || undefined,
     };
-  } catch (error) {
+  } catch (error: any) {
+    console.error("[auth] getUserClaims - Error verifying token:", {
+      message: error.message,
+      code: error.code,
+    });
     return null;
   }
 }
 
 /**
- * Require specific role
+ * Require specific role(s)
  * Throws error if user doesn't have required role
  */
-export function requireRole(claims: UserClaims | null, requiredRole: UserRole): void {
+export function requireRole(claims: UserClaims | null, requiredRole: UserRole | UserRole[]): void {
   if (!claims) {
     throw new Error("Unauthorized: No authentication claims");
   }
 
-  if (claims.role !== requiredRole && claims.role !== "superadmin") {
-    throw new Error(`Unauthorized: Requires ${requiredRole} role`);
+  const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+  
+  // Superadmin has access to everything
+  if (claims.role === "superadmin") {
+    return;
+  }
+  
+  if (!allowedRoles.includes(claims.role)) {
+    const rolesStr = allowedRoles.join(" or ");
+    throw new Error(`Unauthorized: Requires ${rolesStr} role`);
   }
 }
 

@@ -1,6 +1,20 @@
-## SuperVolcano Teleoperator Portal
+# SuperVolcano OEM Partner Portal
 
 Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Built with TypeScript, TailwindCSS, and shadcn/ui, backed by Firebase for client and admin workloads.
+
+## Architecture
+
+The application consists of two main portals:
+
+- **Admin Portal** (`/admin`): For SuperVolcano internal team to manage organizations, locations, tasks, and users
+- **Organization Portal** (`/org`): For customer organizations (managers and teleoperators) to view analytics, manage tasks, and track performance
+
+## User Roles
+
+1. **superadmin/admin**: SuperVolcano team, full system access
+2. **partner_admin**: Partner organization admin, manages their partner's organizations
+3. **org_manager**: Organization manager, analytics view, team management
+4. **teleoperator**: Robot operator, task execution and completion tracking
 
 ### Stack
 
@@ -19,118 +33,230 @@ Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Bui
 
    > npm and yarn also work if preferred.
 
-2. **Configure environment variables**
+## Environment Variables
 
-   Create a `.env.local` file at the project root and supply the Firebase and admin values. Refer to the variables described below (the sample values match current project defaults):
+Create a `.env.local` file at the project root with the following variables:
 
-   ```
-   NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDXXXX
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=supervolcano-teleops.firebaseapp.com
-   FIREBASE_ADMIN_PROJECT_ID=super-volcano-oem-portal
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=supervolcano-teleops.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=1234567890
-   NEXT_PUBLIC_FIREBASE_APP_ID=1:1234567890:web:abcdef123456
+### Required Variables
 
-   FIREBASE_ADMIN_PROJECT_ID=super-volcano-oem-portal
-   FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-fbsvc@super-volcano-oem-portal.iam.gserviceaccount.com
-   FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDHSfuBJkQR1Yy5\n5iuFJ8whTTWhw6fyXj2W00HW6s+mK0/q2GSGrpPTf+bd4Ok9+4Unk/gqjowXZAqI\nXXxhb/ZwjY2NNGP5ekrSpyFQQlIrSBu1NWkquH8oA4K6dRX7yOYgbDRVoS2W1MTe\nEu2J+7ra8GO0lnBcm3Nqqqcg3Rz7aq/H6kVg8Qee+NbhDSJJD5r+kvUzC5aagONR\nuXxqsPwPu9Nv4Jl4yGF8xuygn+6WENU0aO/PCHXKFhb2uUwnjEBL8TkQ2Scz7ViS\nt2MvOWek37lqZrCYaIdsii6sia8ACyb32fuavWiIDMaLggI2ZJf0N5dWmJXJyaqy\nlF9CP6LzAgMBAAECggEAQEAY5t14aquHsFOFyms3Q7FJzjpvRhOeFadMfca8ZZ1n\nKZbUahuUq0Z8HyKo8APMPSNWihnlDpGBV8+UDzHyqPzqGxE9/iuwPdQGSILpTOz1\niemLW2uaC0N+fTDMgp2Vm/Rmtwi80vkL83D0xlyzNGz2KD2sQh8YCda1BUJkWqXL\nKEM3cQVbBfTPZ+dkQ9+MMiaSRRGNHBGg6vlVW8S/YJ7fULpFfkh6edpWwvedLowb\nFfPbNA1/Dq9rbqWY0qsEObYh8JdMXu3pBwjZEiLB1rw0tEgy4Ir5hU5Wj5p1lCU5\nlkwGBBvj4piMVwN6YzQVSvBHb2B3XEtctZal7VXu2QKBgQD9MccAj+aY0NGgUQk9\n3F35eG0GtABgYpGYS+Lrl26qJ2bPENiyLTHRWgi6mZGWSG/5kCtNGbslSBONpnQX\nlsMTHztZ2HePZCEtSbCrnZJBOptjZtjhpc+/kZCgla/qfcwCZVIhZDzj7YsCEKRE\nZfT6XY0opZVfmq51Rp973BZWdwKBgQDJf0tjfdSHKrjId60wEvDBNg1CHQ0l8Gq4\nK0L2x9H6acCxdC2qorcJdjmKncyjRoApRLTX72PWPhsVAsN8N3fhCmrtIf//qu/m\nW5PRvWTZ8dtq9OUKwW6BzAZ8BmJ7n5gXC2e0aMKyJ2xlQ+Xatv+rXT2pfqvrMEXV\nOIs65sAqZQKBgQCsTJF1yndMCt58UGkPlcTFnbPj2d5fuPQHRaz4UabXV9TYmEg+\niA7cvn4uLY8rS8QXeopc/2OhbTkRLfLWkpvRiXFkJLDH/YWuQfVd8+6xQOa5cCWq\n+KE1ZiObhAGge1a3UqffXU0qdl4gW57NhOx+6+bBgFz0IFkUKakiKpVw5QKBgE3J\nSn06ElWr9HHPYZhxd2ffSfb/6BeBXHGEofFK6pDVSoI263o4HpkUfto4WMufZ9KG\np5nE3LHUf/f4fSby8uB5eRXaTk2Q29P9/m61wr0wVRhROiqQyexpqwcuH87BqaEb\n0gkfeCn2di4RrCZnBwRMloVcVVoR5KOPlJBEjGLRAoGBAPwawO6qkhz0cblvqjGN\nJiR6gai0Pf/JJFX1t7x5pOVTADWRs5y1W9Ss6nGuvGR+d0F94KpWgEySFRZKWcLi\nX12dCJ1iuiH5dCmAscxp6tVZezyx0c7sAy+Ig1/lWVdGjyUxdx9t7K4EWweYDIxo\nR2FDoJ4NYJ1+McVE7dVfvGzS\n-----END PRIVATE KEY-----\n"
+```env
+# Firebase Client Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-  ADMIN_BEARER_TOKEN=cf1b2fbd50b34b929a1e5e1b0d9327b0e2c83f62a1fd4d879e72906c57f3e2a3
-   ```
+# Firebase Admin SDK (Server-side only)
+FIREBASE_ADMIN_PROJECT_ID=your-project-id
+FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
 
-   The admin private key should retain literal `\n` characters. When copying from a JSON service account, surround the value with quotes and keep `\n` escapes.
+**⚠️ Security Note**: Never commit `.env.local` to version control. The admin private key should retain literal `\n` characters. When copying from a JSON service account, surround the value with quotes and keep `\n` escapes.
 
-3. **Run the development server**
+## Project Structure
 
-   ```
-   pnpm dev
-   ```
+```
+supervolcano-teleoperator-portal/
+├── src/
+│   ├── app/
+│   │   ├── admin/          # Admin portal routes
+│   │   ├── org/            # Organization portal routes
+│   │   ├── api/            # API routes
+│   │   └── login/          # Authentication
+│   ├── components/
+│   │   ├── ui/             # Reusable UI components
+│   │   ├── org/            # Organization portal components
+│   │   └── admin/          # Admin portal components
+│   ├── lib/
+│   │   ├── repositories/   # Data access layer
+│   │   ├── validation/     # Zod schemas
+│   │   └── utils/          # Utility functions
+│   └── hooks/              # React hooks
+├── scripts/                # Utility scripts
+├── firebase/               # Firebase configuration
+└── TESTING_CHECKLIST.md    # Testing guide
+└── SECURITY_AUDIT.md       # Security checklist
+```
 
-   Visit [http://localhost:3000](http://localhost:3000) and sign in on `/login`.
+## Firebase Configuration
 
-   Need to inspect verbose Firestore output? Use the debug variant (runs on a custom port and writes `firebase-debug.log` at the repo root):
+### 1. Enable Services
 
-   ```
-   pnpm dev:debug -- --port 3050
-   ```
+- **Authentication**: Email/Password provider
+- **Firestore**: Native mode database
+- **Storage**: Default bucket (for images/videos)
 
-   After reproducing an issue (e.g. a stuck write), share both the browser console logs and the generated `firebase-debug.log` with Firebase support.
+### 2. Deploy Security Rules
 
-### Firebase Configuration
+```bash
+# Deploy Firestore rules
+firebase deploy --only firestore:rules --project your-project-id
 
-1. **Enable services**
-
-   - Authentication: Email/Password
-   - Firestore: Native mode
-   - Storage: Default bucket
-
-2. **Set security rules**
-
-   Deploy the rules included in this repo:
-
-   ```
-   firebase deploy --only firestore:rules --project vast-art-477519-u5
-   firebase deploy --only storage:rules --project vast-art-477519-u5
+# Deploy Storage rules (if using)
+firebase deploy --only storage:rules --project your-project-id
    ```
 
    - Firestore rules: `src/firebase/firestore.rules`
    - Storage rules: `src/firebase/storage.rules`
 
-3. **Configure custom claims**
+### 3. Create Firestore Indexes
 
-   Use the admin API route below to assign `role` and `partner_org_id` claims to users.
+Some queries require composite indexes. When you see an index error, follow the link in the error message to create the index in Firebase Console, or add it to `firestore.indexes.json` and deploy:
 
-### Feature Overview
-
-- `/login` — email/password sign-in for teleoperators, with password visibility toggle and contextual messaging when already authenticated.
-- `/admin` — admin dashboard for at-a-glance metrics and quick navigation.
-- `/admin/properties` — manage property profiles, imagery, and video walkthroughs alongside template-driven tasks (with property notes and usage counters).
-- `/admin/tasks` — govern task templates with difficulty tags, assignment mix, usage counters, and property-level drill-downs.
-- `/admin/sessions` — review teleoperation sessions with filters, QC editing, and robot vs human time split visualizations.
-- `/admin/settings` — configure roles, taxonomy colors, operational defaults, storage details, and run dangerous maintenance actions.
-- `/properties` — operator dashboard filtered by role/partner; displays `PropertyCard` components and teleoperator task queues with in-app status updates.
-- `/property/[id]` — property overview with gallery, SessionHUD, scoped tasks, task history, and note-taking workspace.
-- `/task/[id]` — detailed view with task metadata, state-machine transitions, and audit log timeline.
-- Hooks:
-  - `useAuth()` — wraps Firebase Auth with role claims, navigation helpers, and access to fresh ID tokens for privileged calls.
-  - `useCollection()`/`useDoc()` — typed Firestore listeners with partner scoping.
-  - `useTaskTemplates()`, `useTemplateUsage()` — task template data and property usage utilities.
-  - `useSessions()` — enriched session feed with property/task names.
-- Components:
-  - `PropertyCard`, `TaskList`, `SessionHUD`, `TaskForm` (now template-aware), `ConfirmDialog`, `EmptyState`, `TaskTemplatesTable`, `TaskTemplateDrawer`, `TaskTemplateForm`, `SessionsTable`, `SessionDetail`, `SettingsForms`.
-
-### Running Admin Endpoints
-
-Include the bearer token in the request headers:
-
-```
-curl -X POST http://localhost:3000/api/admin/promote \
-  -H "Content-Type: application/json" \
-  -H "ADMIN_BEARER_TOKEN: changeme-admin-token" \
-  -d '{"email":"operator@demo.org","role":"operator","partner_org_id":"demo-org"}'
+```bash
+firebase deploy --only firestore:indexes --project your-project-id
 ```
 
-Session management:
+## Testing
 
+See `TESTING_CHECKLIST.md` for comprehensive testing procedures.
+
+### Quick Test
+
+1. Create an organization via admin portal
+2. Log in as the created manager
+3. View dashboard and locations
+4. Create a teleoperator
+5. Log in as teleoperator
+6. Complete a task
+7. Verify completion appears in manager dashboard
+
+## Security
+
+See `SECURITY_AUDIT.md` for security checklist and best practices.
+
+### Key Security Features
+
+- Role-based access control (RBAC)
+- Organization data isolation
+- Firestore security rules
+- Input validation with Zod
+- Secure authentication tokens
+- Environment variable protection
+
+## Key Features
+
+### Admin Portal (`/admin`)
+- **Organizations**: Create and manage customer organizations with primary managers
+- **Locations**: Create locations, assign to organizations, manage tasks and instructions
+- **Tasks**: Create tasks with detailed instructions (text, images, videos)
+- **Team Management**: Add managers and teleoperators to organizations
+- **Analytics**: View organization performance metrics
+
+### Organization Portal (`/org`)
+- **Dashboard**: Role-based views (analytics for managers, task-focused for teleoperators)
+- **Locations**: View assigned locations with tasks and instructions
+- **Task Completion**: Teleoperators can complete tasks with detailed tracking
+- **Session Tracking**: Automatic session creation based on task completions
+- **Performance Analytics**: Track completions, durations, and team performance
+- **Team View**: Managers can view all team members and their stats
+
+### Task Management
+- **Recurring Tasks**: Tasks can be completed multiple times
+- **Completion History**: View all completions for a task with details
+- **Session-Based**: Completions automatically grouped into daily sessions
+- **Rich Instructions**: Support for images, videos, and step-by-step guidance
+
+## Quick Start
+
+### Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
 ```
-curl -X POST http://localhost:3000/api/session/start \
-  -H "Content-Type: application/json" \
-  -H "ADMIN_BEARER_TOKEN: changeme-admin-token" \
-  -d '{"operatorId":"operator@demo.org","partnerOrgId":"demo-org","propertyId":"demo-property-1","taskId":"task-available-1","allowed_hours":4}'
+
+Visit [http://localhost:3000](http://localhost:3000) and sign in on `/login`.
+
+### Build for Production
+
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
 ```
 
-### Firestore indexes
+### Create Test Users
 
-Composite indexes for properties, tasks, templates, and sessions live in `firestore.indexes.json`. Deploy them using whichever workflow you prefer:
+```bash
+# Create an organization manager
+npm run create:org-manager <email> <password> [organizationId]
 
-- **Firebase Console**: when a query throws “index required”, follow the link in the error toast and click **Create index**. This is the fastest path during development.
-- **Firebase CLI**: if you maintain infrastructure-as-code, run `firebase deploy --only firestore:indexes` (requires `firebase.json` and an authenticated CLI session).
+# Assign manager to existing organization
+npm run assign:manager "<org name>" <email> <password>
 
-The JSON file includes the indexes currently required by the admin dashboards. If new queries surface additional requirements, add the generated definitions to the file so the entire team can deploy them consistently.
+# Create a teleoperator
+npm run create:teleoperator <email> <password> <organizationId>
 
-### Deployment (Vercel)
+# Reset teleoperator password
+npm run reset:password <email>
+```
 
-1. Push the repository to GitHub/GitLab.
-2. Import the project into Vercel.
-3. Set the environment variables in Vercel → Settings → Environment Variables.
-4. Configure a secret for `
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push repository to GitHub/GitLab
+2. Import project into Vercel
+3. Set environment variables in Vercel → Settings → Environment Variables
+4. Deploy automatically on push to main branch
+
+### Other Platforms
+
+The application can be deployed to any platform that supports Next.js:
+- Vercel (recommended)
+- Netlify
+- AWS Amplify
+- Railway
+- Self-hosted with Node.js
+
+## Performance Optimizations
+
+- **Memoization**: Expensive computations cached with `useMemo`
+- **Lazy Loading**: Images load on demand
+- **Skeleton Loaders**: Better perceived performance
+- **Debouncing**: Search inputs debounced (if added)
+- **Code Splitting**: Automatic with Next.js App Router
+
+## Troubleshooting
+
+### Common Issues
+
+**Build Errors**
+- Check TypeScript errors: `npm run build`
+- Verify all imports are correct
+- Ensure environment variables are set
+
+**Authentication Issues**
+- Verify Firebase Auth is enabled
+- Check custom claims are set correctly
+- Ensure user has required role
+
+**Permission Denied Errors**
+- Verify Firestore rules are deployed
+- Check user's organizationId matches data
+- Review security rules in Firebase Console
+
+**Missing Indexes**
+- Follow error message link to create index
+- Or add to `firestore.indexes.json` and deploy
+
+## Contributing
+
+1. Create feature branch
+2. Make changes
+3. Run tests: `npm run build`
+4. Update documentation
+5. Submit pull request
+
+## License
+
+Proprietary - SuperVolcano OEM Partner Portal

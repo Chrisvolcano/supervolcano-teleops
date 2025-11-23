@@ -6,8 +6,38 @@
  * - Firestore user document
  */
 
-import { adminAuth, adminDb } from "../src/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+// CRITICAL: Load environment variables FIRST, before any other imports
+import { config } from "dotenv";
+import { resolve } from "path";
+
+// Load .env.local file
+const envPath = resolve(process.cwd(), ".env.local");
+console.log("📁 Loading environment variables from:", envPath);
+const result = config({ path: envPath });
+
+if (result.error) {
+  console.error("❌ Failed to load .env.local:", result.error.message);
+  console.error("💡 Make sure .env.local exists in the project root.");
+  process.exit(1);
+}
+
+// Verify required env vars are loaded
+const requiredVars = [
+  "FIREBASE_ADMIN_PROJECT_ID",
+  "FIREBASE_ADMIN_CLIENT_EMAIL",
+  "FIREBASE_ADMIN_PRIVATE_KEY",
+];
+
+const missingVars = requiredVars.filter((varName) => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error("❌ Missing required environment variables:");
+  missingVars.forEach((varName) => console.error(`   - ${varName}`));
+  console.error("\n💡 Make sure .env.local exists and contains all FIREBASE_ADMIN_* variables.");
+  process.exit(1);
+}
+
+console.log("✅ Environment variables loaded successfully\n");
 
 const TEST_PARTNER_ID = "demo-org";
 const TEST_ADMIN_EMAIL = "admin@demo.com";
@@ -15,6 +45,10 @@ const TEST_ADMIN_PASSWORD = "TestAdmin123!";
 
 async function setupTestData() {
   console.log("🚀 Setting up test data for local development...\n");
+
+  // Dynamically import Firebase Admin AFTER env vars are loaded
+  const { adminAuth, adminDb } = await import("../src/lib/firebaseAdmin");
+  const { FieldValue } = await import("firebase-admin/firestore");
 
   try {
     // 1. Create test partner organization

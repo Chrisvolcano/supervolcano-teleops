@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Teleoperator, TeleoperatorStatus } from "@/lib/types";
+import type { Organization } from "@/lib/repositories/organizations";
 import toast from "react-hot-toast";
 import { Plus, User, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,9 @@ import { Label } from "@/components/ui/label";
 export default function AdminTeleoperatorsPage() {
   const { user, claims } = useAuth();
   const [teleoperators, setTeleoperators] = useState<Teleoperator[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -28,6 +31,8 @@ export default function AdminTeleoperatorsPage() {
     displayName: "",
     photoUrl: "",
     partnerOrgId: "",
+    organizationId: "",
+    organizationName: "",
     phone: "",
     currentStatus: "offline" as TeleoperatorStatus,
     certifications: [] as string[],
@@ -61,11 +66,36 @@ export default function AdminTeleoperatorsPage() {
     }
   }, [user]);
 
+  // Load organizations
+  const loadOrganizations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setLoadingOrganizations(true);
+      const token = await user.getIdToken();
+      const response = await fetch("/api/v1/organizations", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setOrganizations(data.organizations || []);
+      }
+    } catch (error) {
+      console.error("Failed to load organizations:", error);
+    } finally {
+      setLoadingOrganizations(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user || !claims) return;
 
     loadTeleoperators();
-  }, [user, claims, loadTeleoperators]);
+    loadOrganizations();
+  }, [user, claims, loadTeleoperators, loadOrganizations]);
 
   async function handleCreate() {
     if (!user) {
@@ -73,8 +103,8 @@ export default function AdminTeleoperatorsPage() {
       return;
     }
 
-    if (!formData.email || !formData.displayName || !formData.partnerOrgId) {
-      toast.error("Please fill in all required fields");
+    if (!formData.email || !formData.displayName || !formData.partnerOrgId || !formData.organizationId) {
+      toast.error("Please fill in all required fields (email, display name, partner, and organization)");
       return;
     }
 
@@ -92,6 +122,8 @@ export default function AdminTeleoperatorsPage() {
           displayName: formData.displayName,
           photoUrl: formData.photoUrl || undefined,
           partnerOrgId: formData.partnerOrgId,
+          organizationId: formData.organizationId,
+          organizationName: formData.organizationName,
           phone: formData.phone || undefined,
           currentStatus: formData.currentStatus,
           certifications: formData.certifications,
@@ -112,6 +144,8 @@ export default function AdminTeleoperatorsPage() {
         displayName: "",
         photoUrl: "",
         partnerOrgId: "",
+        organizationId: "",
+        organizationName: "",
         phone: "",
         currentStatus: "offline",
         certifications: [],
@@ -203,6 +237,34 @@ export default function AdminTeleoperatorsPage() {
                 onChange={(e) => setFormData({ ...formData, partnerOrgId: e.target.value })}
                 placeholder="partner-org-123"
               />
+            </div>
+            <div>
+              <Label htmlFor="organizationId">Organization *</Label>
+              {loadingOrganizations ? (
+                <p className="text-sm text-gray-500">Loading organizations...</p>
+              ) : (
+                <select
+                  id="organizationId"
+                  className="w-full p-2 border rounded"
+                  value={formData.organizationId}
+                  onChange={(e) => {
+                    const selectedOrg = organizations.find((org) => org.id === e.target.value);
+                    setFormData({
+                      ...formData,
+                      organizationId: e.target.value,
+                      organizationName: selectedOrg?.name || "",
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Select an organization</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <Label htmlFor="phone">Phone</Label>

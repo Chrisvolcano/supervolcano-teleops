@@ -1,55 +1,121 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     function isAuthenticated() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == "admin";
+      return isAuthenticated() && (
+        request.auth.token.role == "admin" ||
+        request.auth.token.role == "superadmin" ||
+        request.auth.token.role == "partner_admin"
+      );
     }
 
-    function isOperator() {
-      return isAuthenticated() && request.auth.token.role == "operator";
+    function isTeleoperator() {
+      return isAuthenticated() && request.auth.token.role == "teleoperator";
+    }
+
+    function isOrgUser() {
+      return isAuthenticated() && (
+        request.auth.token.role == "org_manager" ||
+        request.auth.token.role == "teleoperator"
+      );
+    }
+
+    function isOrgManager() {
+      return isAuthenticated() && request.auth.token.role == "org_manager";
+    }
+
+    function getOrganizationId() {
+      return request.auth.token.organizationId;
     }
 
     function partnerMatches(partnerOrgId) {
       return isAdmin() ||
-        (isAuthenticated() && request.auth.token.partner_org_id == partnerOrgId);
+        (isAuthenticated() && request.auth.token.partnerId == partnerOrgId);
     }
 
-    function teleoperatorStatusUpdateAllowed() {
-      return isOperator() &&
-        resource.data.assigned_to == "teleoperator" &&
-        request.resource.data.assigned_to == resource.data.assigned_to &&
-        request.resource.data.locationId == resource.data.locationId &&
-        request.resource.data.partnerOrgId == resource.data.partnerOrgId &&
-        request.resource.data.name == resource.data.name &&
-        request.resource.data.duration == resource.data.duration &&
-        request.resource.data.priority == resource.data.priority &&
-        request.resource.data.type == resource.data.type &&
-        request.resource.data.assignedToUserId == request.auth.uid &&
-        request.resource.data.status in ["in_progress", "completed"] &&
-        request.resource.data.state == request.resource.data.status;
-    }
-
-    match /organizations/{orgId} {
-      allow read: if partnerMatches(orgId);
+    // Organizations collection
+    match /organizations/{organizationId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isOrgUser() && resource.data.id == getOrganizationId())
+      );
       allow write: if isAdmin();
     }
 
-    match /users/{userId} {
-      allow read: if partnerMatches(resource.data.partnerOrgId);
-      allow update: if isAdmin() || request.auth.uid == userId;
-      allow create: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
+    // Locations collection
     match /locations/{locationId} {
-      allow read: if partnerMatches(resource.data.partnerOrgId);
-      allow create, update, delete: if isAdmin();
+      // Admins can read all locations
+      // Org users can read locations assigned to their organization
+      allow read: if isAdmin() || (
+        isOrgUser() &&
+        resource.data.assignedOrganizationId == getOrganizationId()
+      );
+      
+      // Only admins can write locations
+      allow write: if isAdmin();
+      
+      // Tasks subcollection
+      match /tasks/{taskId} {
+        // Same rules as location (inherit organization-based access)
+        allow read: if isAdmin() || (
+          isOrgUser() &&
+          get(/databases/$(database)/documents/locations/$(locationId)).data.assignedOrganizationId == getOrganizationId()
+        );
+        
+        allow write: if isAdmin();
+        
+        // Instructions subcollection
+        match /instructions/{instructionId} {
+          // Same rules as tasks
+          allow read: if isAdmin() || (
+            isOrgUser() &&
+            get(/databases/$(database)/documents/locations/$(locationId)).data.assignedOrganizationId == getOrganizationId()
+          );
+          
+          allow write: if isAdmin();
+        }
+      }
     }
 
+    // Teleoperators collection
+    match /teleoperators/{teleoperatorId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isOrgUser() && resource.data.organizationId == getOrganizationId())
+      );
+      allow write: if isAdmin();
+    }
+
+    // Task Completions collection
+    match /taskCompletions/{completionId} {
+      // Org users can read completions for their organization
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isOrgUser() && resource.data.organizationId == getOrganizationId())
+      );
+      
+      // Only teleoperators can create completions, and only for their organization
+      allow create: if isAuthenticated() &&
+        request.auth.token.role == 'teleoperator' &&
+        request.resource.data.organizationId == getOrganizationId() &&
+        request.resource.data.teleoperatorId == request.auth.token.teleoperatorId;
+      
+      // Only admins can update/delete
+      allow update, delete: if isAdmin();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    // Legacy collections (for backward compatibility)
     match /taskTemplates/{templateId} {
       allow read: if partnerMatches(resource.data.partnerOrgId);
       allow write: if isAdmin();
@@ -59,7 +125,7 @@ service cloud.firestore {
       allow read: if partnerMatches(resource.data.partnerOrgId);
       allow create: if isAdmin();
       allow delete: if isAdmin();
-      allow update: if isAdmin() || teleoperatorStatusUpdateAllowed();
+      allow update: if isAdmin();
 
       match /media/{mediaId} {
         allow read: if isAuthenticated();
@@ -67,10 +133,26 @@ service cloud.firestore {
       }
     }
 
+    // Sessions collection (location-based session tracking)
     match /sessions/{sessionId} {
-      allow read: if partnerMatches(resource.data.partnerOrgId);
-      allow create: if isAdmin() || partnerMatches(request.resource.data.partnerOrgId);
-      allow update: if isAdmin() || request.auth.uid == resource.data.operatorId;
+      // Org users can read sessions for their organization
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isOrgUser() && resource.data.organizationId == getOrganizationId())
+      );
+      
+      // Teleoperators can create their own sessions
+      allow create: if isAuthenticated() &&
+        request.auth.token.role == 'teleoperator' &&
+        request.resource.data.teleoperatorId == request.auth.token.teleoperatorId &&
+        request.resource.data.organizationId == getOrganizationId();
+      
+      // Teleoperators can update their own sessions
+      allow update: if isAuthenticated() &&
+        request.auth.token.role == 'teleoperator' &&
+        resource.data.teleoperatorId == request.auth.token.teleoperatorId;
+      
+      // Only admins can delete
       allow delete: if isAdmin();
     }
 
@@ -89,4 +171,3 @@ service cloud.firestore {
     }
   }
 }
-

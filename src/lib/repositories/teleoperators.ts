@@ -7,7 +7,7 @@
  * Database: default (nam5 multi-region)
  */
 
-import { adminDb, adminAuth } from "@/lib/firebaseAdmin";
+import { adminDb, adminAuth, getAdminApp } from "@/lib/firebaseAdmin";
 import type { Teleoperator, TeleoperatorStatus, UserRole } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
@@ -15,15 +15,32 @@ import { randomUUID } from "crypto";
 const COLLECTION = "teleoperators";
 
 /**
- * Create a new teleoperator
+ * Generate a random password for new users
+ */
+function generateRandomPassword(): string {
+  const length = 12;
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+}
+
+/**
+ * Create a new teleoperator or org_manager
  * Also creates Firebase Auth user and sets custom claims
  */
 export async function createTeleoperator(
-  data: Omit<Teleoperator, "teleoperatorId" | "uid" | "createdAt" | "tasksCompleted" | "hoursWorked">,
+  data: Omit<Teleoperator, "teleoperatorId" | "uid" | "createdAt" | "tasksCompleted" | "hoursWorked"> & {
+    role?: "org_manager" | "teleoperator"; // Optional role, defaults to teleoperator
+  },
   createdBy: string,
-): Promise<{ teleoperatorId: string; uid: string }> {
+): Promise<{ teleoperatorId: string; uid: string; password: string }> {
   const teleoperatorId = randomUUID();
   const now = new Date();
+  const role: UserRole = data.role || "teleoperator";
+  const tempPassword = generateRandomPassword();
 
   // Create Firebase Auth user first
   let uid: string;
@@ -32,33 +49,56 @@ export async function createTeleoperator(
       email: data.email,
       displayName: data.displayName,
       photoURL: data.photoUrl,
+      password: tempPassword,
       disabled: false,
     });
     uid = userRecord.uid;
 
-    // Set custom claims
-    await adminAuth.setCustomUserClaims(uid, {
-      role: "teleoperator" as UserRole,
+    // Set custom claims based on role
+    const customClaims: any = {
+      role: role,
       partnerId: data.partnerOrgId,
-      teleoperatorId: teleoperatorId,
-    });
+      organizationId: data.organizationId,
+    };
+
+    // Only set teleoperatorId for teleoperators
+    if (role === "teleoperator") {
+      customClaims.teleoperatorId = teleoperatorId;
+    }
+
+    await adminAuth.setCustomUserClaims(uid, customClaims);
   } catch (error: any) {
     if (error.code === "auth/email-already-exists") {
       // User already exists, get their UID
       const existingUser = await adminAuth.getUserByEmail(data.email);
       uid = existingUser.uid;
-      // Update custom claims
-      await adminAuth.setCustomUserClaims(uid, {
-        role: "teleoperator" as UserRole,
-        partnerId: data.partnerOrgId,
-        teleoperatorId: teleoperatorId,
+      
+      // Enable the user and update password
+      await adminAuth.updateUser(uid, {
+        disabled: false,
+        password: tempPassword,
+        displayName: data.displayName,
+        photoURL: data.photoUrl,
       });
+      
+      // Update custom claims
+      const customClaims: any = {
+        role: role,
+        partnerId: data.partnerOrgId,
+        organizationId: data.organizationId,
+      };
+
+      if (role === "teleoperator") {
+        customClaims.teleoperatorId = teleoperatorId;
+      }
+
+      await adminAuth.setCustomUserClaims(uid, customClaims);
     } else {
       throw new Error(`Failed to create Firebase Auth user: ${error.message}`);
     }
   }
 
-  // Create teleoperator document
+  // Create teleoperator document (used for both teleoperators and org_managers)
   const teleoperator: Teleoperator = {
     teleoperatorId,
     uid,
@@ -66,6 +106,8 @@ export async function createTeleoperator(
     displayName: data.displayName,
     photoUrl: data.photoUrl,
     partnerOrgId: data.partnerOrgId,
+    organizationId: data.organizationId,
+    organizationName: data.organizationName,
     currentStatus: data.currentStatus || "offline",
     certifications: data.certifications || [],
     robotTypesQualified: data.robotTypesQualified || [],
@@ -80,10 +122,22 @@ export async function createTeleoperator(
 
   await adminDb.collection(COLLECTION).doc(teleoperatorId).set({
     ...teleoperator,
+    role: role, // Store role in teleoperator document for easier querying
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  return { teleoperatorId, uid };
+  // Create users collection document with role
+  await adminDb.collection("users").doc(uid).set({
+    email: data.email,
+    displayName: data.displayName,
+    role: role,
+    partnerId: data.partnerOrgId,
+    organizationId: data.organizationId,
+    teleoperatorId: role === "teleoperator" ? teleoperatorId : null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { teleoperatorId, uid, password: tempPassword };
 }
 
 /**
@@ -116,11 +170,12 @@ export async function listTeleoperators(
   partnerOrgId?: string,
   status?: TeleoperatorStatus,
 ): Promise<Teleoperator[]> {
+  const app = getAdminApp();
   console.log("[repo] listTeleoperators - Starting", {
     collection: COLLECTION,
     partnerOrgId,
     status,
-    databaseId: adminDb.app.options.projectId,
+    projectId: app.options.projectId,
   });
 
   let query: FirebaseFirestore.Query = adminDb.collection(COLLECTION);
@@ -193,7 +248,7 @@ export async function updateTeleoperatorStatus(
 }
 
 /**
- * Delete teleoperator (soft delete - mark as inactive)
+ * Delete teleoperator (hard delete - removes from Firestore and disables Auth user)
  */
 export async function deleteTeleoperator(teleoperatorId: string): Promise<void> {
   const teleoperator = await getTeleoperator(teleoperatorId);
@@ -201,13 +256,131 @@ export async function deleteTeleoperator(teleoperatorId: string): Promise<void> 
     throw new Error("Teleoperator not found");
   }
 
-  // Disable Firebase Auth user
-  await adminAuth.updateUser(teleoperator.uid, {
-    disabled: true,
-  });
+  console.log("[repo] deleteTeleoperator - Deleting teleoperator:", teleoperatorId);
 
-  // Mark as offline
-  await updateTeleoperatorStatus(teleoperatorId, "offline");
+  // Disable Firebase Auth user
+  try {
+    await adminAuth.updateUser(teleoperator.uid, {
+      disabled: true,
+    });
+    console.log("[repo] deleteTeleoperator - Disabled Firebase Auth user:", teleoperator.uid);
+  } catch (error: any) {
+    console.error("[repo] deleteTeleoperator - Error disabling Auth user:", error);
+    // Continue with deletion even if Auth update fails
+  }
+
+  // Delete the Firestore document
+  try {
+    await adminDb.collection(COLLECTION).doc(teleoperatorId).delete();
+    console.log("[repo] deleteTeleoperator - Deleted Firestore document:", teleoperatorId);
+  } catch (error: any) {
+    console.error("[repo] deleteTeleoperator - Error deleting Firestore document:", error);
+    throw new Error(`Failed to delete teleoperator document: ${error.message}`);
+  }
+
+  // Also delete the user document in the users collection if it exists
+  try {
+    const userSnapshot = await adminDb
+      .collection("users")
+      .where("teleoperatorId", "==", teleoperatorId)
+      .limit(1)
+      .get();
+
+    if (!userSnapshot.empty) {
+      await userSnapshot.docs[0].ref.delete();
+      console.log("[repo] deleteTeleoperator - Deleted user document");
+    }
+  } catch (error: any) {
+    console.error("[repo] deleteTeleoperator - Error deleting user document:", error);
+    // Don't throw - user document deletion is optional
+  }
+
+  console.log("[repo] deleteTeleoperator - Successfully deleted teleoperator:", teleoperatorId);
+}
+
+/**
+ * Get all locations assigned to this teleoperator with task and instruction counts
+ */
+export async function getAssignedLocationsWithCounts(teleoperatorId: string) {
+  console.log("[repo] getAssignedLocationsWithCounts - Fetching for teleoperator:", teleoperatorId);
+  
+  const locationsSnapshot = await adminDb
+    .collection("locations")
+    .where("assignedTeleoperatorIds", "array-contains", teleoperatorId)
+    .where("status", "==", "active")
+    .get();
+
+  console.log("[repo] getAssignedLocationsWithCounts - Found", locationsSnapshot.docs.length, "locations");
+
+  const locations = [];
+
+  for (const locationDoc of locationsSnapshot.docs) {
+    const locationData = locationDoc.data();
+    
+    // Get all active tasks for this location
+    const tasksSnapshot = await locationDoc.ref
+      .collection("tasks")
+      .where("status", "==", "active")
+      .get();
+
+    let totalInstructions = 0;
+    for (const taskDoc of tasksSnapshot.docs) {
+      const instructionsSnapshot = await taskDoc.ref
+        .collection("instructions")
+        .get();
+      totalInstructions += instructionsSnapshot.size;
+    }
+
+    locations.push({
+      locationId: locationDoc.id,
+      ...locationData,
+      taskCount: tasksSnapshot.size,
+      instructionCount: totalInstructions,
+    });
+  }
+
+  console.log("[repo] getAssignedLocationsWithCounts - Returning", locations.length, "locations with counts");
+  return locations;
+}
+
+/**
+ * Get all teleoperators for a specific organization
+ */
+export async function getTeleoperatorsByOrganization(organizationId: string): Promise<Teleoperator[]> {
+  try {
+    console.log("[repo] getTeleoperatorsByOrganization - Fetching for organization:", organizationId);
+    
+    // Query by organizationId and sort in memory to avoid composite index
+    const snapshot = await adminDb
+      .collection(COLLECTION)
+      .where("organizationId", "==", organizationId)
+      .get();
+
+    console.log("[repo] getTeleoperatorsByOrganization - Query returned", snapshot.size, "documents");
+
+    const teleoperators = snapshot.docs.map((doc) => normalizeTeleoperator(doc.id, doc.data()));
+    
+    // Sort by display name in memory
+    return teleoperators.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  } catch (error: any) {
+    console.error("[repo] getTeleoperatorsByOrganization - Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Check if teleoperator's organization has access to location
+ */
+export async function canAccessLocation(organizationId: string, locationId: string): Promise<boolean> {
+  const locationDoc = await adminDb.collection("locations").doc(locationId).get();
+  
+  if (!locationDoc.exists) {
+    return false;
+  }
+
+  const location = locationDoc.data();
+  
+  return location?.assignedOrganizationId === organizationId;
 }
 
 /**
@@ -221,6 +394,8 @@ function normalizeTeleoperator(id: string, data: any): Teleoperator {
     displayName: data.displayName || "",
     photoUrl: data.photoUrl,
     partnerOrgId: data.partnerOrgId || "",
+    organizationId: data.organizationId || "",
+    organizationName: data.organizationName,
     currentStatus: data.currentStatus || "offline",
     certifications: data.certifications || [],
     robotTypesQualified: data.robotTypesQualified || [],

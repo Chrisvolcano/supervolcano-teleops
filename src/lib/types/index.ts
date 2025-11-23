@@ -4,6 +4,23 @@
  */
 
 // ============================================================================
+// ORGANIZATIONS
+// ============================================================================
+
+export interface Organization {
+  id: string; // UUID, primary key
+  name: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  status: "active" | "inactive";
+  partnerId: string; // Links to partners collection (for multi-tenancy)
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  createdBy: string;
+}
+
+// ============================================================================
 // TELEOPERATORS
 // ============================================================================
 
@@ -17,6 +34,9 @@ export interface Teleoperator {
   photoUrl?: string;
   // Partner
   partnerOrgId: string; // Which OEM partner they work for
+  // Organization (NEW)
+  organizationId: string; // Which organization they belong to
+  organizationName?: string; // Denormalized for display
   // Status
   currentStatus: TeleoperatorStatus;
   // Skills
@@ -68,8 +88,9 @@ export interface Location {
   };
   // Partner
   partnerOrgId: string; // Which OEM partner manages this
-  // Assignment
-  assignedTeleoperatorIds: string[]; // Array of teleoperator IDs
+  // Assignment (CHANGED: Now assigned to organization, not individual teleoperators)
+  assignedOrganizationId?: string; // Which organization this location is assigned to
+  assignedOrganizationName?: string; // Denormalized for display
   // Access
   accessInstructions?: string;
   entryCode?: string;
@@ -267,15 +288,52 @@ export interface Session {
 }
 
 // ============================================================================
+// TASK COMPLETIONS (Task Completion Tracking)
+// ============================================================================
+
+export type TaskCompletionStatus = "completed" | "incomplete" | "error";
+
+export interface TaskCompletion {
+  id: string; // UUID, primary key
+  taskId: string; // FK to tasks
+  locationId: string; // FK to locations
+  organizationId: string; // FK to organizations
+  teleoperatorId: string; // FK to teleoperators
+  teleoperatorName: string; // Denormalized for display
+  
+  // Task details (denormalized for querying)
+  taskTitle: string;
+  taskCategory?: string;
+  estimatedDuration?: number; // minutes
+  
+  // Location details (denormalized)
+  locationName: string;
+  
+  // Timing
+  startedAt: Date | string | { toDate: () => Date; toMillis: () => number };
+  completedAt: Date | string | { toDate: () => Date; toMillis: () => number };
+  actualDuration: number; // minutes
+  
+  // Quality
+  status: TaskCompletionStatus;
+  notes?: string;
+  issuesEncountered?: string;
+  
+  // Metadata
+  createdAt: Date | string | { toDate: () => Date; toMillis: () => number };
+}
+
+// ============================================================================
 // AUTH & PERMISSIONS
 // ============================================================================
 
-export type UserRole = "superadmin" | "partner_admin" | "teleoperator";
+export type UserRole = "superadmin" | "admin" | "partner_admin" | "org_manager" | "teleoperator";
 
 export interface UserClaims {
   role: UserRole;
-  partnerId?: string; // For partner_admin and teleoperator
+  partnerId?: string; // For partner_admin, org_manager, and teleoperator
   teleoperatorId?: string; // For teleoperator only
+  organizationId?: string; // For org_manager and teleoperator - which organization they belong to
 }
 
 // ============================================================================

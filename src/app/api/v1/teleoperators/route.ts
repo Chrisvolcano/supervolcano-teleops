@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     requireRole(claims, "partner_admin"); // partner_admin or superadmin can create
 
     const body = await request.json();
-    const { email, displayName, photoUrl, partnerOrgId, phone, currentStatus, certifications, robotTypesQualified } =
+    const { email, displayName, photoUrl, partnerOrgId, organizationId, organizationName, phone, currentStatus, certifications, robotTypesQualified, role } =
       body;
 
     console.log("[api] POST /api/v1/teleoperators - Request body:", {
@@ -101,9 +101,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate required fields
-    if (!email || !displayName || !partnerOrgId) {
+    if (!email || !displayName || !partnerOrgId || !organizationId) {
       console.error("[api] POST /api/v1/teleoperators - Missing required fields");
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields (email, displayName, partnerOrgId, organizationId)" }, { status: 400 });
     }
 
     // If not superadmin, can only create for their own partner
@@ -123,22 +123,25 @@ export async function POST(request: NextRequest) {
       createdBy,
     });
 
-    const { teleoperatorId, uid } = await createTeleoperator(
+    const { teleoperatorId, uid, password } = await createTeleoperator(
       {
         email,
         displayName,
         photoUrl,
         partnerOrgId,
+        organizationId,
+        organizationName,
         phone,
         currentStatus: currentStatus || "offline",
         certifications: certifications || [],
         robotTypesQualified: robotTypesQualified || [],
+        role: role || "teleoperator", // Default to teleoperator if not specified
       },
       createdBy,
     );
 
     console.log("[api] POST /api/v1/teleoperators - Success:", { teleoperatorId, uid });
-    return NextResponse.json({ teleoperatorId, uid }, { status: 201 });
+    return NextResponse.json({ teleoperatorId, uid, password }, { status: 201 });
   } catch (error: any) {
     console.error("[api] POST /api/v1/teleoperators - Error:", {
       message: error.message,

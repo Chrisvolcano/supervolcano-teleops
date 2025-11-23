@@ -1,170 +1,394 @@
 /**
  * Tasks Repository
  * Data access layer for task CRUD operations
+ * Tasks are subcollections under locations: /locations/{locationId}/tasks/{taskId}
  * Uses Firebase Admin SDK for server-side operations
  */
 
-import { adminDb } from "@/lib/firebaseAdmin";
-import type { Task, TaskStatus } from "@/lib/types";
+import { adminDb, adminStorage } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
+import type { Task, TaskInput } from "@/lib/types/tasks";
 
-const COLLECTION = "tasks";
+const COLLECTION = "locations";
+const SUBCOLLECTION = "tasks";
 
 /**
- * Create a new task
+ * Create a new task for a location with instructions
  */
 export async function createTask(
-  data: Omit<Task, "taskId" | "createdAt" | "updatedAt" | "photosBefore" | "photosAfter"> & {
-    instructionIds?: string[];
-  },
+  locationId: string,
+  data: TaskInput,
   createdBy: string,
+  instructions?: Array<{
+    data: {
+      title: string;
+      description: string;
+      room?: string;
+      notes?: string;
+      stepNumber?: number;
+    };
+    imageUrls: string[];
+    videoUrls: string[];
+  }>,
 ): Promise<string> {
   const taskId = randomUUID();
   const now = new Date();
 
   const task: Task = {
-    taskId,
-    locationId: data.locationId,
-    assignedTeleoperatorId: data.assignedTeleoperatorId,
-    assignedPartnerId: data.assignedPartnerId,
-    status: data.status || "unassigned",
-    scheduledFor: data.scheduledFor,
-    estimatedDuration: data.estimatedDuration,
-    recurringPattern: data.recurringPattern,
-    taskType: data.taskType,
-    instructionIds: data.instructionIds || [],
+    id: taskId,
+    locationId,
     title: data.title,
     description: data.description,
-    specialRequirements: data.specialRequirements,
-    photosBefore: [],
-    photosAfter: [],
-    priority: data.priority || 3,
+    category: data.category,
+    priority: data.priority,
+    estimatedDuration: data.estimatedDuration,
+    assignmentType: data.assignmentType,
+    assignedTeleoperatorId: data.assignedTeleoperatorId,
+    assignedTeleoperatorName: data.assignedTeleoperatorName,
+    assignedHumanName: data.assignedHumanName,
+    status: data.status,
     createdAt: now,
     updatedAt: now,
     createdBy,
   };
 
-  await adminDb.collection(COLLECTION).doc(taskId).set({
+  const taskRef = adminDb
+    .collection(COLLECTION)
+    .doc(locationId)
+    .collection(SUBCOLLECTION)
+    .doc(taskId);
+
+  console.log("[repo] createTask - Setting task document:", {
+    locationId,
+    taskId,
+    path: taskRef.path,
+    title: task.title,
+    assignmentType: task.assignmentType,
+    instructionCount: instructions?.length || 0,
+  });
+
+  // Create task
+  await taskRef.set({
     ...task,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
 
+  // Create instructions in a batch if provided
+  if (instructions && instructions.length > 0) {
+    const batch = adminDb.batch();
+    
+    instructions.forEach((instruction, index) => {
+      const instructionId = randomUUID();
+      const instructionRef = taskRef.collection("instructions").doc(instructionId);
+      
+      batch.set(instructionRef, {
+        id: instructionId,
+        taskId,
+        locationId,
+        title: instruction.data.title,
+        description: instruction.data.description,
+        room: instruction.data.room,
+        notes: instruction.data.notes,
+        stepNumber: instruction.data.stepNumber || index + 1,
+        imageUrls: instruction.imageUrls || [],
+        videoUrls: instruction.videoUrls || [],
+        createdBy,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    console.log("[repo] createTask - Created", instructions.length, "instructions");
+  }
+
+  console.log("[repo] createTask - Task and instructions created successfully");
+
   return taskId;
 }
 
 /**
- * Get task by ID
+ * Get all tasks for a location
  */
-export async function getTask(taskId: string): Promise<Task | null> {
-  const doc = await adminDb.collection(COLLECTION).doc(taskId).get();
-  if (!doc.exists) {
-    return null;
+export async function getTasks(
+  locationId: string,
+  status?: "active" | "draft" | "archived",
+): Promise<Task[]> {
+  try {
+    console.log("[repo] getTasks - Starting", { locationId, status });
+
+    // Get all tasks for the location (no filters/ordering to avoid index issues)
+    const snapshot = await adminDb
+      .collection(COLLECTION)
+      .doc(locationId)
+      .collection(SUBCOLLECTION)
+      .get();
+
+    console.log("[repo] getTasks - Fetched", snapshot.docs.length, "tasks");
+
+    // Normalize and filter in memory
+    let tasks = snapshot.docs.map((doc) => normalizeTask(doc.id, doc.data()));
+
+    // Filter by status if provided
+    if (status) {
+      tasks = tasks.filter((task) => task.status === status);
+      console.log("[repo] getTasks - Filtered to", tasks.length, "tasks with status:", status);
+    }
+
+    // Sort by priority (descending), then by createdAt (descending)
+    tasks.sort((a, b) => {
+      // First sort by priority (1 = highest, 5 = lowest)
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority; // Ascending (1 comes before 5)
+      }
+      // Then sort by createdAt (newest first)
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // Descending (newest first)
+    });
+
+    console.log("[repo] getTasks - Returning", tasks.length, "sorted tasks");
+    return tasks;
+  } catch (error: any) {
+    console.error("[repo] getTasks - Error:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+    throw error;
   }
-  return normalizeTask(doc.id, doc.data());
 }
 
 /**
- * List tasks (with optional filters)
+ * Get tasks assigned to a specific teleoperator
  */
-export async function listTasks(filters: {
-  partnerOrgId?: string;
-  locationId?: string;
-  assignedTeleoperatorId?: string;
-  status?: TaskStatus;
-}): Promise<Task[]> {
-  let query: FirebaseFirestore.Query = adminDb.collection(COLLECTION);
+export async function getTasksForTeleoperator(
+  locationId: string,
+  teleoperatorId: string,
+): Promise<Task[]> {
+  const snapshot = await adminDb
+    .collection(COLLECTION)
+    .doc(locationId)
+    .collection(SUBCOLLECTION)
+    .where("assignmentType", "==", "teleoperator")
+    .where("assignedTeleoperatorId", "==", teleoperatorId)
+    .where("status", "==", "active")
+    .orderBy("priority", "desc")
+    .get();
 
-  if (filters.partnerOrgId) {
-    query = query.where("assignedPartnerId", "==", filters.partnerOrgId);
-  }
-
-  if (filters.locationId) {
-    query = query.where("locationId", "==", filters.locationId);
-  }
-
-  if (filters.assignedTeleoperatorId) {
-    query = query.where("assignedTeleoperatorId", "==", filters.assignedTeleoperatorId);
-  }
-
-  if (filters.status) {
-    query = query.where("status", "==", filters.status);
-  }
-
-  const snapshot = await query.get();
   return snapshot.docs.map((doc) => normalizeTask(doc.id, doc.data()));
 }
 
 /**
- * Update task
+ * Get a single task by ID
+ */
+export async function getTask(
+  locationId: string,
+  taskId: string,
+): Promise<Task | null> {
+  const doc = await adminDb
+    .collection(COLLECTION)
+    .doc(locationId)
+    .collection(SUBCOLLECTION)
+    .doc(taskId)
+    .get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  return normalizeTask(doc.id, doc.data());
+}
+
+/**
+ * Update a task and its instructions
  */
 export async function updateTask(
+  locationId: string,
   taskId: string,
-  updates: Partial<Omit<Task, "taskId" | "createdAt" | "createdBy">>,
+  updates: Partial<TaskInput>,
+  instructions?: Array<{
+    data: {
+      title: string;
+      description: string;
+      room?: string;
+      notes?: string;
+      stepNumber?: number;
+    };
+    imageUrls: string[];
+    videoUrls: string[];
+    existingId?: string; // For existing instructions to update
+  }>,
 ): Promise<void> {
+  const taskRef = adminDb
+    .collection(COLLECTION)
+    .doc(locationId)
+    .collection(SUBCOLLECTION)
+    .doc(taskId);
+
+  // Update task
   const updateData: any = {
     ...updates,
     updatedAt: FieldValue.serverTimestamp(),
   };
 
-  await adminDb.collection(COLLECTION).doc(taskId).update(updateData);
+  await taskRef.update(updateData);
+
+  // Handle instructions if provided
+  if (instructions !== undefined) {
+    // Get existing instructions
+    const existingSnapshot = await taskRef.collection("instructions").get();
+    const existingInstructions = existingSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        imageUrls: (data.imageUrls as string[]) || [],
+        videoUrls: (data.videoUrls as string[]) || [],
+        createdBy: (data.createdBy as string) || "system",
+        ...data,
+      };
+    });
+
+    const batch = adminDb.batch();
+    const existingIds = new Set(
+      instructions.filter((inst) => inst.existingId).map((inst) => inst.existingId!),
+    );
+
+    // Delete instructions that were removed
+    existingInstructions.forEach((existing) => {
+      if (!existingIds.has(existing.id)) {
+        // Delete media files
+        const allMediaUrls = [
+          ...(existing.imageUrls || []),
+          ...(existing.videoUrls || []),
+        ];
+        if (allMediaUrls.length > 0) {
+          // Delete media files asynchronously (don't block the batch)
+          deleteMediaFiles(allMediaUrls).catch((err) => {
+            console.warn("[repo] updateTask - Failed to delete some media files:", err);
+          });
+        }
+        batch.delete(taskRef.collection("instructions").doc(existing.id));
+      }
+    });
+
+    // Update or create instructions
+    instructions.forEach((instruction, index) => {
+      if (instruction.existingId) {
+        // Update existing instruction
+        const instructionRef = taskRef.collection("instructions").doc(instruction.existingId);
+        batch.update(instructionRef, {
+          title: instruction.data.title,
+          description: instruction.data.description,
+          room: instruction.data.room,
+          notes: instruction.data.notes,
+          stepNumber: instruction.data.stepNumber || index + 1,
+          imageUrls: instruction.imageUrls || [],
+          videoUrls: instruction.videoUrls || [],
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Create new instruction
+        const instructionId = randomUUID();
+        const instructionRef = taskRef.collection("instructions").doc(instructionId);
+        batch.set(instructionRef, {
+          id: instructionId,
+          taskId,
+          locationId,
+          title: instruction.data.title,
+          description: instruction.data.description,
+          room: instruction.data.room,
+          notes: instruction.data.notes,
+          stepNumber: instruction.data.stepNumber || index + 1,
+          imageUrls: instruction.imageUrls || [],
+          videoUrls: instruction.videoUrls || [],
+          createdBy: existingInstructions[0]?.createdBy || "system", // Use existing or fallback
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    await batch.commit();
+    console.log("[repo] updateTask - Updated", instructions.length, "instructions");
+  }
 }
 
 /**
- * Assign task to teleoperator
+ * Delete a task and all its instructions
  */
-export async function assignTaskToTeleoperator(
+export async function deleteTask(
+  locationId: string,
   taskId: string,
-  teleoperatorId: string,
 ): Promise<void> {
-  await adminDb.collection(COLLECTION).doc(taskId).update({
-    assignedTeleoperatorId: teleoperatorId,
-    status: "assigned",
-    updatedAt: FieldValue.serverTimestamp(),
+  // Get all instructions first to delete their media
+  const instructionsSnapshot = await adminDb
+    .collection(COLLECTION)
+    .doc(locationId)
+    .collection(SUBCOLLECTION)
+    .doc(taskId)
+    .collection("instructions")
+    .get();
+
+  // Delete all instruction media files
+  for (const doc of instructionsSnapshot.docs) {
+    const instruction = doc.data();
+    const allMediaUrls = [
+      ...(instruction.imageUrls || []),
+      ...(instruction.videoUrls || []),
+    ];
+    if (allMediaUrls.length > 0) {
+      await deleteMediaFiles(allMediaUrls);
+    }
+  }
+
+  // Delete all instruction documents
+  const batch = adminDb.batch();
+  instructionsSnapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
   });
+
+  // Delete the task
+  batch.delete(
+    adminDb
+      .collection(COLLECTION)
+      .doc(locationId)
+      .collection(SUBCOLLECTION)
+      .doc(taskId),
+  );
+
+  await batch.commit();
 }
 
 /**
- * Start task (change status to in-progress)
+ * Delete media files from Firebase Storage
  */
-export async function startTask(taskId: string, teleoperatorId: string): Promise<void> {
-  await adminDb.collection(COLLECTION).doc(taskId).update({
-    status: "in-progress",
-    startedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-}
+async function deleteMediaFiles(urls: string[]): Promise<void> {
+  if (!urls || urls.length === 0) {
+    return;
+  }
 
-/**
- * Complete task
- */
-export async function completeTask(
-  taskId: string,
-  data: {
-    photosAfter?: string[];
-    teleoperatorNotes?: string;
-    issuesEncountered?: string[];
-  },
-): Promise<void> {
-  await adminDb.collection(COLLECTION).doc(taskId).update({
-    status: "completed",
-    completedAt: FieldValue.serverTimestamp(),
-    photosAfter: data.photosAfter || [],
-    teleoperatorNotes: data.teleoperatorNotes,
-    issuesEncountered: data.issuesEncountered || [],
-    updatedAt: FieldValue.serverTimestamp(),
+  const bucket = adminStorage.bucket();
+  const deletePromises = urls.map(async (url) => {
+    try {
+      // Extract path from Firebase Storage URL
+      const urlObj = new URL(url);
+      const pathMatch = urlObj.pathname.match(/\/o\/(.+)\?/);
+      if (pathMatch) {
+        const encodedPath = pathMatch[1];
+        const decodedPath = decodeURIComponent(encodedPath);
+        const file = bucket.file(decodedPath);
+        await file.delete();
+        console.log(`[repo] Deleted media: ${decodedPath}`);
+      }
+    } catch (error: any) {
+      console.warn(`[repo] Failed to delete media ${url}:`, error.message);
+    }
   });
-}
 
-/**
- * Delete task (soft delete - mark as cancelled)
- */
-export async function deleteTask(taskId: string): Promise<void> {
-  await adminDb.collection(COLLECTION).doc(taskId).update({
-    status: "cancelled",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+  await Promise.all(deletePromises);
 }
 
 /**
@@ -172,33 +396,20 @@ export async function deleteTask(taskId: string): Promise<void> {
  */
 function normalizeTask(id: string, data: any): Task {
   return {
-    taskId: id,
+    id,
     locationId: data.locationId || "",
-    assignedTeleoperatorId: data.assignedTeleoperatorId,
-    assignedPartnerId: data.assignedPartnerId || "",
-    status: data.status || "unassigned",
-    scheduledFor: data.scheduledFor?.toDate?.() || data.scheduledFor,
-    estimatedDuration: data.estimatedDuration,
-    recurringPattern: data.recurringPattern,
-    taskType: data.taskType || "cleaning",
-    instructionIds: data.instructionIds || [],
     title: data.title || "",
-    description: data.description,
-    specialRequirements: data.specialRequirements,
-    startedAt: data.startedAt?.toDate?.() || data.startedAt,
-    completedAt: data.completedAt?.toDate?.() || data.completedAt,
-    executionLog: data.executionLog,
-    issuesEncountered: data.issuesEncountered,
-    photosBefore: data.photosBefore || [],
-    photosAfter: data.photosAfter || [],
-    qualityScore: data.qualityScore,
-    verifiedBy: data.verifiedBy,
-    teleoperatorNotes: data.teleoperatorNotes,
-    customerFeedback: data.customerFeedback,
+    description: data.description || "",
+    category: data.category || "cleaning",
     priority: data.priority || 3,
+    estimatedDuration: data.estimatedDuration || 0,
+    assignmentType: data.assignmentType || "unassigned",
+    assignedTeleoperatorId: data.assignedTeleoperatorId,
+    assignedTeleoperatorName: data.assignedTeleoperatorName,
+    assignedHumanName: data.assignedHumanName,
+    status: data.status || "active",
     createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
     updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
-    createdBy: data.createdBy,
+    createdBy: data.createdBy || "",
   };
 }
-

@@ -7,6 +7,8 @@ type PromotePayload = {
   email?: string;
   role?: string;
   partner_org_id?: string | null;
+  organizationId?: string | null;
+  teleoperatorId?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, role, partner_org_id } = payload;
+  const { email, role, partner_org_id, organizationId, teleoperatorId } = payload;
 
   if (!email || !role) {
     return NextResponse.json(
@@ -34,14 +36,45 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate organization-based roles
+  if ((role === "org_manager" || role === "teleoperator") && !organizationId) {
+    return NextResponse.json(
+      { error: `Missing required field: organizationId (required for ${role} role)` },
+      { status: 400 },
+    );
+  }
+
   try {
     const user = await adminAuth.getUserByEmail(email);
-    await adminAuth.setCustomUserClaims(user.uid, {
+    
+    // Build custom claims
+    const customClaims: Record<string, any> = {
       role,
-      partner_org_id: partner_org_id ?? null,
-    });
+    };
+
+    if (partner_org_id) {
+      customClaims.partnerId = partner_org_id;
+    }
+
+    if (organizationId) {
+      customClaims.organizationId = organizationId;
+    }
+
+    if (teleoperatorId) {
+      customClaims.teleoperatorId = teleoperatorId;
+    }
+
+    await adminAuth.setCustomUserClaims(user.uid, customClaims);
+    
     return NextResponse.json(
-      { success: true, uid: user.uid, role, partner_org_id: partner_org_id ?? null },
+      { 
+        success: true, 
+        uid: user.uid, 
+        role, 
+        partnerId: partner_org_id ?? null,
+        organizationId: organizationId ?? null,
+        teleoperatorId: teleoperatorId ?? null,
+      },
       { status: 200 },
     );
   } catch (error) {

@@ -8,6 +8,8 @@ import { updateTeleoperatorStatus } from "@/lib/repositories/teleoperators";
 import { getUserClaims, requireRole } from "@/lib/utils/auth";
 import type { TeleoperatorStatus } from "@/lib/types";
 
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },

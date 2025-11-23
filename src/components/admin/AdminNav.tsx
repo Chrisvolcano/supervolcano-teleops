@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   Settings,
   Users,
+  MapPin,
+  UserCheck,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,9 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Properties", href: "/admin/properties", icon: Building2 },
-  { label: "Tasks", href: "/admin/tasks", icon: ClipboardList },
-  { label: "Sessions", href: "/admin/sessions", icon: Users },
+  { label: "Organizations", href: "/admin/organizations", icon: Building2 },
+  { label: "Locations", href: "/admin/locations", icon: MapPin },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 
@@ -37,7 +38,9 @@ export function AdminNav() {
     );
   }
 
-  if ((claims?.role as string | undefined) !== "admin") {
+  // Show nav for admin, superadmin, or partner_admin
+  const isAdmin = claims?.role === "admin" || claims?.role === "superadmin" || claims?.role === "partner_admin";
+  if (!isAdmin) {
     return null;
   }
 
