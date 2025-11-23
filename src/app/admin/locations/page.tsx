@@ -1,274 +1,142 @@
-"use client";
+'use client'
 
-/**
- * Admin Locations Management Page
- * List all locations with modern dashboard-style UI
- */
-
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import type { Location } from "@/lib/types";
-import toast from "react-hot-toast";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-
-type StatCardProps = {
-  title: string;
-  value: number;
-  icon: string;
-  color: "blue" | "green" | "orange";
-  onClick: () => void;
-  active: boolean;
-};
-
-function StatCard({ title, value, icon, color, onClick, active }: StatCardProps) {
-  const colorClasses = {
-    blue: active ? "bg-blue-100 border-blue-300" : "bg-blue-50 border-blue-200",
-    green: active ? "bg-green-100 border-green-300" : "bg-green-50 border-green-200",
-    orange: active ? "bg-orange-100 border-orange-300" : "bg-orange-50 border-orange-200",
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={`border-2 rounded-lg p-6 cursor-pointer transition hover:shadow-md ${colorClasses[color]}`}
-    >
-      <div className="flex items-center gap-4">
-        <div className="text-4xl">{icon}</div>
-        <div>
-          <div className="text-3xl font-bold">{value}</div>
-          <div className="text-sm font-medium text-gray-700">{title}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  MapPin, 
+  Search, 
+  Building2,
+  Plus,
+  Loader2,
+  ArrowRight
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminLocationsPage() {
   const router = useRouter();
-  const { user, claims } = useAuth();
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const { getIdToken } = useAuth();
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "assigned" | "unassigned">("all");
-
-  // Load locations
-  const loadLocations = useCallback(async () => {
-    if (!user) return;
-
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  useEffect(() => {
+    loadLocations();
+  }, []);
+  
+  async function loadLocations() {
     try {
-      setLoading(true);
-      const token = await user.getIdToken();
-      const response = await fetch("/api/v1/locations", {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch('/api/admin/locations', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to load locations");
-      }
-
+      
       const data = await response.json();
-      setLocations(data.locations || []);
+      
+      if (data.success) {
+        setLocations(data.locations);
+      }
     } catch (error) {
-      console.error("Failed to load locations:", error);
-      toast.error("Failed to load locations");
+      console.error('Failed to load locations:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]);
-
-  // Load organizations for display names
-  const loadOrganizations = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/v1/organizations", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(
-          (data.organizations || []).map((org: any) => ({
-            id: org.id,
-            name: org.name,
-          })),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to load organizations:", error);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || !claims) return;
-
-    loadLocations();
-    loadOrganizations();
-  }, [user, claims, loadLocations, loadOrganizations]);
-
-  // Get organization name by ID
-  function getOrganizationName(organizationId: string | undefined, assignedName?: string): string {
-    if (!organizationId) return "Not Assigned";
-    const organization = organizations.find((org) => org.id === organizationId);
-    return organization?.name || assignedName || "Unknown";
   }
-
-  // Calculate stats
-  const stats = {
-    total: locations.length,
-    assigned: locations.filter((l) => l.assignedOrganizationId).length,
-    unassigned: locations.filter((l) => !l.assignedOrganizationId).length,
-  };
-
-  // Filter locations
-  const filteredLocations = locations.filter((loc) => {
-    if (filter === "assigned") return loc.assignedOrganizationId;
-    if (filter === "unassigned") return !loc.assignedOrganizationId;
-    return true;
-  });
-
-  // Get task count for location
-  function getTaskCount(location: Location & { taskCount?: number }): number {
-    return location.taskCount || 0;
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
+  
+  const filteredLocations = locations.filter(loc =>
+    loc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    loc.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    loc.organization_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Locations</h1>
-          <p className="text-gray-600">Manage locations and assign to organizations</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Locations</h1>
+          <p className="text-gray-600">
+            Manage locations, tasks, SOPs, and robot intelligence
+          </p>
         </div>
-        <Button onClick={() => router.push("/admin/locations/new")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Location
-        </Button>
+        
+        <button
+          onClick={() => router.push('/admin/locations/new')}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Add Location
+        </button>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <StatCard
-          title="Total Locations"
-          value={stats.total}
-          icon="📍"
-          color="blue"
-          onClick={() => setFilter("all")}
-          active={filter === "all"}
-        />
-        <StatCard
-          title="Assigned"
-          value={stats.assigned}
-          icon="✅"
-          color="green"
-          onClick={() => setFilter("assigned")}
-          active={filter === "assigned"}
-        />
-        <StatCard
-          title="Unassigned"
-          value={stats.unassigned}
-          icon="⚠️"
-          color="orange"
-          onClick={() => setFilter("unassigned")}
-          active={filter === "unassigned"}
+      
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search locations..."
+          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         />
       </div>
-
-      {/* Locations Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left p-4 font-semibold">Location</th>
-                  <th className="text-left p-4 font-semibold">Address</th>
-                  <th className="text-left p-4 font-semibold">Assigned Organization</th>
-                  <th className="text-left p-4 font-semibold">Tasks</th>
-                  <th className="text-left p-4 font-semibold">Status</th>
-                  <th className="text-left p-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLocations.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500">
-                      {filter === "all"
-                        ? "No locations yet. Create one to get started."
-                        : filter === "assigned"
-                          ? "No assigned locations."
-                          : "No unassigned locations."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLocations.map((location) => (
-                    <tr
-                      key={location.locationId}
-                      className="border-b hover:bg-gray-50 cursor-pointer transition"
-                      onClick={() => router.push(`/admin/locations/${location.locationId}`)}
-                    >
-                      <td className="p-4">
-                        <div className="font-medium text-gray-900">{location.name}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="text-gray-600">{location.address}</div>
-                      </td>
-                      <td className="p-4">
-                        {location.assignedOrganizationId ? (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                              {location.assignedOrganizationName ||
-                                getOrganizationName(location.assignedOrganizationId, location.assignedOrganizationName)}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">Not assigned</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <span className="text-gray-600">{getTaskCount(location)} tasks</span>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={location.status === "active" ? "default" : "secondary"}>
-                          {location.status}
-                        </Badge>
-                      </td>
-                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/admin/locations/${location.locationId}`);
-                          }}
-                        >
-                          View Details →
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      
+      {/* Locations Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        </div>
+      ) : filteredLocations.length === 0 ? (
+        <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+          <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-600">
+            {searchTerm ? 'No locations found' : 'No locations yet'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredLocations.map((location) => (
+            <button
+              key={location.id}
+              onClick={() => router.push(`/admin/locations/${location.id}`)}
+              className="bg-white border border-gray-200 rounded-lg p-6 hover:border-purple-300 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-purple-600" />
+                </div>
+                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+              </div>
+              
+              <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-purple-600 transition-colors">
+                {location.name}
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">{location.address}</p>
+              
+              {location.organization_name && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Building2 className="h-3 w-3" />
+                  <span>{location.organization_name}</span>
+                </div>
+              )}
+              
+              {(location.task_count > 0 || location.moment_count > 0) && (
+                <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                  {location.task_count > 0 && (
+                    <span>{location.task_count} task{location.task_count !== 1 ? 's' : ''}</span>
+                  )}
+                  {location.moment_count > 0 && (
+                    <span>{location.moment_count} moment{location.moment_count !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

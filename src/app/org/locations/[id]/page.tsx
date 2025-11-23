@@ -171,7 +171,6 @@ export default function OrgLocationDetailPage() {
     }
   }, [user, locationId, router, claims, getIdToken]);
 
-
   // Task completion handler - session creation is handled by API route
   async function handleTaskCompletion(completionData: any) {
     try {

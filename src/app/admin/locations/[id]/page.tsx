@@ -12,7 +12,10 @@ import {
   Loader2
 } from 'lucide-react';
 import LocationPreferencesPanel from '@/components/admin/LocationPreferencesPanel';
+import TaskCard from '@/components/admin/TaskCard';
+import TaskFormModal from '@/components/admin/TaskFormModal';
 import { useAuth } from '@/hooks/useAuth';
+import { Plus, ClipboardList } from 'lucide-react';
 
 export default function AdminLocationDetailPage() {
   const router = useRouter();
@@ -24,9 +27,14 @@ export default function AdminLocationDetailPage() {
   const [showPreferences, setShowPreferences] = useState(false);
   const [moments, setMoments] = useState<any[]>([]);
   const [loadingMoments, setLoadingMoments] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
   
   useEffect(() => {
     loadLocation();
+    loadTasks();
   }, [locationId]);
   
   async function loadLocation() {
@@ -73,6 +81,29 @@ export default function AdminLocationDetailPage() {
       console.error('Failed to load moments:', error);
     } finally {
       setLoadingMoments(false);
+    }
+  }
+  
+  async function loadTasks() {
+    setLoadingTasks(true);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/locations/${locationId}/tasks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setTasks(data.tasks);
+      }
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+    } finally {
+      setLoadingTasks(false);
     }
   }
   
@@ -197,6 +228,88 @@ export default function AdminLocationDetailPage() {
         )}
       </div>
       
+      {/* Tasks Section */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">
+                Tasks
+              </h2>
+              <p className="text-sm text-gray-600">
+                Manage tasks at this location
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingTask(null);
+                setShowTaskForm(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add Task
+            </button>
+          </div>
+        </div>
+        
+        <div className="divide-y divide-gray-200">
+          {loadingTasks ? (
+            <div className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="p-12 text-center">
+              <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 mb-4">No tasks yet at this location</p>
+              <button
+                onClick={() => setShowTaskForm(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add First Task
+              </button>
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onEdit={() => {
+                  setEditingTask(task);
+                  setShowTaskForm(true);
+                }}
+                onDelete={async () => {
+                  if (confirm('Delete this task?')) {
+                    try {
+                      const token = await getIdToken();
+                      if (!token) return;
+                      
+                      const response = await fetch(`/api/admin/tasks/${task.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                        },
+                      });
+                      
+                      if (response.ok) {
+                        loadTasks();
+                      } else {
+                        alert('Failed to delete task');
+                      }
+                    } catch (error) {
+                      console.error('Failed to delete task:', error);
+                      alert('Failed to delete task');
+                    }
+                  }
+                }}
+                onViewMoments={() => router.push(`/admin/robot-intelligence?taskId=${task.id}`)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+      
       {/* Access Instructions */}
       {location.access_instructions && (
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
@@ -205,6 +318,23 @@ export default function AdminLocationDetailPage() {
             {location.access_instructions}
           </p>
         </div>
+      )}
+      
+      {/* Task Form Modal */}
+      {showTaskForm && (
+        <TaskFormModal
+          locationId={locationId}
+          task={editingTask}
+          onClose={() => {
+            setShowTaskForm(false);
+            setEditingTask(null);
+          }}
+          onSave={() => {
+            setShowTaskForm(false);
+            setEditingTask(null);
+            loadTasks();
+          }}
+        />
       )}
     </div>
   );
