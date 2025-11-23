@@ -89,7 +89,7 @@ export default function AdminLocationsPage() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-900">
           <strong>{locations.length} locations</strong> in Firestore (source of truth). 
-          Use the "Sync from Firestore" button in Robot Intelligence to update the SQL database for robot queries.
+          Use the &quot;Sync from Firestore&quot; button in Robot Intelligence to update the SQL database for robot queries.
         </p>
       </div>
       
