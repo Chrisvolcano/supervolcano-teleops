@@ -153,7 +153,11 @@ export async function POST(request: NextRequest) {
             estimatedDuration: row.estimated_duration_seconds,
           },
           media: row.media,
-          preference: row.location_preference,
+          preference: row.location_preference && row.location_preference.customInstruction ? {
+            customInstruction: row.location_preference.customInstruction,
+            updatedBy: row.location_preference.createdBy,
+            updatedAt: row.location_preference.updatedAt,
+          } : null,
           quality: {
             humanVerified: row.human_verified,
             confidence: row.confidence_score,
