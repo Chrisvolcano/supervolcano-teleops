@@ -273,6 +273,24 @@ export default function RobotIntelligencePage() {
           </button>
           
           <button
+            onClick={forceMediaSync}
+            disabled={forceSyncing}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          >
+            {forceSyncing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Syncing Media...
+              </>
+            ) : (
+              <>
+                <Video className="h-4 w-4" />
+                Force Media Sync
+              </>
+            )}
+          </button>
+          
+          <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
