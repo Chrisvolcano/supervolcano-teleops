@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
         success: true,
         message: result.message,
         results: {
-          locations: result.counts?.locations?.synced || 0,
-          jobs: result.counts?.jobs?.synced || 0,
-          media: result.counts?.media?.synced || 0,
+          locations: result.counts?.locations || 0,
+          jobs: result.counts?.jobs || 0,
+          media: result.counts?.media || 0,
           errors: result.errors || [],
         },
         timestamp: new Date().toISOString(),
@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
         success: false,
         message: result.message || 'Sync completed with errors',
         results: {
-          locations: result.counts?.locations?.synced || 0,
-          jobs: result.counts?.jobs?.synced || 0,
-          media: result.counts?.media?.synced || 0,
+          locations: result.counts?.locations || 0,
+          jobs: result.counts?.jobs || 0,
+          media: result.counts?.media || 0,
           errors: result.errors || [],
         },
       });
