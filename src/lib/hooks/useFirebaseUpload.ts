@@ -2,18 +2,35 @@
 
 import { useState } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase/firebaseClient';
+import { storage, firebaseAuth } from '@/lib/firebaseClient'; // Use main Firebase client that shares auth
 
 export function useFirebaseUpload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
-  function uploadFile(
+  async function uploadFile(
     file: File,
     path: string,
     onComplete?: (url: string) => void
   ): Promise<string> {
+    // Ensure user is authenticated before uploading
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) {
+      const errorMsg = 'You must be logged in to upload files';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    // Wait for auth token to be ready
+    try {
+      await currentUser.getIdToken(true); // Force refresh to ensure token is valid
+    } catch (authError) {
+      const errorMsg = 'Authentication failed. Please log in again.';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     setUploading(true);
     setProgress(0);
     setError(null);
