@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, StatusBar, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { testFirebaseStorage } from '../services/testUpload';
 import { Location } from '../types';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/Design';
 
 export default function HomeScreen({ navigation }: any) {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -106,48 +108,92 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>SuperVolcano Camera</Text>
-        <Text style={styles.subtitle}>Select a location to start recording</Text>
-      </View>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={['#6366F1', '#4F46E5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.greeting}>Welcome back</Text>
+            <Text style={styles.title}>My Locations</Text>
+          </View>
+          <View style={styles.badge}>
+            <Ionicons name="location" size={16} color={Colors.primary} />
+            <Text style={styles.badgeText}>{locations.length}</Text>
+          </View>
+        </View>
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Pending Uploads Banner */}
         {pendingUploads > 0 && (
           <TouchableOpacity
             style={styles.uploadBanner}
             onPress={handleProcessUploads}
+            activeOpacity={0.8}
           >
-            <Ionicons name="cloud-upload" size={24} color="#fff" />
-            <View style={styles.uploadBannerText}>
-              <Text style={styles.uploadBannerTitle}>
-                {pendingUploads} video{pendingUploads > 1 ? 's' : ''} ready to upload
-              </Text>
-              <Text style={styles.uploadBannerSubtitle}>Tap to upload now</Text>
-            </View>
+            <LinearGradient
+              colors={['#10B981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.uploadBannerGradient}
+            >
+              <Ionicons name="cloud-upload" size={24} color="#fff" />
+              <View style={styles.uploadBannerText}>
+                <Text style={styles.uploadBannerTitle}>
+                  {pendingUploads} video{pendingUploads > 1 ? 's' : ''} ready to upload
+                </Text>
+                <Text style={styles.uploadBannerSubtitle}>Tap to upload now</Text>
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
         {/* Locations List */}
         {loading ? (
-          <Text style={styles.loadingText}>Loading locations...</Text>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading locations...</Text>
+          </View>
         ) : (
-          locations.map(location => (
+          locations.map((location, index) => (
             <TouchableOpacity
               key={location.id}
-              style={styles.locationCard}
+              style={[styles.locationCard, { marginTop: index === 0 ? 0 : Spacing.md }]}
               onPress={() => navigation.navigate('JobSelect', { location })}
+              activeOpacity={0.7}
             >
-              <View style={styles.locationIcon}>
-                <Ionicons name="location" size={24} color="#6366f1" />
+              <View style={styles.cardContent}>
+                <View style={styles.iconContainer}>
+                  <LinearGradient
+                    colors={['#6366F1', '#4F46E5']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconGradient}
+                  >
+                    <Ionicons name="location" size={24} color="white" />
+                  </LinearGradient>
+                </View>
+                
+                <View style={styles.locationInfo}>
+                  <Text style={styles.locationName} numberOfLines={1}>
+                    {location.name}
+                  </Text>
+                  {location.address && (
+                    <Text style={styles.locationAddress} numberOfLines={1}>
+                      {location.address}
+                    </Text>
+                  )}
+                </View>
+                
+                <View style={styles.chevronContainer}>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+                </View>
               </View>
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationName}>{location.name}</Text>
-                {location.address && (
-                  <Text style={styles.locationAddress}>{location.address}</Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
             </TouchableOpacity>
           ))
         )}
@@ -159,88 +205,113 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   header: {
-    padding: 24,
-    paddingTop: 32,
-    backgroundColor: '#6366f1',
+    paddingTop: 60,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  greeting: {
+    ...Typography.bodyMedium,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: Spacing.xs,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    ...Typography.displayMedium,
     color: '#fff',
-    marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#e0e7ff',
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
+  badgeText: {
+    ...Typography.labelLarge,
+    color: '#fff',
+    fontWeight: '600',
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   uploadBanner: {
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    ...Shadows.medium,
+  },
+  uploadBannerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10b981',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: Spacing.lg,
   },
   uploadBannerText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: Spacing.md,
   },
   uploadBannerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.titleSmall,
     color: '#fff',
+    marginBottom: Spacing.xs,
   },
   uploadBannerSubtitle: {
-    fontSize: 14,
-    color: '#d1fae5',
-    marginTop: 2,
+    ...Typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  loadingContainer: {
+    paddingTop: Spacing.xxxl,
+    alignItems: 'center',
   },
   loadingText: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 32,
+    ...Typography.bodyLarge,
+    color: Colors.textSecondary,
   },
   locationCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.medium,
+  },
+  cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: Spacing.lg,
   },
-  locationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
+  iconContainer: {
+    marginRight: Spacing.md,
+  },
+  iconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.md,
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
   },
   locationInfo: {
     flex: 1,
   },
   locationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
+    ...Typography.titleMedium,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
   },
   locationAddress: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Typography.bodyMedium,
+    color: Colors.textSecondary,
+  },
+  chevronContainer: {
+    marginLeft: Spacing.sm,
   },
 });
 

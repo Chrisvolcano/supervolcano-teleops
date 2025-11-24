@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { Location, Job } from '../types';
 import { addToQueue } from '../services/queue';
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/Design';
 
 export default function CameraScreen({ route, navigation }: any) {
   const { location, job } = route.params as { location: Location; job: Job };
@@ -12,6 +13,28 @@ export default function CameraScreen({ route, navigation }: any) {
   const [recording, setRecording] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
   const cameraRef = useRef<CameraView>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (recording) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [recording]);
 
   if (!permission) {
     return <View />;
@@ -19,18 +42,25 @@ export default function CameraScreen({ route, navigation }: any) {
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
         <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={64} color="#94a3b8" />
-          <Text style={styles.permissionTitle}>Camera Permission Needed</Text>
+          <View style={styles.permissionIconContainer}>
+            <Ionicons name="camera-outline" size={64} color={Colors.textTertiary} />
+          </View>
+          <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
-            We need camera access to record videos for robot learning.
+            We need camera access to record instructional videos for robot learning.
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <TouchableOpacity 
+            style={styles.permissionButton} 
+            onPress={requestPermission}
+            activeOpacity={0.8}
+          >
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -84,6 +114,8 @@ export default function CameraScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
       <CameraView
         ref={cameraRef}
         style={styles.camera}
@@ -94,15 +126,23 @@ export default function CameraScreen({ route, navigation }: any) {
       >
         {/* Header */}
         <SafeAreaView style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-            <Ionicons name="close" size={32} color="#fff" />
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={styles.headerButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>{job.title}</Text>
             <Text style={styles.headerSubtitle}>{location.name}</Text>
           </View>
-          <TouchableOpacity onPress={toggleCameraFacing} style={styles.headerButton}>
-            <Ionicons name="camera-reverse" size={32} color="#fff" />
+          <TouchableOpacity 
+            onPress={toggleCameraFacing} 
+            style={styles.headerButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera-reverse" size={28} color="#fff" />
           </TouchableOpacity>
         </SafeAreaView>
 
@@ -110,26 +150,50 @@ export default function CameraScreen({ route, navigation }: any) {
         {recording && (
           <View style={styles.recordingIndicator}>
             <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>REC</Text>
+            <Text style={styles.recordingText}>Recording</Text>
           </View>
         )}
 
-        {/* Controls */}
-        <View style={styles.controls}>
-          <View style={styles.controlsInner}>
-            {recording ? (
-              <TouchableOpacity onPress={stopRecording} style={styles.stopButton}>
-                <View style={styles.stopButtonInner} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={startRecording} style={styles.recordButton}>
-                <View style={styles.recordButtonInner} />
-              </TouchableOpacity>
-            )}
+        {/* Bottom Controls */}
+        <View style={styles.controlsContainer}>
+          {/* Task Info */}
+          <View style={styles.taskInfoBar}>
+            <View>
+              <Text style={styles.taskInfoTitle}>{job.title}</Text>
+              {job.description && (
+                <Text style={styles.taskInfoDescription} numberOfLines={2}>
+                  {job.description}
+                </Text>
+              )}
+            </View>
           </View>
-          <Text style={styles.instructionText}>
-            {recording ? 'Tap to stop recording' : 'Tap to start recording'}
-          </Text>
+
+          {/* Record Button */}
+          <View style={styles.controlsContent}>
+            <Text style={styles.hint}>
+              {recording ? 'Tap to stop recording' : 'Tap to start recording'}
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.recordButtonContainer}
+              onPress={recording ? stopRecording : startRecording}
+              activeOpacity={0.8}
+            >
+              <Animated.View 
+                style={[
+                  styles.recordButton,
+                  recording && styles.recordButtonActive,
+                  { transform: [{ scale: recording ? pulseAnim : 1 }] }
+                ]}
+              >
+                {recording ? (
+                  <View style={styles.stopIcon} />
+                ) : (
+                  <View style={styles.recordIcon} />
+                )}
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
         </View>
       </CameraView>
     </View>
@@ -139,7 +203,7 @@ export default function CameraScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.textPrimary,
   },
   camera: {
     flex: 1,
@@ -148,125 +212,143 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: Spacing.lg,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   headerButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerInfo: {
     flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.titleSmall,
     color: '#fff',
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#d1d5db',
-    marginTop: 2,
+    ...Typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: Spacing.xs,
   },
   recordingIndicator: {
     position: 'absolute',
     top: 100,
-    left: 16,
+    left: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
     backgroundColor: 'rgba(239, 68, 68, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
   recordingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#fff',
-    marginRight: 8,
   },
   recordingText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    ...Typography.labelLarge,
     color: '#fff',
   },
-  controls: {
+  controlsContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 40,
+    backgroundColor: Colors.textPrimary,
+  },
+  taskInfoBar: {
+    padding: Spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  taskInfoTitle: {
+    ...Typography.titleMedium,
+    color: 'white',
+    marginBottom: Spacing.xs,
+  },
+  taskInfoDescription: {
+    ...Typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  controlsContent: {
+    padding: Spacing.xxxl,
     alignItems: 'center',
   },
-  controlsInner: {
-    marginBottom: 16,
+  hint: {
+    ...Typography.bodyMedium,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: Spacing.xxl,
+    textAlign: 'center',
+  },
+  recordButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recordButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    alignItems: 'center',
+    backgroundColor: Colors.error,
     justifyContent: 'center',
-  },
-  recordButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#ef4444',
-  },
-  stopButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  stopButtonInner: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#ef4444',
+  recordButtonActive: {
+    backgroundColor: Colors.error,
+  },
+  recordIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'white',
+  },
+  stopIcon: {
+    width: 24,
+    height: 24,
     borderRadius: 4,
-  },
-  instructionText: {
-    fontSize: 16,
-    color: '#fff',
-    textAlign: 'center',
+    backgroundColor: 'white',
   },
   permissionContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xxxl,
+    backgroundColor: Colors.textPrimary,
+  },
+  permissionIconContainer: {
+    marginBottom: Spacing.xxl,
   },
   permissionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginTop: 24,
-    marginBottom: 8,
+    ...Typography.titleLarge,
+    color: 'white',
+    marginBottom: Spacing.md,
+    textAlign: 'center',
   },
   permissionText: {
-    fontSize: 16,
-    color: '#64748b',
+    ...Typography.bodyMedium,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
   },
   permissionButton: {
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
   },
   permissionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    ...Typography.labelLarge,
+    color: 'white',
   },
 });
 
