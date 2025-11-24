@@ -12,12 +12,31 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
-          headerShown: false,
+          headerShown: false, // Explicit boolean false
+          animation: 'slide_from_right',
         }}
       >
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="JobSelect" component={JobSelectScreen} />
-        <Stack.Screen name="Camera" component={CameraScreen} />
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen}
+          options={{
+            headerShown: false, // Explicit boolean
+          }}
+        />
+        <Stack.Screen 
+          name="JobSelect" 
+          component={JobSelectScreen}
+          options={{
+            headerShown: false, // Explicit boolean
+          }}
+        />
+        <Stack.Screen 
+          name="Camera" 
+          component={CameraScreen}
+          options={{
+            headerShown: false, // Explicit boolean
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

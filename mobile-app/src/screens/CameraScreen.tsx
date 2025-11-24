@@ -89,6 +89,8 @@ export default function CameraScreen({ route, navigation }: any) {
         style={styles.camera}
         facing={facing}
         mode="video"
+        animateShutter={false}
+        enableTorch={false}
       >
         {/* Header */}
         <SafeAreaView style={styles.header}>

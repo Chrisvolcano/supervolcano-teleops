@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchLocations } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
@@ -47,13 +46,10 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#6366f1', '#8b5cf6']}
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <Text style={styles.title}>SuperVolcano Camera</Text>
         <Text style={styles.subtitle}>Select a location to start recording</Text>
-      </LinearGradient>
+      </View>
 
       <ScrollView style={styles.content}>
         {/* Pending Uploads Banner */}
@@ -108,6 +104,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 24,
     paddingTop: 32,
+    backgroundColor: '#6366f1',
   },
   title: {
     fontSize: 28,
