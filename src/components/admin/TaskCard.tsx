@@ -97,8 +97,9 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
                 {media.map((item: any) => (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      if (item.mediaType === 'video') {
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent card click (modal opening)
+                      if (item.mediaType === 'video' || item.fileType?.includes('video')) {
                         setPlayingVideo(item); // Play video in modal
                       } else {
                         window.open(item.storageUrl, '_blank'); // Open image in new tab
@@ -188,13 +189,15 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
         </div>
       </div>
       
-      {/* Video Player Modal */}
+      {/* Video Player Modal - Higher z-index to appear above task details modal */}
       {playingVideo && (
-        <VideoPlayerModal
-          videoUrl={playingVideo.storageUrl}
-          fileName={playingVideo.fileName}
-          onClose={() => setPlayingVideo(null)}
-        />
+        <div className="fixed inset-0 z-[60]">
+          <VideoPlayerModal
+            videoUrl={playingVideo.storageUrl}
+            fileName={playingVideo.fileName || 'Video'}
+            onClose={() => setPlayingVideo(null)}
+          />
+        </div>
       )}
     </div>
   );

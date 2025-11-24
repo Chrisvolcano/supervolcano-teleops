@@ -12,6 +12,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('═══════════════════════════════════════');
+  console.log('📹 MEDIA API - START');
+  console.log('═══════════════════════════════════════');
+  
   try {
     // Admin auth check
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -28,10 +32,14 @@ export async function GET(
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     const taskId = params.id;
-    console.log('🔍 MEDIA API: Loading media for task:', taskId);
+    console.log('Request params:', params);
+    console.log('Task ID:', taskId);
+    console.log('Task ID type:', typeof taskId);
+    console.log('Task ID length:', taskId?.length);
     
-    // Query Firestore for media
-    // Try with orderBy first, fallback if index doesn't exist
+    // Query Firestore
+    console.log('Querying Firestore: collection(media).where(taskId, ==, ' + taskId + ')');
+    
     let mediaSnap;
     try {
       mediaSnap = await adminDb
@@ -52,24 +60,75 @@ export async function GET(
       }
     }
     
-    console.log('🔍 MEDIA API: Found media items:', mediaSnap.size);
+    console.log('Query completed. Size:', mediaSnap.size);
+    console.log('Empty?', mediaSnap.empty);
+    
+    // If no results, try to debug why
+    if (mediaSnap.empty) {
+      console.log('⚠️ No media found. Checking all media documents...');
+      
+      // Get first 5 media docs to see what taskIds exist
+      const allMediaSnap = await adminDb
+        .collection('media')
+        .limit(5)
+        .get();
+      
+      console.log('Sample media documents in database:');
+      allMediaSnap.docs.forEach((doc: QueryDocumentSnapshot) => {
+        const data = doc.data();
+        console.log('  -', {
+          id: doc.id,
+          taskId: data.taskId,
+          jobId: data.jobId,
+          taskIdType: typeof data.taskId,
+          matches: data.taskId === taskId,
+        });
+      });
+      
+      // Try alternate field name (jobId)
+      console.log('⚠️ Trying jobId field instead...');
+      const jobIdSnap = await adminDb
+        .collection('media')
+        .where('jobId', '==', taskId)
+        .get();
+      
+      if (!jobIdSnap.empty) {
+        console.log('✅ Found media using jobId instead of taskId!');
+        mediaSnap = jobIdSnap;
+      }
+    }
     
     const media = mediaSnap.docs.map((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
+      console.log('Processing media doc:', {
+        id: doc.id,
+        taskId: data.taskId,
+        jobId: data.jobId,
+        hasStorageUrl: !!data.storageUrl,
+        storageUrlPreview: data.storageUrl?.substring(0, 50),
+        mediaType: data.mediaType,
+        fileType: data.fileType,
+      });
+      
       return {
         id: doc.id,
-        ...data,
+        taskId: data.taskId || data.jobId, // Support both field names
+        locationId: data.locationId,
+        storageUrl: data.storageUrl,
+        thumbnailUrl: data.thumbnailUrl || null,
+        mediaType: data.mediaType || (data.fileType?.includes('video') ? 'video' : 'image'),
+        fileType: data.fileType || 'video/mp4',
+        duration: data.duration || data.durationSeconds || null,
         uploadedAt: data.uploadedAt?.toDate?.()?.toISOString() || 
+                    data.createdAt?.toDate?.()?.toISOString() || 
                     (data.uploadedAt instanceof Date ? data.uploadedAt.toISOString() : null),
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || 
-                   (data.createdAt instanceof Date ? data.createdAt.toISOString() : null),
+        uploadedBy: data.uploadedBy || 'unknown',
+        fileName: data.fileName || null,
       };
     });
     
     // Sort by uploadedAt if we didn't use orderBy
-    if (media.length > 0 && !media[0].uploadedAt) {
-      // If no uploadedAt, keep original order
-    } else {
+    if (media.length > 0) {
       media.sort((a, b) => {
         const aDate = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
         const bDate = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
@@ -77,23 +136,39 @@ export async function GET(
       });
     }
     
-    console.log('✅ MEDIA API: Returning', media.length, 'media items');
+    console.log('Final media array length:', media.length);
+    console.log('Returning response...');
+    console.log('═══════════════════════════════════════');
+    console.log('📹 MEDIA API - END');
+    console.log('═══════════════════════════════════════');
     
     return NextResponse.json({
       success: true,
       media,
-      count: media.length
+      count: media.length,
+      debug: {
+        taskId,
+        querySize: mediaSnap.size,
+        timestamp: new Date().toISOString(),
+      }
     });
   } catch (error: any) {
-    console.error('❌ MEDIA API: Failed:', error);
-    console.error('❌ MEDIA API: Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack,
-    });
+    console.error('═══════════════════════════════════════');
+    console.error('❌ MEDIA API - ERROR');
+    console.error('═══════════════════════════════════════');
+    console.error('Error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
     return NextResponse.json(
-      { success: false, error: error.message },
+      { 
+        success: false, 
+        error: error.message,
+        code: error.code,
+        media: [],
+        count: 0
+      },
       { status: 500 }
     );
   }

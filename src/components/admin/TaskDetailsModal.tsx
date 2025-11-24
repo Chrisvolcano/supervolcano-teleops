@@ -22,35 +22,88 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
   async function loadMedia() {
     try {
       setLoadingMedia(true);
-      console.log('Loading media for task:', task.id);
+      
+      // CRITICAL DEBUG LOGS
+      console.log('═══════════════════════════════════════');
+      console.log('🔍 MODAL MEDIA LOAD - START');
+      console.log('═══════════════════════════════════════');
+      console.log('Task ID:', task.id);
+      console.log('Task object:', JSON.stringify(task, null, 2));
+      console.log('API URL:', `/api/admin/tasks/${task.id}/media`);
       
       const response = await fetch(`/api/admin/tasks/${task.id}/media`);
       
-      if (!response.ok) {
-        throw new Error('Failed to load media');
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Parsed response:', JSON.stringify(data, null, 2));
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Invalid JSON response');
       }
       
-      const data = await response.json();
-      console.log('Media loaded:', data.media?.length || 0);
+      console.log('Media array:', data.media);
+      console.log('Media count:', data.media?.length || 0);
       
+      if (data.media && data.media.length > 0) {
+        console.log('First media item:', JSON.stringify(data.media[0], null, 2));
+        data.media.forEach((item: any, idx: number) => {
+          console.log(`Media ${idx}:`, {
+            id: item.id,
+            taskId: item.taskId,
+            jobId: item.jobId,
+            storageUrl: item.storageUrl?.substring(0, 100),
+            mediaType: item.mediaType,
+          });
+        });
+      } else {
+        console.log('⚠️ No media found in response');
+      }
+      
+      // Set the media state
+      console.log('Setting media state with:', data.media?.length || 0, 'items');
       setMedia(data.media || []);
       
-      // Auto-select first video if available
+      // Verify state was set
+      console.log('Media state should now be:', data.media?.length || 0);
+      
+      // Auto-select first video
       if (data.media && data.media.length > 0) {
-        const firstVideo = data.media.find((m: any) => m.mediaType === 'video');
+        const firstVideo = data.media.find((m: any) => m.mediaType === 'video' || m.fileType?.includes('video'));
         if (firstVideo) {
+          console.log('Auto-selecting first video:', firstVideo.storageUrl?.substring(0, 100));
           setSelectedVideo(firstVideo);
+        } else {
+          // If no video, select first media item
+          console.log('No video found, selecting first media item');
+          setSelectedVideo(data.media[0]);
         }
+      } else {
+        console.log('⚠️ No video to auto-select');
       }
-    } catch (error) {
-      console.error('Failed to load media:', error);
+      
+      console.log('═══════════════════════════════════════');
+      console.log('🔍 MODAL MEDIA LOAD - END');
+      console.log('═══════════════════════════════════════');
+      
+    } catch (error: any) {
+      console.error('❌ MODAL MEDIA LOAD - ERROR');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
     } finally {
       setLoadingMedia(false);
     }
   }
 
-  const videos = media.filter((m: any) => m.mediaType === 'video');
-  const images = media.filter((m: any) => m.mediaType === 'image');
+  const videos = media.filter((m: any) => m.mediaType === 'video' || m.fileType?.includes('video'));
+  const images = media.filter((m: any) => m.mediaType === 'image' || m.fileType?.includes('image'));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
