@@ -468,12 +468,50 @@ export async function syncAllData() {
     // ==========================================
     console.log('\n[STEP 2/4] SYNCING JOBS');
     console.log('==========================================');
-    const locationsForJobs = await adminDb.collection('locations').get();
-    let totalJobs = 0;
     
+    // Try root collection first (new structure with locationId)
+    let totalJobs = 0;
+    let jobsFromRoot = 0;
+    let jobsFromSubcollections = 0;
+    
+    try {
+      // Sync from root 'tasks' collection (uses locationId field)
+      const rootTasksSnapshot = await adminDb.collection('tasks').get();
+      jobsFromRoot = rootTasksSnapshot.size;
+      totalJobs += jobsFromRoot;
+      
+      console.log(`Found ${jobsFromRoot} jobs in root 'tasks' collection`);
+      
+      for (const jobDoc of rootTasksSnapshot.docs) {
+        const job = jobDoc.data();
+        // Use locationId (new) or propertyId (old, during migration)
+        const locationId = job.locationId || job.propertyId;
+        
+        if (!locationId) {
+          console.warn(`Job ${jobDoc.id} has no locationId or propertyId, skipping`);
+          results.jobs.failed++;
+          results.errors.push(`Job ${jobDoc.id}: No locationId/propertyId`);
+          continue;
+        }
+        
+        const result = await syncJobFromRoot(jobDoc.id, locationId);
+        if (result.success) {
+          results.jobs.synced++;
+        } else {
+          results.jobs.failed++;
+          results.errors.push(`Job ${jobDoc.id}: ${result.error}`);
+        }
+      }
+    } catch (error: any) {
+      console.warn(`Error syncing from root tasks collection:`, error.message);
+    }
+    
+    // Also try subcollections (old structure, for backward compatibility)
+    const locationsForJobs = await adminDb.collection('locations').get();
     for (const locDoc of locationsForJobs.docs) {
       try {
         const jobsSnapshot = await locDoc.ref.collection('tasks').get();
+        jobsFromSubcollections += jobsSnapshot.size;
         totalJobs += jobsSnapshot.size;
         for (const jobDoc of jobsSnapshot.docs) {
           const result = await syncJob(locDoc.id, jobDoc.id);
@@ -485,11 +523,11 @@ export async function syncAllData() {
           }
         }
       } catch (error: any) {
-        console.error(`Error accessing jobs for location ${locDoc.id}:`, error.message);
+        // Subcollection might not exist, that's okay
       }
     }
     
-    console.log(`Found ${totalJobs} jobs in Firestore\n`);
+    console.log(`Found ${totalJobs} total jobs (${jobsFromRoot} from root, ${jobsFromSubcollections} from subcollections)\n`);
     console.log(`\n✓ Jobs: ${results.jobs.synced}/${totalJobs} synced`);
     if (results.jobs.failed > 0) {
       console.log(`✗ Jobs: ${results.jobs.failed} failed`);
