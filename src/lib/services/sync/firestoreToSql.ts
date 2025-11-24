@@ -126,6 +126,56 @@ export async function syncShift(sessionId: string) {
 }
 
 /**
+ * Sync a single job from Firestore root 'tasks' collection to SQL
+ * Uses locationId field (new consistent terminology)
+ */
+export async function syncJobFromRoot(jobId: string, locationId: string) {
+  try {
+    const jobDoc = await adminDb.collection('tasks').doc(jobId).get();
+    
+    if (!jobDoc.exists) {
+      return { success: false, error: 'Job not found' };
+    }
+    
+    const job = jobDoc.data();
+    
+    // Use locationId (new) or propertyId (old, during migration)
+    const finalLocationId = job?.locationId || job?.propertyId || locationId;
+    
+    await sql`
+      INSERT INTO jobs (
+        id, location_id, title, description, category,
+        estimated_duration_minutes, priority, metadata, synced_at
+      ) VALUES (
+        ${jobId},
+        ${finalLocationId},
+        ${job?.title || job?.name || 'Unnamed Job'},
+        ${job?.description || null},
+        ${job?.category || null},
+        ${job?.estimatedDuration || job?.duration || null},
+        ${job?.priority || null},
+        ${JSON.stringify(job)},
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        location_id = EXCLUDED.location_id,
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        category = EXCLUDED.category,
+        estimated_duration_minutes = EXCLUDED.estimated_duration_minutes,
+        priority = EXCLUDED.priority,
+        metadata = EXCLUDED.metadata,
+        synced_at = NOW()
+    `;
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to sync job from root:', error);
+    return { success: false, error: error.message || 'Sync failed' };
+  }
+}
+
+/**
  * Sync job from Firestore to SQL
  * Note: Jobs are stored in location subcollections in Firestore as "tasks"
  * After migration: Firestore "tasks" → SQL "jobs" (high-level assignments)
@@ -161,6 +211,7 @@ export async function syncJob(locationId: string, jobId: string) {
         NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
+        location_id = EXCLUDED.location_id,
         title = EXCLUDED.title,
         description = EXCLUDED.description,
         category = EXCLUDED.category,
@@ -171,9 +222,9 @@ export async function syncJob(locationId: string, jobId: string) {
     `;
     
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to sync job:', error);
-    return { success: false, error: 'Sync failed' };
+    return { success: false, error: error.message || 'Sync failed' };
   }
 }
 
