@@ -57,8 +57,10 @@ export async function POST(request: NextRequest) {
         AND table_name IN ('locations', 'jobs', 'media')
       `;
       
-      // Vercel Postgres returns arrays directly from template literals
-      const tables = Array.isArray(tablesResult) ? tablesResult : [];
+      // Handle Vercel Postgres result (can be array or object with rows property)
+      const tables = Array.isArray(tablesResult) 
+        ? tablesResult 
+        : (tablesResult as any)?.rows || [];
       
       if (tables.length !== 3) {
         const missingTables = ['locations', 'jobs', 'media'].filter(

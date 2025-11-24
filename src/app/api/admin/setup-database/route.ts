@@ -107,10 +107,12 @@ export async function POST(request: Request) {
       AND table_name IN ('locations', 'jobs', 'media')
     `;
     
-    // Vercel Postgres returns arrays directly from template literals
-    const tableNames = Array.isArray(tablesResult) 
-      ? tablesResult.map((row: any) => row.table_name)
-      : [];
+    // Handle Vercel Postgres result (can be array or object with rows property)
+    const tablesArray = Array.isArray(tablesResult) 
+      ? tablesResult 
+      : (tablesResult as any)?.rows || [];
+    
+    const tableNames = tablesArray.map((row: any) => row.table_name);
     
     console.log('✅ Database setup complete!');
     console.log('Tables found:', tableNames);
@@ -158,10 +160,12 @@ export async function GET(request: Request) {
       AND table_name IN ('locations', 'jobs', 'media')
     `;
 
-    // Vercel Postgres returns arrays directly from template literals
-    const tableNames = Array.isArray(tablesResult)
-      ? tablesResult.map((row: any) => row.table_name)
-      : [];
+    // Handle Vercel Postgres result (can be array or object with rows property)
+    const tablesArray = Array.isArray(tablesResult) 
+      ? tablesResult 
+      : (tablesResult as any)?.rows || [];
+    
+    const tableNames = tablesArray.map((row: any) => row.table_name);
 
     return NextResponse.json({
       success: true,
