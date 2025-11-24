@@ -1,6 +1,6 @@
 import { storage } from '../config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface UploadProgress {
   bytesTransferred: number;
