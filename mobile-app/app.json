@@ -16,6 +16,23 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.supervolcano.camera",
       "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsArbitraryLoadsInWebContent": true,
+          "NSExceptionDomains": {
+            "firebaseio.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSIncludesSubdomains": true,
+              "NSExceptionRequiresForwardSecrecy": true,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2"
+            },
+            "googleapis.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSIncludesSubdomains": true,
+              "NSExceptionRequiresForwardSecrecy": true
+            }
+          }
+        },
         "NSCameraUsageDescription": "This app needs camera access to record cleaning tasks for robot learning.",
         "NSMicrophoneUsageDescription": "This app needs microphone access to record audio with videos.",
         "NSPhotoLibraryUsageDescription": "This app does NOT save to your photo library."

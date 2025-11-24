@@ -106,39 +106,50 @@ export async function fetchLocationsViaREST(): Promise<Location[]> {
   try {
     const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
+    const databaseId = process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
     
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/locations?key=${apiKey}`;
+    // Use 'default' not '(default)'!
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/locations?key=${apiKey}`;
     
-    console.log('🌐 Fetching via REST API:', url);
+    console.log('🌐 Fetching via REST API...');
+    console.log('🌐 Database ID:', databaseId);
+    console.log('🌐 URL:', url);
     
     const response = await fetch(url);
-    const data = await response.json();
-    
     console.log('🌐 REST API response status:', response.status);
+    
+    const data = await response.json();
     console.log('🌐 REST API response:', JSON.stringify(data, null, 2));
     
+    if (response.status !== 200) {
+      console.error('🌐 REST API error:', data);
+      return [];
+    }
+    
     if (data.documents) {
+      console.log('🌐 Found documents:', data.documents.length);
+      
       const locations = data.documents.map((doc: any) => {
         const id = doc.name.split('/').pop();
         const fields = doc.fields;
         
         return {
           id,
-          name: fields.name?.stringValue || fields.name,
-          address: fields.address?.stringValue || fields.address,
-          assignedOrganizationName: fields.assignedOrganizationName?.stringValue || fields.assignedOrganizationName,
+          name: fields.name?.stringValue || '',
+          address: fields.address?.stringValue || '',
+          assignedOrganizationName: fields.assignedOrganizationName?.stringValue || '',
+          assignedOrganizationId: fields.assignedOrganizationId?.stringValue || '',
         } as Location;
       });
       
-      console.log('🌐 REST API parsed locations:', locations.length);
+      console.log('🌐 Parsed locations:', locations.length);
       return locations;
     }
     
-    console.warn('🌐 REST API returned no documents');
+    console.warn('🌐 No documents in response');
     return [];
   } catch (error: any) {
     console.error('🌐 REST API failed:', error);
-    console.error('🌐 Error message:', error.message);
     throw error;
   }
 }

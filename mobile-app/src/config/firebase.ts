@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore, enableNetwork } from 'firebase/firestore';
 
 console.log('🔥 Initializing Firebase...');
 console.log('🔥 Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
@@ -25,19 +25,26 @@ if (missingKeys.length > 0) {
   throw new Error('Firebase config incomplete. Missing: ' + missingKeys.join(', '));
 }
 
-console.log('✅ Firebase config loaded successfully');
+console.log('✅ Firebase config loaded');
 
 const app = initializeApp(firebaseConfig);
 
 // Initialize Storage
 export const storage = getStorage(app);
 
-// Initialize Firestore with explicit default database
-// Use initializeFirestore instead of getFirestore for better control
-export const firestore = initializeFirestore(app, {
-  experimentalForceLongPolling: true, // Better for mobile
-  useFetchStreams: false,
-});
+// Initialize Firestore with correct database ID (no parentheses!)
+// Use 'default' not '(default)'
+const databaseId = process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
+export const firestore = getFirestore(app, databaseId);
 
-console.log('✅ Firebase initialized with default database');
+// Enable network explicitly
+enableNetwork(firestore)
+  .then(() => {
+    console.log('✅ Firestore network enabled');
+  })
+  .catch((error) => {
+    console.error('❌ Failed to enable network:', error);
+  });
+
+console.log(`✅ Firebase initialized with database ID: ${databaseId}`);
 
