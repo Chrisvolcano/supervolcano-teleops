@@ -24,11 +24,36 @@ export async function GET(
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     // Query Firestore - tasks are in root 'tasks' collection with locationId field
-    const tasksSnap = await adminDb
-      .collection('tasks')
-      .where('locationId', '==', params.id)
-      .orderBy('createdAt', 'desc')
-      .get();
+    // Try with orderBy first, fall back to without if index missing
+    let tasksSnap;
+    try {
+      tasksSnap = await adminDb
+        .collection('tasks')
+        .where('locationId', '==', params.id)
+        .orderBy('createdAt', 'desc')
+        .get();
+    } catch (error: any) {
+      // If index error, try without orderBy
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.warn('⚠️ Index missing, querying without orderBy...');
+        tasksSnap = await adminDb
+          .collection('tasks')
+          .where('locationId', '==', params.id)
+          .get();
+        // Sort manually
+        const docs = tasksSnap.docs.sort((a, b) => {
+          const aTime = a.data().createdAt?.toDate?.()?.getTime() || 0;
+          const bTime = b.data().createdAt?.toDate?.()?.getTime() || 0;
+          return bTime - aTime; // Descending
+        });
+        tasksSnap = {
+          docs,
+          size: docs.length,
+        } as any;
+      } else {
+        throw error;
+      }
+    }
     
     // Get all task IDs to query media
     const taskIds = tasksSnap.docs.map(doc => doc.id);
@@ -80,12 +105,19 @@ export async function GET(
       };
     });
     
+    console.log('✅ GET TASKS FIRESTORE API: Returning', tasks.length, 'tasks');
+    
     return NextResponse.json({
       success: true,
       tasks
     });
   } catch (error: any) {
-    console.error('Failed to get tasks from Firestore:', error);
+    console.error('❌ GET TASKS FIRESTORE API: Failed:', error);
+    console.error('❌ GET TASKS FIRESTORE API: Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to get tasks' },
       { status: 500 }
