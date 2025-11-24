@@ -204,6 +204,44 @@ export default function RobotIntelligencePage() {
           </button>
           
           <button
+            onClick={async () => {
+              try {
+                const token = await getIdToken();
+                const response = await fetch('/api/admin/debug/media', {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                });
+                const data = await response.json();
+                console.log('Media Debug Report:', data);
+                
+                let message = `Media Debug Report:\n\n`;
+                message += `Firestore: ${data.summary.firestoreCount} files\n`;
+                message += `SQL: ${data.summary.sqlCount} files\n`;
+                message += `Can Sync: ${data.summary.canSync}\n`;
+                message += `Cannot Sync: ${data.summary.cannotSync}\n\n`;
+                
+                if (data.summary.cannotSync > 0) {
+                  message += `Issues:\n`;
+                  data.checks.filter((c: any) => !c.locationExists).forEach((c: any) => {
+                    message += `- ${c.fileName}: ${c.issues.join(', ')}\n`;
+                  });
+                }
+                
+                message += `\nCheck browser console (F12) for full details.`;
+                alert(message);
+              } catch (error) {
+                console.error('Debug failed:', error);
+                alert('Failed to run debug. Check console.');
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-orange-300 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors"
+          >
+            <Database className="h-4 w-4" />
+            Debug Media
+          </button>
+          
+          <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
