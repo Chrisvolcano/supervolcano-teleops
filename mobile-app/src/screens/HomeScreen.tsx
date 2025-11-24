@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, StatusBar, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, StatusBar, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { MotiView } from 'moti';
 import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
-import { testFirebaseStorage } from '../services/testUpload';
 import { Location } from '../types';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/Design';
+import { Colors, Typography, Spacing, BorderRadius, Shadows, Gradients } from '../constants/Design';
+import { useGamification } from '../contexts/GamificationContext';
 
 export default function HomeScreen({ navigation }: any) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingUploads, setPendingUploads] = useState(0);
+  const gamification = useGamification();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadData();
@@ -26,12 +31,9 @@ export default function HomeScreen({ navigation }: any) {
       console.log('🔍 Firebase Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
       console.log('🔍 API Base URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
       
-      // TEST: Try to fetch a specific location by ID
-      // Replace with one of your actual location IDs from Firebase Console
-      // You can find this in Firebase Console → Firestore → locations → click a document
       try {
         console.log('🧪 Running specific document test...');
-        const testLocationId = 'bd577ffe-d733-4002-abb8-9ea047c0f326'; // Real location ID from Firebase Console
+        const testLocationId = 'bd577ffe-d733-4002-abb8-9ea047c0f326';
         const testResult = await testFetchSpecificLocation(testLocationId);
         console.log('🧪 Test result:', testResult ? 'SUCCESS - Document found!' : 'FAILED - Document not found');
         if (testResult) {
@@ -39,15 +41,12 @@ export default function HomeScreen({ navigation }: any) {
         }
       } catch (testError: any) {
         console.error('🧪 Test error:', testError);
-        console.error('🧪 Test error code:', testError.code);
-        console.error('🧪 Test error message:', testError.message);
       }
       
       console.log('🔍 Fetching all locations...');
       let locs = await fetchLocations();
       console.log('🔍 Locations fetched:', locs.length);
       
-      // If SDK returns 0, try REST API as fallback
       if (locs.length === 0) {
         console.warn('⚠️ SDK returned 0 locations, trying REST API fallback...');
         try {
@@ -67,11 +66,6 @@ export default function HomeScreen({ navigation }: any) {
       console.log('✅ Load data complete');
     } catch (error: any) {
       console.error('❌ Load data failed:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack,
-      });
       Alert.alert('Error', 'Failed to load locations: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
@@ -80,124 +74,321 @@ export default function HomeScreen({ navigation }: any) {
 
   async function handleProcessUploads() {
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       console.log('🔄 User tapped upload banner - starting queue processing...');
-      
-      // Optional: Test Firebase Storage first (uncomment to enable)
-      // try {
-      //   console.log('🧪 Testing Firebase Storage connection...');
-      //   await testFirebaseStorage();
-      //   console.log('✅ Storage test passed');
-      // } catch (testError) {
-      //   console.error('❌ Storage test failed:', testError);
-      //   Alert.alert('Storage Error', 'Cannot connect to Firebase Storage. Check your internet connection and Firebase rules.');
-      //   return;
-      // }
       
       await processQueue((item, progress) => {
         console.log(`📊 Uploading ${item.jobTitle}: ${progress.toFixed(0)}%`);
       });
       
       console.log('✅ Queue processing complete');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Success', 'All videos uploaded successfully!');
       loadData();
     } catch (error: any) {
       console.error('❌ Queue processing failed:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', `Upload failed: ${error.message || 'Unknown error'}. Check the console for details.`);
     }
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Header with Gradient */}
+  const handleLocationPress = (item: Location) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('JobSelect', { location: item });
+  };
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const headerScale = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp',
+  });
+
+  const renderStatsCard = () => (
+    <MotiView
+      from={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 600 }}
+    >
       <LinearGradient
-        colors={['#6366F1', '#4F46E5']}
+        colors={Gradients.mesh}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={styles.statsCard}
       >
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>Welcome back</Text>
-            <Text style={styles.title}>My Locations</Text>
+        <BlurView intensity={20} tint="light" style={styles.statsBlur}>
+          {/* Streak */}
+          <View style={styles.statItem}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="flame" size={24} color={Colors.streak} />
+            </View>
+            <Text style={styles.statValue}>{gamification.streak}</Text>
+            <Text style={styles.statLabel}>day streak</Text>
           </View>
-          <View style={styles.badge}>
-            <Ionicons name="location" size={16} color={Colors.primary} />
-            <Text style={styles.badgeText}>{locations.length}</Text>
-          </View>
-        </View>
-      </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Pending Uploads Banner */}
-        {pendingUploads > 0 && (
-          <TouchableOpacity
-            style={styles.uploadBanner}
-            onPress={handleProcessUploads}
-            activeOpacity={0.8}
+          {/* Divider */}
+          <View style={styles.statDivider} />
+
+          {/* XP */}
+          <View style={styles.statItem}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="flash" size={24} color={Colors.xp} />
+            </View>
+            <Text style={styles.statValue}>{gamification.xp}</Text>
+            <Text style={styles.statLabel}>XP earned</Text>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.statDivider} />
+
+          {/* Level */}
+          <View style={styles.statItem}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="trophy" size={24} color={Colors.gold} />
+            </View>
+            <Text style={styles.statValue}>L{gamification.level}</Text>
+            <Text style={styles.statLabel}>level</Text>
+          </View>
+        </BlurView>
+      </LinearGradient>
+    </MotiView>
+  );
+
+  const renderProgressCard = () => (
+    <MotiView
+      from={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 600, delay: 100 }}
+      style={styles.progressCard}
+    >
+      <View style={styles.progressHeader}>
+        <Text style={styles.progressTitle}>Today's Progress</Text>
+        <Text style={styles.progressCount}>{gamification.todayCompleted}/5</Text>
+      </View>
+      
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBg}>
+          <MotiView
+            from={{ width: '0%' }}
+            animate={{ width: `${gamification.getTodayProgress()}%` }}
+            transition={{ type: 'spring', damping: 15, stiffness: 100 }}
           >
             <LinearGradient
-              colors={['#10B981', '#059669']}
+              colors={Gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.uploadBannerGradient}
-            >
-              <Ionicons name="cloud-upload" size={24} color="#fff" />
-              <View style={styles.uploadBannerText}>
-                <Text style={styles.uploadBannerTitle}>
-                  {pendingUploads} video{pendingUploads > 1 ? 's' : ''} ready to upload
+              style={styles.progressBarFill}
+            />
+          </MotiView>
+        </View>
+      </View>
+      
+      <Text style={styles.progressSubtitle}>
+        {gamification.todayCompleted >= 5 
+          ? '🎉 Goal achieved!' 
+          : `${5 - gamification.todayCompleted} more to reach your goal`}
+      </Text>
+    </MotiView>
+  );
+
+  const renderLocation = ({ item, index }: { item: Location; index: number }) => (
+    <MotiView
+      from={{ opacity: 0, translateY: 50, scale: 0.9 }}
+      animate={{ opacity: 1, translateY: 0, scale: 1 }}
+      transition={{ 
+        type: 'spring',
+        delay: index * 100,
+        damping: 15,
+        stiffness: 100,
+      }}
+    >
+      <TouchableOpacity
+        style={[styles.locationCard, { marginTop: index === 0 ? 0 : Spacing.md }]}
+        onPress={() => handleLocationPress(item)}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
+          style={styles.cardGradient}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.iconContainer}>
+              <LinearGradient
+                colors={Gradients.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.iconGradient}
+              >
+                <MotiView
+                  from={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ 
+                    type: 'spring',
+                    delay: (index * 100) + 200,
+                    damping: 12,
+                    stiffness: 200,
+                  }}
+                >
+                  <Ionicons name="location" size={28} color="white" />
+                </MotiView>
+              </LinearGradient>
+            </View>
+            
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {item.address && (
+                <Text style={styles.locationAddress} numberOfLines={1}>
+                  {item.address}
                 </Text>
-                <Text style={styles.uploadBannerSubtitle}>Tap to upload now</Text>
+              )}
+            </View>
+            
+            <View style={styles.chevronContainer}>
+              <View style={styles.chevronBg}>
+                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
               </View>
-            </LinearGradient>
-          </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </MotiView>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <MotiView
+            from={{ rotate: '0deg' }}
+            animate={{ rotate: '360deg' }}
+            transition={{ 
+              type: 'timing',
+              duration: 1000,
+              loop: true,
+            }}
+          >
+            <Ionicons name="sparkles" size={48} color={Colors.primary} />
+          </MotiView>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Animated header */}
+      <Animated.View 
+        style={[
+          styles.header,
+          {
+            opacity: headerOpacity,
+            transform: [{ scale: headerScale }],
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={Gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <View>
+              <MotiView
+                from={{ opacity: 0, translateX: -20 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                transition={{ type: 'spring', delay: 200 }}
+              >
+                <Text style={styles.greeting}>Welcome back</Text>
+              </MotiView>
+              <MotiView
+                from={{ opacity: 0, translateX: -20 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                transition={{ type: 'spring', delay: 300 }}
+              >
+                <Text style={styles.title}>My Locations</Text>
+              </MotiView>
+            </View>
+            <MotiView
+              from={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', delay: 400, damping: 12 }}
+            >
+              <View style={styles.badge}>
+                <Ionicons name="location" size={16} color="white" />
+                <Text style={styles.badgeText}>{locations.length}</Text>
+              </View>
+            </MotiView>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Scrollable content */}
+      <Animated.ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
+        {/* Stats card */}
+        {renderStatsCard()}
+        
+        {/* Progress card */}
+        {renderProgressCard()}
+
+        {/* Pending Uploads Banner */}
+        {pendingUploads > 0 && (
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 200 }}
+          >
+            <TouchableOpacity
+              style={styles.uploadBanner}
+              onPress={handleProcessUploads}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={Gradients.success}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.uploadBannerGradient}
+              >
+                <Ionicons name="cloud-upload" size={24} color="#fff" />
+                <View style={styles.uploadBannerText}>
+                  <Text style={styles.uploadBannerTitle}>
+                    {pendingUploads} video{pendingUploads > 1 ? 's' : ''} ready to upload
+                  </Text>
+                  <Text style={styles.uploadBannerSubtitle}>Tap to upload now</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </MotiView>
         )}
 
-        {/* Locations List */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading locations...</Text>
-          </View>
-        ) : (
-          locations.map((location, index) => (
-            <TouchableOpacity
-              key={location.id}
-              style={[styles.locationCard, { marginTop: index === 0 ? 0 : Spacing.md }]}
-              onPress={() => navigation.navigate('JobSelect', { location })}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardContent}>
-                <View style={styles.iconContainer}>
-                  <LinearGradient
-                    colors={['#6366F1', '#4F46E5']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.iconGradient}
-                  >
-                    <Ionicons name="location" size={24} color="white" />
-                  </LinearGradient>
-                </View>
-                
-                <View style={styles.locationInfo}>
-                  <Text style={styles.locationName} numberOfLines={1}>
-                    {location.name}
-                  </Text>
-                  {location.address && (
-                    <Text style={styles.locationAddress} numberOfLines={1}>
-                      {location.address}
-                    </Text>
-                  )}
-                </View>
-                
-                <View style={styles.chevronContainer}>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+        {/* Locations */}
+        <View style={styles.locationsSection}>
+          <Text style={styles.sectionTitle}>Your Locations</Text>
+          {locations.map((item, index) => (
+            <View key={item.id}>
+              {renderLocation({ item, index })}
+            </View>
+          ))}
+        </View>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
@@ -211,6 +402,11 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xxl,
+    overflow: 'hidden',
+  },
+  headerGradient: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
   },
   headerContent: {
     flexDirection: 'row',
@@ -225,6 +421,7 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.displayMedium,
     color: '#fff',
+    fontWeight: '700',
   },
   badge: {
     flexDirection: 'row',
@@ -237,14 +434,88 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...Typography.labelLarge,
-    color: '#fff',
-    fontWeight: '600',
+    color: 'white',
+    fontWeight: '700',
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing.xxxl,
+  },
+  statsCard: {
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+    ...Shadows.large,
+  },
+  statsBlur: {
+    flexDirection: 'row',
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statIconContainer: {
+    marginBottom: Spacing.sm,
+  },
+  statValue: {
+    ...Typography.displaySmall,
+    color: Colors.textPrimary,
+    fontWeight: '800',
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: Spacing.md,
+  },
+  progressCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    marginBottom: Spacing.xxl,
+    ...Shadows.medium,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  progressTitle: {
+    ...Typography.titleMedium,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  progressCount: {
+    ...Typography.titleMedium,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  progressBarContainer: {
+    marginBottom: Spacing.sm,
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: Colors.backgroundTertiary,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: BorderRadius.full,
+  },
+  progressSubtitle: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
   uploadBanner: {
     marginBottom: Spacing.lg,
@@ -270,18 +541,22 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: 'rgba(255, 255, 255, 0.9)',
   },
-  loadingContainer: {
-    paddingTop: Spacing.xxxl,
-    alignItems: 'center',
+  locationsSection: {
+    marginTop: Spacing.md,
   },
-  loadingText: {
-    ...Typography.bodyLarge,
-    color: Colors.textSecondary,
+  sectionTitle: {
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    marginBottom: Spacing.lg,
   },
   locationCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    ...Shadows.medium,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    ...Shadows.large,
+  },
+  cardGradient: {
+    borderRadius: BorderRadius.xl,
   },
   cardContent: {
     flexDirection: 'row',
@@ -292,11 +567,12 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   iconGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.md,
+    width: 64,
+    height: 64,
+    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Shadows.glow,
   },
   locationInfo: {
     flex: 1,
@@ -304,6 +580,7 @@ const styles = StyleSheet.create({
   locationName: {
     ...Typography.titleMedium,
     color: Colors.textPrimary,
+    fontWeight: '600',
     marginBottom: Spacing.xs,
   },
   locationAddress: {
@@ -313,5 +590,17 @@ const styles = StyleSheet.create({
   chevronContainer: {
     marginLeft: Spacing.sm,
   },
+  chevronBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.backgroundTertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
-

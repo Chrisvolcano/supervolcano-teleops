@@ -3,17 +3,22 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, Animated } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Location, Job } from '../types';
 import { addToQueue } from '../services/queue';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/Design';
+import { CelebrationAnimation } from '../components/CelebrationAnimation';
+import { useGamification } from '../contexts/GamificationContext';
 
 export default function CameraScreen({ route, navigation }: any) {
   const { location, job } = route.params as { location: Location; job: Job };
   const [permission, requestPermission] = useCameraPermissions();
   const [recording, setRecording] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
+  const [showCelebration, setShowCelebration] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const gamification = useGamification();
 
   useEffect(() => {
     if (recording) {
@@ -68,6 +73,7 @@ export default function CameraScreen({ route, navigation }: any) {
     if (!cameraRef.current || recording) return;
 
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setRecording(true);
       console.log('Starting recording...');
       
@@ -87,13 +93,25 @@ export default function CameraScreen({ route, navigation }: any) {
         timestamp: new Date(),
       });
 
-      Alert.alert(
-        'Video Saved',
-        'Video added to upload queue. It will upload when you return to the home screen.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
-      );
+      // Increment gamification
+      await gamification.incrementVideoCount();
+      
+      // Show celebration
+      setShowCelebration(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Wait for celebration animation
+      setTimeout(() => {
+        setShowCelebration(false);
+        Alert.alert(
+          '🎉 Amazing!',
+          `Video saved!\n+50 XP earned!\nTotal: ${gamification.xp + 50} XP`,
+          [{ text: 'Continue', onPress: () => navigation.navigate('Home') }]
+        );
+      }, 2000);
     } catch (error: any) {
       console.error('Recording failed:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', 'Failed to record video: ' + error.message);
     } finally {
       setRecording(false);
@@ -109,6 +127,7 @@ export default function CameraScreen({ route, navigation }: any) {
   }
 
   function toggleCameraFacing() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   }
 
@@ -196,6 +215,13 @@ export default function CameraScreen({ route, navigation }: any) {
           </View>
         </View>
       </CameraView>
+
+      {/* Celebration Animation */}
+      {showCelebration && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <CelebrationAnimation />
+        </View>
+      )}
     </View>
   );
 }
