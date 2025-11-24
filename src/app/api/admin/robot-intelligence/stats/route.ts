@@ -27,16 +27,20 @@ export async function GET(request: Request) {
       sql`SELECT COUNT(*) as count FROM shifts`,
       sql`SELECT COUNT(*) as count FROM tasks`,
       sql`SELECT COUNT(*) as count FROM robot_executions`,
-      sql`SELECT COUNT(*) as count FROM media`,
+      sql`SELECT COUNT(*) as count FROM media`, // ← CRITICAL: Count media
     ]);
     
-    return NextResponse.json({
+    const stats = {
       locations: parseInt(locationsResult.rows[0].count as string) || 0,
       shifts: parseInt(shiftsResult.rows[0].count as string) || 0,
       tasks: parseInt(tasksResult.rows[0].count as string) || 0,
       executions: parseInt(executionsResult.rows[0].count as string) || 0,
       media: parseInt(mediaResult.rows[0].count as string) || 0,
-    });
+    };
+    
+    console.log('Robot Intelligence stats:', stats);
+    
+    return NextResponse.json(stats);
     
   } catch (error: any) {
     console.error('Stats error:', error);
