@@ -155,34 +155,88 @@ export async function fetchLocationsViaREST(): Promise<Location[]> {
 }
 
 /**
- * Fetch jobs for a specific location from Firestore
+ * Fetch jobs for a specific location from Firestore with deep debugging
  */
 export async function fetchJobsForLocation(locationId: string): Promise<Job[]> {
   try {
-    console.log(`💼 Fetching jobs for location: ${locationId}`);
+    console.log('\n💼 === FETCH JOBS DEBUG ===');
+    console.log('💼 Location ID:', locationId);
+    console.log('💼 Querying tasks collection...');
     
+    // First, let's try to get ALL tasks (no filter) to see if any exist
+    console.log('💼 Test 1: Fetching ALL tasks (no filter)...');
+    const allTasksSnap = await getDocs(collection(firestore, 'tasks'));
+    console.log('💼 Total tasks in database:', allTasksSnap.size);
+    
+    if (allTasksSnap.size > 0) {
+      console.log('💼 Sample task IDs:');
+      allTasksSnap.docs.slice(0, 3).forEach(doc => {
+        const data = doc.data();
+        console.log(`  - ${doc.id}: ${data.title || 'No title'}`);
+        console.log(`    locationId field: ${data.locationId || 'MISSING'}`);
+        console.log(`    All fields:`, Object.keys(data));
+      });
+    } else {
+      console.warn('💼 ⚠️ NO TASKS EXIST IN DATABASE');
+      console.warn('💼 You need to create tasks in the web app first!');
+      return [];
+    }
+    
+    // Now try the filtered query
+    console.log('💼 Test 2: Querying with locationId filter...');
     const q = query(
       collection(firestore, 'tasks'),
       where('locationId', '==', locationId)
     );
     
+    console.log('💼 Executing filtered query...');
     const jobsSnap = await getDocs(q);
-    console.log(`💼 Found ${jobsSnap.size} jobs`);
+    console.log('💼 Filtered results:', jobsSnap.size);
     
-    const jobs = jobsSnap.docs.map(doc => {
+    if (jobsSnap.size === 0 && allTasksSnap.size > 0) {
+      console.warn('💼 ⚠️ Tasks exist but none match this locationId!');
+      console.warn('💼 Check if:');
+      console.warn('  1. Tasks have the correct locationId field');
+      console.warn('  2. locationId values match exactly');
+      console.warn('  3. Field might be named differently');
+      
+      // Show what locationIds actually exist
+      console.log('💼 Actual locationIds in tasks:');
+      const locationIds = new Set<string>();
+      allTasksSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.locationId) {
+          locationIds.add(data.locationId);
+        }
+      });
+      console.log('💼 Found locationIds:', Array.from(locationIds));
+      console.log('💼 Looking for:', locationId);
+      console.log('💼 Match?', locationIds.has(locationId));
+    }
+    
+    const jobs: Job[] = [];
+    
+    jobsSnap.forEach(doc => {
       const data = doc.data();
-      console.log(`💼 Job: ${data.title} (${doc.id})`);
-      return {
+      console.log(`💼 Found job: ${data.title} (${doc.id})`);
+      
+      jobs.push({
         id: doc.id,
         ...data
-      } as Job;
+      } as Job);
     });
+    
+    console.log('💼 Total jobs returned:', jobs.length);
+    console.log('💼 === END DEBUG ===\n');
     
     return jobs;
   } catch (error: any) {
-    console.error('❌ Failed to fetch jobs:', error);
-    console.error('❌ Error code:', error.code);
+    console.error('❌ === FETCH JOBS ERROR ===');
+    console.error('❌ Error name:', error.name);
     console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ === END ERROR ===');
     throw error;
   }
 }
