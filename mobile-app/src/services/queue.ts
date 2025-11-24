@@ -29,7 +29,17 @@ export async function addToQueue(item: Omit<UploadQueueItem, 'id' | 'status'>) {
 export async function getQueue(): Promise<UploadQueueItem[]> {
   try {
     const queueJson = await AsyncStorage.getItem(QUEUE_KEY);
-    return queueJson ? JSON.parse(queueJson) : [];
+    if (!queueJson) {
+      return [];
+    }
+    
+    const queue = JSON.parse(queueJson);
+    
+    // Convert timestamp strings back to Date objects
+    return queue.map((item: any) => ({
+      ...item,
+      timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
+    }));
   } catch (error) {
     console.error('Failed to get queue:', error);
     return [];
@@ -106,18 +116,27 @@ export async function processQueue(
       // Save metadata with duration and file size
       console.log('\n💾 Saving metadata to Firestore via API...');
       console.log('API URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+      
+      // Ensure timestamp is a Date object
+      const timestamp = item.timestamp instanceof Date 
+        ? item.timestamp 
+        : new Date(item.timestamp || Date.now());
+      
+      const fileName = `video-${timestamp.getTime()}.mp4`;
+      console.log('File name:', fileName);
       console.log('Metadata payload:', {
         taskId: item.jobId,
         locationId: item.locationId,
         fileSize: uploadResult.fileSize,
         durationSeconds: uploadResult.durationSeconds,
+        fileName,
       });
       
       await saveMediaMetadata({
         taskId: item.jobId,
         locationId: item.locationId,
         storageUrl: uploadResult.storageUrl,
-        fileName: `video-${item.timestamp.getTime()}.mp4`,
+        fileName: fileName,
         fileSize: uploadResult.fileSize,
         mimeType: 'video/mp4',
         durationSeconds: uploadResult.durationSeconds,
