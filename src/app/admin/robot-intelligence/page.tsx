@@ -175,6 +175,38 @@ export default function RobotIntelligencePage() {
     }
   }
   
+  async function runMigration() {
+    if (!confirm('This will add locationId field to all tasks that currently use propertyId. Continue?')) {
+      return;
+    }
+
+    setMigrating(true);
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/migrate-location-ids', { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✓ Migration complete!\n\nMigrated: ${data.migrated}\nSkipped: ${data.skipped}\nErrors: ${data.errors}`);
+        // Reload stats after migration
+        loadStats();
+      } else {
+        const data = await response.json();
+        alert(`Migration failed:\n\n${data.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      console.error('Migration failed:', error);
+      alert('Failed to run migration: ' + error.message);
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   async function deleteTask(id: string) {
     if (!confirm('Are you sure you want to delete this task?')) return;
     
@@ -291,6 +323,24 @@ export default function RobotIntelligencePage() {
             )}
           </button>
           
+          <button
+            onClick={runMigration}
+            disabled={migrating}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {migrating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Migrating...
+              </>
+            ) : (
+              <>
+                <Database className="h-4 w-4" />
+                Migrate propertyId → locationId
+              </>
+            )}
+          </button>
+
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
