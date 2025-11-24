@@ -174,39 +174,51 @@ export default function RobotIntelligencePage() {
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Sync failed with status:', response.status);
-        console.error('Error response:', errorText);
-        let errorMessage = `Sync failed: ${response.status}`;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      console.log('Sync response:', data);
-
-      if (!data.success) {
-        throw new Error(data.error || data.message || 'Sync failed');
-      }
-
-      // Show success message
-      const errorCount = data.results?.errors?.length || 0;
-      const message = `✅ Sync complete!\n\nLocations: ${data.results?.locations || 0}\nJobs: ${data.results?.jobs || 0}\nMedia: ${data.results?.media || 0}${errorCount > 0 ? `\n\n⚠️ Errors: ${errorCount}` : ''}`;
-      alert(message);
+      // Get the response text first
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
       
-      // Reload stats
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error(`Invalid response format: ${responseText.substring(0, 100)}`);
+      }
+      
+      console.log('Parsed sync response:', data);
+      
+      // Check if sync was successful
+      if (!response.ok) {
+        throw new Error(data.error || `Sync failed with status ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || data.message || 'Sync failed - check server logs');
+      }
+      
+      // SUCCESS! Show results
+      console.log('✅ Sync successful!', data.results);
+      
+      const successMessage = `✅ Sync Complete!\n\n` +
+        `Locations: ${data.results?.locations || 0}\n` +
+        `Tasks/Jobs: ${data.results?.jobs || 0}\n` +
+        `Media Files: ${data.results?.media || 0}\n\n` +
+        (data.results?.errors?.length > 0 
+          ? `⚠️ Warnings: ${data.results.errors.length}` 
+          : '✨ No errors!');
+      
+      alert(successMessage);
+      
+      // Reload stats to show updated counts
       await loadStats();
       
     } catch (error: any) {
       console.error('❌ Sync error:', error);
-      setError(error.message);
-      alert(`Sync failed: ${error.message || 'Unknown error'}\n\nCheck console for details.`);
+      const errorMessage = error.message || 'Unknown error occurred';
+      setError(errorMessage);
+      alert(`❌ Sync failed:\n\n${errorMessage}\n\nCheck console for details.`);
     } finally {
       setSyncing(false);
     }
@@ -463,6 +475,33 @@ export default function RobotIntelligencePage() {
           </button>
         </div>
       </div>
+      
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-red-800">Sync Error</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => setError(null)}
+                  className="text-sm font-medium text-red-800 hover:text-red-600"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">

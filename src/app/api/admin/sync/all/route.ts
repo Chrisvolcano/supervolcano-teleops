@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         message: result.message,
         results: {
           locations: result.counts?.locations || 0,
+          tasks: result.counts?.jobs || 0, // Use 'tasks' for consistency with frontend
           jobs: result.counts?.jobs || 0,
           media: result.counts?.media || 0,
           errors: result.errors || [],
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
         message: result.message || 'Sync completed with errors',
         results: {
           locations: result.counts?.locations || 0,
+          tasks: result.counts?.jobs || 0, // Use 'tasks' for consistency with frontend
           jobs: result.counts?.jobs || 0,
           media: result.counts?.media || 0,
           errors: result.errors || [],
