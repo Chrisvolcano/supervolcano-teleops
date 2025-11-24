@@ -139,13 +139,13 @@ CREATE INDEX IF NOT EXISTS idx_moments_fulltext ON moments
 
 -- Media - Videos, images, annotations
 CREATE TABLE IF NOT EXISTS media (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id VARCHAR(255) PRIMARY KEY,  -- Firestore document IDs (not UUID)
     
     -- Relationships
     organization_id VARCHAR(255) NOT NULL,
     location_id VARCHAR(255) NOT NULL REFERENCES locations(id),
     shift_id VARCHAR(255) REFERENCES shifts(id),
-    task_id VARCHAR(255) REFERENCES tasks(id),
+    job_id VARCHAR(255) REFERENCES jobs(id),  -- Changed from task_id to job_id
     
     -- Media details
     media_type VARCHAR(50) NOT NULL, -- video, image, annotation, point_cloud
@@ -167,26 +167,31 @@ CREATE TABLE IF NOT EXISTS media (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     tags TEXT[] DEFAULT '{}',
     
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    -- Tracking
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_media_location ON media(location_id);
 CREATE INDEX IF NOT EXISTS idx_media_shift ON media(shift_id);
-CREATE INDEX IF NOT EXISTS idx_media_task ON media(task_id);
+CREATE INDEX IF NOT EXISTS idx_media_job ON media(job_id);  -- Changed from task_id to job_id
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(media_type);
 CREATE INDEX IF NOT EXISTS idx_media_status ON media(processing_status);
 
--- Moment-Media junction table (many-to-many)
-CREATE TABLE IF NOT EXISTS moment_media (
-    moment_id UUID NOT NULL REFERENCES moments(id) ON DELETE CASCADE,
-    media_id UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+-- Task-Media junction table (many-to-many)
+-- Note: After rename, moments → tasks (atomic robot steps)
+CREATE TABLE IF NOT EXISTS task_media (
+    task_id VARCHAR(255) NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,  -- Changed from moment_id UUID
+    media_id VARCHAR(255) NOT NULL REFERENCES media(id) ON DELETE CASCADE,  -- Changed from UUID
     media_role VARCHAR(50), -- primary_video, reference_image, annotation, etc.
     time_offset_seconds INTEGER, -- Start time in video if applicable
-    PRIMARY KEY (moment_id, media_id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (task_id, media_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_moment_media_moment ON moment_media(moment_id);
-CREATE INDEX IF NOT EXISTS idx_moment_media_media ON moment_media(media_id);
+CREATE INDEX IF NOT EXISTS idx_task_media_task ON task_media(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_media_media ON task_media(media_id);
 
 -- Location-specific preferences
 CREATE TABLE IF NOT EXISTS location_preferences (
