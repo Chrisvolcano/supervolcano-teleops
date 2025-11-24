@@ -178,42 +178,79 @@ export async function syncJob(locationId: string, jobId: string) {
 }
 
 /**
- * Sync media from Firestore to SQL
+ * Sync media from Firestore to SQL with detailed error logging
  */
 export async function syncMedia(mediaId: string) {
   try {
+    console.log(`\n[MEDIA SYNC] Starting sync for media: ${mediaId}`);
+    
+    // 1. Get media from Firestore
     const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
     
     if (!mediaDoc.exists) {
-      console.error(`[sync] Media ${mediaId} not found in Firestore`);
-      return { success: false, error: 'Media not found' };
+      console.error(`[MEDIA SYNC] ✗ Media ${mediaId} not found in Firestore`);
+      return { success: false, error: 'Media not found in Firestore' };
     }
     
     const media = mediaDoc.data();
+    console.log(`[MEDIA SYNC] Found media:`, {
+      id: mediaId,
+      fileName: media.fileName,
+      locationId: media.locationId,
+      taskId: media.taskId,
+      storageUrl: media.storageUrl?.substring(0, 50) + '...',
+    });
     
-    if (!media) {
-      console.error(`[sync] Media ${mediaId} data is empty`);
-      return { success: false, error: 'Media data is empty' };
+    // 2. Validate required fields
+    if (!media.locationId) {
+      console.error(`[MEDIA SYNC] ✗ Missing locationId`);
+      return { success: false, error: 'Missing locationId' };
     }
     
-    console.log(`[sync] Syncing media ${mediaId}: ${media.fileName || 'unnamed'}`);
-    console.log(`[sync]   - Location: ${media.locationId}`);
-    console.log(`[sync]   - Job: ${media.taskId || 'none'}`);
-    console.log(`[sync]   - Type: ${media.mediaType || 'unknown'}`);
-    console.log(`[sync]   - URL: ${media.storageUrl ? 'present' : 'missing'}`);
+    if (!media.storageUrl) {
+      console.error(`[MEDIA SYNC] ✗ Missing storageUrl`);
+      return { success: false, error: 'Missing storageUrl' };
+    }
     
-    // Get organization_id from location (must exist in SQL first)
-    const orgResult = await sql`
-      SELECT organization_id FROM locations WHERE id = ${media.locationId} LIMIT 1
+    // 3. Check if location exists in SQL
+    console.log(`[MEDIA SYNC] Checking if location ${media.locationId} exists in SQL...`);
+    const locationCheck = await sql`
+      SELECT id, organization_id FROM locations WHERE id = ${media.locationId}
     `;
     
-    if (orgResult.rows.length === 0) {
-      console.error(`[sync] Location ${media.locationId} not found in SQL for media ${mediaId}`);
-      return { success: false, error: 'Location not found in SQL - sync locations first' };
+    if (locationCheck.rows.length === 0) {
+      console.error(`[MEDIA SYNC] ✗ Location ${media.locationId} not found in SQL`);
+      console.error(`[MEDIA SYNC] This location needs to be synced first`);
+      return { 
+        success: false, 
+        error: `Location ${media.locationId} not found in SQL. Sync locations first.` 
+      };
     }
     
-    const organizationId = orgResult.rows[0].organization_id;
-    console.log(`[sync]   - Organization: ${organizationId}`);
+    const organizationId = locationCheck.rows[0].organization_id;
+    console.log(`[MEDIA SYNC] ✓ Location exists, organization: ${organizationId}`);
+    
+    // 4. Check if job exists in SQL (if taskId is provided)
+    let jobId = null;
+    if (media.taskId) {
+      console.log(`[MEDIA SYNC] Checking if job ${media.taskId} exists in SQL...`);
+      const jobCheck = await sql`
+        SELECT id FROM jobs WHERE id = ${media.taskId}
+      `;
+      
+      if (jobCheck.rows.length === 0) {
+        console.warn(`[MEDIA SYNC] ⚠ Job ${media.taskId} not found in SQL`);
+        console.warn(`[MEDIA SYNC] Media will be synced without job reference`);
+        // Don't fail - just set jobId to null
+        jobId = null;
+      } else {
+        jobId = media.taskId;
+        console.log(`[MEDIA SYNC] ✓ Job exists`);
+      }
+    }
+    
+    // 5. Insert/update media in SQL
+    console.log(`[MEDIA SYNC] Inserting media into SQL...`);
     
     // Handle Firestore Timestamp conversion
     const uploadedAt = media.uploadedAt?.toDate 
@@ -230,11 +267,11 @@ export async function syncMedia(mediaId: string) {
       ) VALUES (
         ${mediaId},
         ${organizationId},
-        ${media.locationId || null},
-        ${media.taskId || null},
+        ${media.locationId},
+        ${jobId},
         ${media.shiftId || null},
         ${media.mediaType || 'video'},
-        ${media.storageUrl || ''},
+        ${media.storageUrl},
         ${media.thumbnailUrl || null},
         ${media.durationSeconds || null},
         ${media.resolution || null},
@@ -259,26 +296,21 @@ export async function syncMedia(mediaId: string) {
         synced_at = NOW()
     `;
     
-    console.log(`[sync] ✓ Successfully synced media ${mediaId}`);
+    console.log(`[MEDIA SYNC] ✓ Successfully synced media ${mediaId}`);
     return { success: true };
+    
   } catch (error: any) {
-    const errorMessage = error.message || 'Unknown error';
-    const errorCode = error.code || 'no-code';
-    const errorDetails = error.detail || error.stack || 'No details';
-    
-    console.error(`[sync] ✗ Failed to sync media ${mediaId}:`);
-    console.error(`[sync]   Error: ${errorMessage}`);
-    console.error(`[sync]   Code: ${errorCode}`);
-    console.error(`[sync]   Details: ${errorDetails}`);
-    
-    // Log the full error object for debugging
-    console.error(`[sync]   Full error:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error(`[MEDIA SYNC] ✗ Failed to sync media ${mediaId}`);
+    console.error(`[MEDIA SYNC] Error:`, error.message);
+    console.error(`[MEDIA SYNC] Code:`, error.code);
+    console.error(`[MEDIA SYNC] Detail:`, error.detail);
+    console.error(`[MEDIA SYNC] Stack:`, error.stack);
     
     return { 
       success: false, 
-      error: errorMessage,
-      code: errorCode,
-      details: errorDetails
+      error: error.message || 'Unknown error',
+      code: error.code,
+      detail: error.detail,
     };
   }
 }
@@ -324,55 +356,60 @@ export async function autoLinkMediaToTasks(jobId: string) {
  */
 export async function syncAllData() {
   try {
-    let locationsSynced = 0;
-    let locationsErrors = 0;
-    let tasksSynced = 0;
-    let tasksErrors = 0;
-    let shiftsSynced = 0;
-    let shiftsErrors = 0;
+    console.log('\n========================================');
+    console.log('STARTING FULL SYNC FROM FIRESTORE TO SQL');
+    console.log('========================================\n');
     
-    // Sync locations
-    console.log('Syncing locations...');
+    const results = {
+      locations: { synced: 0, failed: 0 },
+      jobs: { synced: 0, failed: 0 },
+      sessions: { synced: 0, failed: 0 },
+      media: { synced: 0, failed: 0 },
+      errors: [] as string[],
+    };
+    
+    // ==========================================
+    // STEP 1: Sync ALL locations FIRST
+    // ==========================================
+    console.log('[STEP 1/4] SYNCING LOCATIONS');
+    console.log('==========================================');
     const locationsSnapshot = await adminDb.collection('locations').get();
-    console.log(`Found ${locationsSnapshot.docs.length} locations in Firestore`);
+    console.log(`Found ${locationsSnapshot.size} locations in Firestore\n`);
     
     for (const doc of locationsSnapshot.docs) {
-      try {
-        const result = await syncLocation(doc.id);
-        if (result.success) {
-          locationsSynced++;
-        } else {
-          locationsErrors++;
-          console.error(`Failed to sync location ${doc.id}:`, result.error);
-        }
-      } catch (error: any) {
-        locationsErrors++;
-        console.error(`Error syncing location ${doc.id}:`, error.message);
+      const result = await syncLocation(doc.id);
+      if (result.success) {
+        results.locations.synced++;
+      } else {
+        results.locations.failed++;
+        results.errors.push(`Location ${doc.id}: ${result.error}`);
       }
     }
     
-    // Sync jobs (from location subcollections - Firestore "tasks" → SQL "jobs")
-    console.log('Syncing jobs...');
+    console.log(`\n✓ Locations: ${results.locations.synced}/${locationsSnapshot.size} synced`);
+    if (results.locations.failed > 0) {
+      console.log(`✗ Locations: ${results.locations.failed} failed`);
+    }
+    
+    // ==========================================
+    // STEP 2: Sync ALL jobs (after locations)
+    // ==========================================
+    console.log('\n[STEP 2/4] SYNCING JOBS');
+    console.log('==========================================');
     const locationsForJobs = await adminDb.collection('locations').get();
-    console.log(`Checking ${locationsForJobs.docs.length} locations for jobs`);
+    let totalJobs = 0;
     
     for (const locDoc of locationsForJobs.docs) {
       try {
         const jobsSnapshot = await locDoc.ref.collection('tasks').get();
-        console.log(`Location ${locDoc.id} has ${jobsSnapshot.docs.length} jobs`);
-        
+        totalJobs += jobsSnapshot.size;
         for (const jobDoc of jobsSnapshot.docs) {
-          try {
-            const result = await syncJob(locDoc.id, jobDoc.id);
-            if (result.success) {
-              tasksSynced++;
-            } else {
-              tasksErrors++;
-              console.error(`Failed to sync job ${jobDoc.id}:`, result.error);
-            }
-          } catch (error: any) {
-            tasksErrors++;
-            console.error(`Error syncing job ${jobDoc.id}:`, error.message);
+          const result = await syncJob(locDoc.id, jobDoc.id);
+          if (result.success) {
+            results.jobs.synced++;
+          } else {
+            results.jobs.failed++;
+            results.errors.push(`Job ${jobDoc.id}: ${result.error}`);
           }
         }
       } catch (error: any) {
@@ -380,122 +417,97 @@ export async function syncAllData() {
       }
     }
     
-    // Sync sessions
-    console.log('Syncing shifts (sessions)...');
+    console.log(`Found ${totalJobs} jobs in Firestore\n`);
+    console.log(`\n✓ Jobs: ${results.jobs.synced}/${totalJobs} synced`);
+    if (results.jobs.failed > 0) {
+      console.log(`✗ Jobs: ${results.jobs.failed} failed`);
+    }
+    
+    // ==========================================
+    // STEP 3: Sync ALL sessions
+    // ==========================================
+    console.log('\n[STEP 3/4] SYNCING SESSIONS');
+    console.log('==========================================');
     const sessionsSnapshot = await adminDb.collection('sessions').get();
-    console.log(`Found ${sessionsSnapshot.docs.length} sessions in Firestore`);
+    console.log(`Found ${sessionsSnapshot.size} sessions in Firestore\n`);
     
     for (const doc of sessionsSnapshot.docs) {
-      try {
-        const result = await syncShift(doc.id);
-        if (result.success) {
-          shiftsSynced++;
-        } else {
-          shiftsErrors++;
-          console.error(`Failed to sync shift ${doc.id}:`, result.error);
-        }
-      } catch (error: any) {
-        shiftsErrors++;
-        console.error(`Error syncing shift ${doc.id}:`, error.message);
+      const result = await syncShift(doc.id);
+      if (result.success) {
+        results.sessions.synced++;
+      } else {
+        results.sessions.failed++;
+        results.errors.push(`Session ${doc.id}: ${result.error}`);
       }
     }
     
-    // Sync media (CRITICAL FOR VISUAL DATABASE)
-    console.log('\n[4/4] Syncing media files...');
+    console.log(`\n✓ Sessions: ${results.sessions.synced}/${sessionsSnapshot.size} synced`);
+    if (results.sessions.failed > 0) {
+      console.log(`✗ Sessions: ${results.sessions.failed} failed`);
+    }
+    
+    // ==========================================
+    // STEP 4: Sync ALL media (after locations and jobs)
+    // ==========================================
+    console.log('\n[STEP 4/4] SYNCING MEDIA FILES');
+    console.log('==========================================');
     const mediaSnapshot = await adminDb.collection('media').get();
-    console.log(`Found ${mediaSnapshot.docs.length} media files in Firestore`);
+    console.log(`Found ${mediaSnapshot.size} media files in Firestore\n`);
     
-    let mediaSynced = 0;
-    let mediaErrors = 0;
-    const mediaErrorDetails: string[] = [];
-    
-    for (const doc of mediaSnapshot.docs) {
-      try {
+    if (mediaSnapshot.size === 0) {
+      console.log('No media files to sync');
+    } else {
+      for (const doc of mediaSnapshot.docs) {
         const result = await syncMedia(doc.id);
         if (result.success) {
-          mediaSynced++;
+          results.media.synced++;
         } else {
-          mediaErrors++;
-          const errorMsg = `Media ${doc.id}: ${result.error || 'Unknown error'}`;
-          const errorDetails = result.details ? ` (${result.details})` : '';
-          const errorCode = result.code ? ` [${result.code}]` : '';
-          console.error(`  ✗ ${errorMsg}${errorCode}${errorDetails}`);
-          mediaErrorDetails.push(`${errorMsg}${errorCode}${errorDetails}`);
+          results.media.failed++;
+          const errorMsg = `Media ${doc.id}: ${result.error}`;
+          results.errors.push(errorMsg);
+          console.error(`✗ ${errorMsg}`);
         }
-      } catch (error: any) {
-        mediaErrors++;
-        const errorMsg = `Media ${doc.id}: ${error.message || 'Unknown error'}`;
-        const errorDetails = error.detail ? ` (${error.detail})` : '';
-        const errorCode = error.code ? ` [${error.code}]` : '';
-        console.error(`  ✗ ${errorMsg}${errorCode}${errorDetails}`);
-        console.error(`    Stack:`, error.stack);
-        mediaErrorDetails.push(`${errorMsg}${errorCode}${errorDetails}`);
+      }
+      
+      console.log(`\n✓ Media: ${results.media.synced}/${mediaSnapshot.size} synced`);
+      if (results.media.failed > 0) {
+        console.log(`✗ Media: ${results.media.failed} failed`);
       }
     }
     
-    console.log(`✓ Synced ${mediaSynced}/${mediaSnapshot.docs.length} media files`);
-    if (mediaErrors > 0) {
-      console.log(`  ⚠ ${mediaErrors} media files failed to sync`);
-    }
-    
-    // Auto-link media to tasks
-    console.log('Auto-linking media to tasks...');
-    const jobsWithMedia = await sql`
-      SELECT DISTINCT job_id FROM media WHERE job_id IS NOT NULL
-    `;
-    
-    let totalLinks = 0;
-    for (const row of jobsWithMedia.rows) {
-      try {
-        const result = await autoLinkMediaToTasks(row.job_id);
-        if (result.success) {
-          totalLinks += result.linksCreated || 0;
-        }
-      } catch (error: any) {
-        console.error(`Error auto-linking media for job ${row.job_id}:`, error.message);
-      }
-    }
-    console.log(`Created ${totalLinks} media-task links`);
-    
+    // ==========================================
+    // SUMMARY
+    // ==========================================
     console.log('\n========================================');
-    console.log('SYNC COMPLETE');
+    console.log('SYNC COMPLETE - SUMMARY');
     console.log('========================================');
-    console.log(`Locations: ${locationsSynced} synced, ${locationsErrors} errors`);
-    console.log(`Jobs: ${tasksSynced} synced, ${tasksErrors} errors`);
-    console.log(`Sessions: ${shiftsSynced} synced, ${shiftsErrors} errors`);
-    console.log(`Media: ${mediaSynced} synced, ${mediaErrors} errors`);
-    console.log(`Media-Task Links: ${totalLinks} created`);
+    console.log(`Locations: ${results.locations.synced} synced, ${results.locations.failed} failed`);
+    console.log(`Jobs: ${results.jobs.synced} synced, ${results.jobs.failed} failed`);
+    console.log(`Sessions: ${results.sessions.synced} synced, ${results.sessions.failed} failed`);
+    console.log(`Media: ${results.media.synced} synced, ${results.media.failed} failed`);
     
-    if (mediaErrorDetails.length > 0) {
-      console.log('\nMedia sync errors:');
-      mediaErrorDetails.forEach(err => console.log(`  - ${err}`));
+    if (results.errors.length > 0) {
+      console.log(`\n⚠ ERRORS (${results.errors.length}):`);
+      results.errors.forEach((err, i) => console.error(`  ${i + 1}. ${err}`));
+    } else {
+      console.log('\n✓ No errors');
     }
     
-    const message = `Synced ${locationsSynced} locations, ${tasksSynced} jobs, ${shiftsSynced} sessions, ${mediaSynced} media files`;
+    console.log('========================================\n');
+    
+    const message = `Synced ${results.locations.synced} locations, ${results.jobs.synced} jobs, ${results.sessions.synced} sessions, ${results.media.synced} media files`;
     
     return { 
-      success: true, 
+      success: results.errors.length === 0, 
       message,
       counts: {
-        locations: locationsSynced,
-        jobs: tasksSynced,
-        tasks: tasksSynced, // Alias for backward compatibility
-        sessions: shiftsSynced,
-        shifts: shiftsSynced, // Alias for backward compatibility
-        media: mediaSynced,
-        mediaTaskLinks: totalLinks,
+        locations: results.locations.synced,
+        jobs: results.jobs.synced,
+        sessions: results.sessions.synced,
+        media: results.media.synced,
       },
-      errors: {
-        locations: locationsErrors,
-        jobs: tasksErrors,
-        tasks: tasksErrors,
-        sessions: shiftsErrors,
-        shifts: shiftsErrors,
-        media: mediaErrors,
-      },
-      errorDetails: {
-        media: mediaErrorDetails,
-      }
+      errors: results.errors,
+      details: results,
     };
   } catch (error: any) {
     console.error('Failed to sync all data:', error);

@@ -21,30 +21,27 @@ export async function POST(request: Request) {
     // Only allow superadmin, admin, and partner_admin
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
-    console.log('[sync] Starting sync process...');
+    console.log('\n[SYNC API] Admin triggered full sync');
+    
     const result = await syncAllData();
-    console.log('[sync] Sync result:', JSON.stringify(result, null, 2));
     
     if (result.success) {
+      console.log('[SYNC API] Sync completed successfully');
       return NextResponse.json({
         success: true,
-        message: result.message || 'Data synced successfully',
+        message: result.message,
         counts: result.counts,
-        errors: result.errors,
-        errorDetails: result.errorDetails,
+        details: result.details,
       });
     } else {
-      console.error('[sync] Sync failed:', result.error);
-      console.error('[sync] Details:', result.details);
-      return NextResponse.json(
-        { 
-          success: false,
-          error: result.error,
-          details: result.details,
-          counts: result.counts,
-        },
-        { status: 500 }
-      );
+      console.error('[SYNC API] Sync completed with errors');
+      return NextResponse.json({
+        success: false,
+        message: result.message || 'Sync completed with errors',
+        counts: result.counts,
+        errors: result.errors,
+        details: result.details,
+      });
     }
   } catch (error: any) {
     console.error('[sync] Sync API error:', error);
