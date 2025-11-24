@@ -257,24 +257,39 @@ export async function saveMediaMetadata(data: {
     
     const responseText = await response.text();
     console.log('💾 Response status:', response.status);
+    console.log('💾 Response ok:', response.ok);
     console.log('💾 Response text:', responseText);
+    
+    if (!response.ok) {
+      console.error('❌ API returned error status:', response.status);
+      throw new Error(`API error ${response.status}: ${responseText}`);
+    }
     
     let result;
     try {
       result = JSON.parse(responseText);
     } catch (e) {
+      console.error('❌ Failed to parse JSON response');
       throw new Error(`Invalid JSON response: ${responseText}`);
     }
     
     if (!result.success) {
+      console.error('❌ API returned success: false');
+      console.error('❌ Error from API:', result.error);
       throw new Error(result.error || 'Failed to save metadata');
     }
     
-    console.log('✅ Media metadata saved:', result.id);
+    console.log('✅ Media metadata saved successfully');
+    console.log('✅ Media ID:', result.id);
+    console.log('✅ Storage URL:', result.url?.substring(0, 100));
     return result;
   } catch (error: any) {
-    console.error('❌ Failed to save media metadata:', error);
-    console.error('❌ Error details:', error.message);
+    console.error('═══════════════════════════════════════');
+    console.error('❌ SAVE METADATA FAILED');
+    console.error('═══════════════════════════════════════');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 }

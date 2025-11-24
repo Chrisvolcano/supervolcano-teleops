@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
+import { testFirebaseStorage } from '../services/testUpload';
 import { Location } from '../types';
 
 export default function HomeScreen({ navigation }: any) {
@@ -78,6 +79,18 @@ export default function HomeScreen({ navigation }: any) {
   async function handleProcessUploads() {
     try {
       console.log('🔄 User tapped upload banner - starting queue processing...');
+      
+      // Optional: Test Firebase Storage first (uncomment to enable)
+      // try {
+      //   console.log('🧪 Testing Firebase Storage connection...');
+      //   await testFirebaseStorage();
+      //   console.log('✅ Storage test passed');
+      // } catch (testError) {
+      //   console.error('❌ Storage test failed:', testError);
+      //   Alert.alert('Storage Error', 'Cannot connect to Firebase Storage. Check your internet connection and Firebase rules.');
+      //   return;
+      // }
+      
       await processQueue((item, progress) => {
         console.log(`📊 Uploading ${item.jobTitle}: ${progress.toFixed(0)}%`);
       });
@@ -87,7 +100,7 @@ export default function HomeScreen({ navigation }: any) {
       loadData();
     } catch (error: any) {
       console.error('❌ Queue processing failed:', error);
-      Alert.alert('Error', 'Some uploads failed. Check the console for details.');
+      Alert.alert('Error', `Upload failed: ${error.message || 'Unknown error'}. Check the console for details.`);
     }
   }
 
