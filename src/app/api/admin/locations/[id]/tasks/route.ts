@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export async function GET(
     // First, try to get ALL tasks to see what we have (for debugging)
     const allTasksSnap = await adminDb.collection('tasks').limit(10).get();
     console.log('🔍 GET TASKS API: Sample of all tasks in database:', allTasksSnap.size);
-    allTasksSnap.docs.forEach(doc => {
+    allTasksSnap.docs.forEach((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       console.log('   - Task:', {
         id: doc.id,
@@ -68,7 +69,7 @@ export async function GET(
     if (tasksSnap.size === 0) {
       console.log('🔍 GET TASKS API: No tasks found with query, trying manual filter...');
       const allTasks = await adminDb.collection('tasks').get();
-      const matchingTasks = allTasks.docs.filter(doc => {
+      const matchingTasks = allTasks.docs.filter((doc: QueryDocumentSnapshot) => {
         const data = doc.data();
         return data.locationId === locationId || data.propertyId === locationId;
       });
@@ -81,7 +82,7 @@ export async function GET(
     
     console.log('🔍 GET TASKS API: Total tasks found:', tasksSnap.size);
     
-    const tasks = tasksSnap.docs.map(doc => {
+    const tasks = tasksSnap.docs.map((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       
       // Use locationId or propertyId (for backward compatibility)
