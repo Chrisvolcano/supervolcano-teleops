@@ -216,7 +216,7 @@ export async function fetchJobsForLocation(locationId: string): Promise<Job[]> {
 }
 
 /**
- * Save media metadata via existing API
+ * Save media metadata via teleoperator API (no auth required)
  */
 export async function saveMediaMetadata(data: {
   taskId: string;
@@ -229,9 +229,16 @@ export async function saveMediaMetadata(data: {
 }) {
   try {
     console.log('💾 Saving media metadata...');
-    console.log('💾 API URL:', `${API_BASE_URL}/api/admin/media/metadata`);
+    console.log('💾 API URL:', `${API_BASE_URL}/api/teleoperator/media/metadata`);
+    console.log('💾 Data:', {
+      taskId: data.taskId,
+      locationId: data.locationId,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      durationSeconds: data.durationSeconds,
+    });
     
-    const response = await fetch(`${API_BASE_URL}/api/admin/media/metadata`, {
+    const response = await fetch(`${API_BASE_URL}/api/teleoperator/media/metadata`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -248,13 +255,22 @@ export async function saveMediaMetadata(data: {
       }),
     });
     
-    const result = await response.json();
+    const responseText = await response.text();
+    console.log('💾 Response status:', response.status);
+    console.log('💾 Response text:', responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Invalid JSON response: ${responseText}`);
+    }
     
     if (!result.success) {
       throw new Error(result.error || 'Failed to save metadata');
     }
     
-    console.log('✅ Media metadata saved');
+    console.log('✅ Media metadata saved:', result.id);
     return result;
   } catch (error: any) {
     console.error('❌ Failed to save media metadata:', error);

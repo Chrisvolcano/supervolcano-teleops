@@ -64,8 +64,8 @@ export async function processQueue(
       item.status = 'uploading';
       await saveQueue(queue);
       
-      // Upload video
-      const storageUrl = await uploadVideoToFirebase(
+      // Upload video (now returns metadata too)
+      const uploadResult = await uploadVideoToFirebase(
         item.videoUri,
         item.locationId,
         item.jobId,
@@ -75,16 +75,17 @@ export async function processQueue(
         }
       );
       
-      item.storageUrl = storageUrl;
+      item.storageUrl = uploadResult.storageUrl;
       
-      // Save metadata
+      // Save metadata with duration and file size
       await saveMediaMetadata({
         taskId: item.jobId,
         locationId: item.locationId,
-        storageUrl,
+        storageUrl: uploadResult.storageUrl,
         fileName: `video-${item.timestamp.getTime()}.mp4`,
-        fileSize: 0, // We don't have size info easily
+        fileSize: uploadResult.fileSize,
         mimeType: 'video/mp4',
+        durationSeconds: uploadResult.durationSeconds,
       });
       
       // Delete local video
