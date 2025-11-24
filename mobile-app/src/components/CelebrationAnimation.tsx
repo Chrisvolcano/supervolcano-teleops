@@ -1,16 +1,16 @@
 import { View, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
-import { Sparkles, Star, Zap } from 'lucide-react-native';
-import { Colors } from '@/constants/Design';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../constants/Design';
 
 export function CelebrationAnimation({ onComplete }: { onComplete?: () => void }) {
-  const icons = [Sparkles, Star, Zap];
+  const iconNames = ['sparkles', 'star', 'flash', 'trophy', 'heart'];
   const particles = Array.from({ length: 20 }, (_, i) => i);
 
   return (
     <View style={styles.container} pointerEvents="none">
       {particles.map((i) => {
-        const Icon = icons[i % icons.length];
+        const iconName = iconNames[i % iconNames.length] as any;
         const angle = (i / particles.length) * 360;
         const distance = 150 + Math.random() * 100;
         const x = Math.cos(angle * Math.PI / 180) * distance;
@@ -45,7 +45,7 @@ export function CelebrationAnimation({ onComplete }: { onComplete?: () => void }
             }}
             style={styles.particle}
           >
-            <Icon size={20} color={Colors.primary} />
+            <Ionicons name={iconName} size={20} color={Colors.primary} />
           </MotiView>
         );
       })}
