@@ -38,6 +38,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Drop existing tables to recreate without foreign keys
+    console.log('Dropping existing tables...');
+    await sql`DROP TABLE IF EXISTS media CASCADE`;
+    await sql`DROP TABLE IF EXISTS jobs CASCADE`;
+    await sql`DROP TABLE IF EXISTS locations CASCADE`;
+    console.log('✅ Tables dropped');
+
     // Create locations table
     console.log('Creating locations table...');
     await sql`
@@ -55,7 +62,7 @@ export async function POST(request: Request) {
     `;
     console.log('✅ Locations table ready');
 
-    // Create jobs table
+    // Create jobs table WITHOUT foreign key constraints
     console.log('Creating jobs table...');
     await sql`
       CREATE TABLE IF NOT EXISTS jobs (
@@ -73,9 +80,9 @@ export async function POST(request: Request) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    console.log('✅ Jobs table ready');
+    console.log('✅ Jobs table ready (no foreign keys)');
 
-    // Create media table
+    // Create media table WITHOUT foreign key constraints
     console.log('Creating media table...');
     await sql`
       CREATE TABLE IF NOT EXISTS media (
@@ -90,11 +97,12 @@ export async function POST(request: Request) {
         uploaded_by VARCHAR(255)
       )
     `;
-    console.log('✅ Media table ready');
+    console.log('✅ Media table ready (no foreign keys)');
 
-    // Create indexes
+    // Create indexes for performance
     console.log('Creating indexes...');
     await sql`CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_media_job ON media(job_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_media_location ON media(location_id)`;
     console.log('✅ Indexes ready');
@@ -119,7 +127,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Database tables created successfully',
+      message: 'Database tables created successfully (without foreign key constraints)',
       tables: tableNames,
     });
 
