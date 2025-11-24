@@ -57,6 +57,7 @@ export default function RobotIntelligencePage() {
   const { getIdToken, claims } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [forceSyncing, setForceSyncing] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
