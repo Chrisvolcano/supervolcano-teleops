@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +57,7 @@ export async function GET(
     }
     
     // Get all task IDs to query media
-    const taskIds = tasksSnap.docs.map(doc => doc.id);
+    const taskIds = tasksSnap.docs.map((doc: QueryDocumentSnapshot) => doc.id);
     
     // Query media for all tasks in parallel
     const mediaPromises = taskIds.map(async (taskId) => {
