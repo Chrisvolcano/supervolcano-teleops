@@ -23,20 +23,25 @@ export async function POST(request: Request) {
     
     console.log('[sync] Starting sync process...');
     const result = await syncAllData();
-    console.log('[sync] Sync result:', result);
+    console.log('[sync] Sync result:', JSON.stringify(result, null, 2));
     
     if (result.success) {
       return NextResponse.json({
         success: true,
-        message: 'Data synced successfully',
-        stats: result.stats,
+        message: result.message || 'Data synced successfully',
+        counts: result.counts,
+        errors: result.errors,
+        errorDetails: result.errorDetails,
       });
     } else {
-      console.error('[sync] Sync failed:', result.error, result.details);
+      console.error('[sync] Sync failed:', result.error);
+      console.error('[sync] Details:', result.details);
       return NextResponse.json(
         { 
+          success: false,
           error: result.error,
-          details: process.env.NODE_ENV === 'development' ? result.details : undefined
+          details: result.details,
+          counts: result.counts,
         },
         { status: 500 }
       );

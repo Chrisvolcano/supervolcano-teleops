@@ -262,9 +262,24 @@ export async function syncMedia(mediaId: string) {
     console.log(`[sync] ✓ Successfully synced media ${mediaId}`);
     return { success: true };
   } catch (error: any) {
-    console.error(`[sync] ✗ Failed to sync media ${mediaId}:`, error.message);
-    console.error(`[sync]   Error details:`, error.stack);
-    return { success: false, error: error.message || 'Sync failed' };
+    const errorMessage = error.message || 'Unknown error';
+    const errorCode = error.code || 'no-code';
+    const errorDetails = error.detail || error.stack || 'No details';
+    
+    console.error(`[sync] ✗ Failed to sync media ${mediaId}:`);
+    console.error(`[sync]   Error: ${errorMessage}`);
+    console.error(`[sync]   Code: ${errorCode}`);
+    console.error(`[sync]   Details: ${errorDetails}`);
+    
+    // Log the full error object for debugging
+    console.error(`[sync]   Full error:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
+    return { 
+      success: false, 
+      error: errorMessage,
+      code: errorCode,
+      details: errorDetails
+    };
   }
 }
 
@@ -401,15 +416,20 @@ export async function syncAllData() {
           mediaSynced++;
         } else {
           mediaErrors++;
-          const errorMsg = `Media ${doc.id}: ${result.error}`;
-          console.error(`  ✗ ${errorMsg}`);
-          mediaErrorDetails.push(errorMsg);
+          const errorMsg = `Media ${doc.id}: ${result.error || 'Unknown error'}`;
+          const errorDetails = result.details ? ` (${result.details})` : '';
+          const errorCode = result.code ? ` [${result.code}]` : '';
+          console.error(`  ✗ ${errorMsg}${errorCode}${errorDetails}`);
+          mediaErrorDetails.push(`${errorMsg}${errorCode}${errorDetails}`);
         }
       } catch (error: any) {
         mediaErrors++;
-        const errorMsg = `Media ${doc.id}: ${error.message}`;
-        console.error(`  ✗ ${errorMsg}`);
-        mediaErrorDetails.push(errorMsg);
+        const errorMsg = `Media ${doc.id}: ${error.message || 'Unknown error'}`;
+        const errorDetails = error.detail ? ` (${error.detail})` : '';
+        const errorCode = error.code ? ` [${error.code}]` : '';
+        console.error(`  ✗ ${errorMsg}${errorCode}${errorDetails}`);
+        console.error(`    Stack:`, error.stack);
+        mediaErrorDetails.push(`${errorMsg}${errorCode}${errorDetails}`);
       }
     }
     
