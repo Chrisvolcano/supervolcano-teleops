@@ -464,14 +464,23 @@ export async function syncAllData() {
       console.log('No media files to sync');
     } else {
       for (const doc of mediaSnapshot.docs) {
+        console.log(`\nProcessing media: ${doc.id}`);
         const result = await syncMedia(doc.id);
+        
         if (result.success) {
           results.media.synced++;
+          console.log(`✓ Successfully synced media ${doc.id}`);
         } else {
           results.media.failed++;
           const errorMsg = `Media ${doc.id}: ${result.error}`;
           results.errors.push(errorMsg);
-          console.error(`✗ ${errorMsg}`);
+          console.error(`✗ Failed: ${errorMsg}`);
+          if (result.detail) {
+            console.error(`  Detail: ${result.detail}`);
+          }
+          if (result.code) {
+            console.error(`  Code: ${result.code}`);
+          }
         }
       }
       

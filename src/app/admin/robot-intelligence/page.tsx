@@ -56,6 +56,7 @@ export default function RobotIntelligencePage() {
   const router = useRouter();
   const { getIdToken, claims } = useAuth();
   const [syncing, setSyncing] = useState(false);
+  const [forceSyncing, setForceSyncing] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +131,7 @@ export default function RobotIntelligencePage() {
       
       const data = await response.json();
       if (data.success) {
-        alert(`Data synced successfully!\n\nLocations: ${data.stats?.locations || 0}\nTasks: ${data.stats?.tasks || 0}\nShifts: ${data.stats?.shifts || 0}`);
+        alert(`Data synced successfully!\n\nLocations: ${data.counts?.locations || 0}\nJobs: ${data.counts?.jobs || 0}\nSessions: ${data.counts?.sessions || 0}\nMedia: ${data.counts?.media || 0}`);
         loadStats();
       } else {
         alert('Sync failed: ' + (data.error || 'Unknown error'));
@@ -140,6 +141,36 @@ export default function RobotIntelligencePage() {
       alert('Sync failed. Check console for details.');
     } finally {
       setSyncing(false);
+    }
+  }
+  
+  async function forceMediaSync() {
+    setForceSyncing(true);
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/sync-media', { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✓ Media sync complete!\n\nSynced: ${data.synced}\nFailed: ${data.failed}`);
+        loadStats(); // Refresh stats
+      } else {
+        const errorMsg = data.errors?.length > 0 
+          ? data.errors.join('\n')
+          : data.error || 'Unknown error';
+        alert(`Media sync failed:\n\n${errorMsg}`);
+      }
+    } catch (error: any) {
+      console.error('Force media sync failed:', error);
+      alert('Failed to sync media: ' + error.message);
+    } finally {
+      setForceSyncing(false);
     }
   }
   
