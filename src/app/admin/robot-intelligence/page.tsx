@@ -304,6 +304,44 @@ export default function RobotIntelligencePage() {
             <Database className="h-4 w-4" />
             Debug Media
           </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const token = await getIdToken();
+                const locationId = prompt('Enter location ID to debug (or leave empty for all):');
+                const url = locationId 
+                  ? `/api/admin/debug/tasks?locationId=${locationId}`
+                  : '/api/admin/debug/tasks';
+                const response = await fetch(url, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                });
+                const data = await response.json();
+                console.log('Tasks Debug Report:', data);
+                
+                let message = `Tasks Debug Report:\n\n`;
+                message += `Total Tasks: ${data.summary.totalTasks}\n`;
+                message += `Filtered: ${data.summary.filteredTasks}\n`;
+                message += `Location ID: ${data.summary.locationId}\n\n`;
+                message += `Tasks by Location:\n`;
+                data.byLocation.forEach((loc: any) => {
+                  message += `- ${loc.locationId}: ${loc.count} tasks\n`;
+                });
+                
+                message += `\nCheck browser console (F12) for full details.`;
+                alert(message);
+              } catch (error) {
+                console.error('Debug failed:', error);
+                alert('Failed to run debug. Check console.');
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-blue-300 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+          >
+            <Database className="h-4 w-4" />
+            Debug Tasks
+          </button>
           
           <button
             onClick={forceMediaSync}
