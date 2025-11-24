@@ -380,8 +380,8 @@ export default function AdminLocationDetailPage() {
             setShowTaskForm(false);
             setEditingTask(null);
           }}
-          onSave={async (task: any) => {
-            console.log('🔍 LOCATION PAGE: Task saved callback triggered:', task);
+          onSave={async () => {
+            console.log('🔍 LOCATION PAGE: Task saved callback triggered');
             setShowTaskForm(false);
             setEditingTask(null);
             console.log('🔍 LOCATION PAGE: Reloading tasks...');
