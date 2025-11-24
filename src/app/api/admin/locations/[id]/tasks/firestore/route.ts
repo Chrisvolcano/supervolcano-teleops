@@ -23,12 +23,11 @@ export async function GET(
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
-    // Query Firestore - tasks are in location subcollections
+    // Query Firestore - tasks are in root 'tasks' collection with locationId field
     const tasksSnap = await adminDb
-      .collection('locations')
-      .doc(params.id)
       .collection('tasks')
-      .where('status', '==', 'active')
+      .where('locationId', '==', params.id)
+      .orderBy('createdAt', 'desc')
       .get();
     
     // Get all task IDs to query media
@@ -39,7 +38,7 @@ export async function GET(
       const mediaSnap = await adminDb
         .collection('media')
         .where('locationId', '==', params.id)
-        .where('taskId', '==', taskId)
+        .where('jobId', '==', taskId) // Media uses jobId (which is the task ID in Firestore)
         .get();
       return { taskId, count: mediaSnap.size, media: mediaSnap.docs.map(doc => ({
         id: doc.id,
@@ -58,6 +57,12 @@ export async function GET(
       const taskId = doc.id;
       const mediaData = mediaMap.get(taskId) || { count: 0, media: [] };
       
+      // Handle Firestore Timestamp conversion
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : 
+                       (data.createdAt instanceof Date ? data.createdAt.toISOString() : null);
+      const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : 
+                       (data.updatedAt instanceof Date ? data.updatedAt.toISOString() : null);
+      
       return {
         id: doc.id,
         title: data.title || data.name || 'Unnamed Task',
@@ -65,9 +70,10 @@ export async function GET(
         category: data.category || null,
         estimated_duration_minutes: data.estimatedDuration || data.estimated_duration_minutes || null,
         priority: data.priority || 'medium',
-        status: data.status || 'active',
-        locationId: params.id,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        status: data.status || data.state || 'available',
+        locationId: data.locationId || params.id,
+        createdAt,
+        updatedAt,
         media_count: mediaData.count,
         media: mediaData.media, // Include actual media array
         ...data
