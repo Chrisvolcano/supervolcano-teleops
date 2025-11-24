@@ -98,13 +98,35 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
           body: formData,
         });
         
+        if (!response.ok) {
+          // Handle 413 errors specifically
+          if (response.status === 413) {
+            let errorMessage = 'File too large for upload';
+            try {
+              const errorText = await response.text();
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.error || errorMessage;
+            } catch {
+              // If response is not JSON, use default message
+            }
+            alert(`Upload failed: ${errorMessage}`);
+            continue;
+          }
+          
+          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+          alert(`Upload failed: ${errorData.error || 'Unknown error'}`);
+          continue;
+        }
+        
         const data = await response.json();
         
         if (!data.success) {
           console.error('Failed to upload media:', data.error);
+          alert(`Upload failed: ${data.error || 'Unknown error'}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error uploading media:', error);
+        alert(`Upload error: ${error.message || 'Failed to upload file'}`);
       }
     }
   }
