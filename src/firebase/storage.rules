@@ -35,6 +35,12 @@ service firebase.storage {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // Media uploads for robot intelligence (allow authenticated users)
+    match /media/{allPaths=**} {
+      allow read: if true; // Public read for robot access
+      allow write: if isAuthenticated(); // Any authenticated user can upload
+    }
   }
 }
 
