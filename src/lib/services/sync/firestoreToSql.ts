@@ -193,6 +193,12 @@ export async function syncMedia(mediaId: string) {
     }
     
     const media = mediaDoc.data();
+    
+    if (!media) {
+      console.error(`[MEDIA SYNC] ✗ Media ${mediaId} data is empty`);
+      return { success: false, error: 'Media data is empty' };
+    }
+    
     console.log(`[MEDIA SYNC] Found media:`, {
       id: mediaId,
       fileName: media.fileName,
