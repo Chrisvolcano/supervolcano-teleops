@@ -58,9 +58,11 @@ export default function RobotIntelligencePage() {
   const [syncing, setSyncing] = useState(false);
   const [forceSyncing, setForceSyncing] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [settingUp, setSettingUp] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     taskType: '', // Changed from momentType
     humanVerified: undefined as boolean | undefined,
@@ -119,8 +121,42 @@ export default function RobotIntelligencePage() {
     }
   }
   
+  async function handleSetupDatabase() {
+    try {
+      setSettingUp(true);
+      setError(null);
+      console.log('🔧 Setting up database...');
+      
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/setup-database', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      console.log('Setup response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Setup failed');
+      }
+
+      alert('✅ Database setup complete!\n\nTables created: ' + (data.tables?.join(', ') || 'locations, jobs, media'));
+      
+    } catch (error: any) {
+      console.error('❌ Setup error:', error);
+      setError(error.message);
+      alert(`Setup failed: ${error.message}`);
+    } finally {
+      setSettingUp(false);
+    }
+  }
+
   async function syncData() {
     setSyncing(true);
+    setError(null);
     try {
       const token = await getIdToken();
       
@@ -142,24 +178,34 @@ export default function RobotIntelligencePage() {
         const errorText = await response.text();
         console.error('Sync failed with status:', response.status);
         console.error('Error response:', errorText);
-        throw new Error(`Sync failed: ${response.status} - ${errorText}`);
+        let errorMessage = `Sync failed: ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('Sync response:', data);
 
       if (!data.success) {
-        throw new Error(data.error || 'Sync failed');
+        throw new Error(data.error || data.message || 'Sync failed');
       }
 
       // Show success message
-      alert(`✅ Sync complete!\n\nLocations: ${data.results?.locations || 0}\nJobs: ${data.results?.jobs || 0}\nMedia: ${data.results?.media || 0}\n\nErrors: ${data.results?.errors?.length || 0}`);
+      const errorCount = data.results?.errors?.length || 0;
+      const message = `✅ Sync complete!\n\nLocations: ${data.results?.locations || 0}\nJobs: ${data.results?.jobs || 0}\nMedia: ${data.results?.media || 0}${errorCount > 0 ? `\n\n⚠️ Errors: ${errorCount}` : ''}`;
+      alert(message);
       
       // Reload stats
       await loadStats();
       
     } catch (error: any) {
       console.error('❌ Sync error:', error);
+      setError(error.message);
       alert(`Sync failed: ${error.message || 'Unknown error'}\n\nCheck console for details.`);
     } finally {
       setSyncing(false);
@@ -279,6 +325,14 @@ export default function RobotIntelligencePage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleSetupDatabase}
+            disabled={settingUp}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            <Database className={`h-4 w-4 ${settingUp ? 'animate-spin' : ''}`} />
+            {settingUp ? 'Setting up...' : 'Setup Database'}
+          </button>
           <button
             onClick={syncData}
             disabled={syncing}

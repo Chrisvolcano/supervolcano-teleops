@@ -5,6 +5,8 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  console.log('🔧 Setting up Robot Intelligence database tables...');
+  
   try {
     // Admin auth check
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -20,9 +22,24 @@ export async function POST(request: Request) {
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    console.log('Setting up database tables...');
+    // Test connection first
+    console.log('Testing database connection...');
+    try {
+      await sql`SELECT NOW()`;
+      console.log('✅ Database connected');
+    } catch (dbError: any) {
+      console.error('❌ Database connection failed:', dbError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Database connection failed: ${dbError.message}`,
+        },
+        { status: 500 }
+      );
+    }
 
-    // Create locations table (simplified schema matching existing sync)
+    // Create locations table
+    console.log('Creating locations table...');
     await sql`
       CREATE TABLE IF NOT EXISTS locations (
         id VARCHAR(255) PRIMARY KEY,
@@ -36,8 +53,10 @@ export async function POST(request: Request) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
+    console.log('✅ Locations table ready');
 
     // Create jobs table
+    console.log('Creating jobs table...');
     await sql`
       CREATE TABLE IF NOT EXISTS jobs (
         id VARCHAR(255) PRIMARY KEY,
@@ -54,8 +73,10 @@ export async function POST(request: Request) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
+    console.log('✅ Jobs table ready');
 
     // Create media table
+    console.log('Creating media table...');
     await sql`
       CREATE TABLE IF NOT EXISTS media (
         id VARCHAR(255) PRIMARY KEY,
@@ -69,18 +90,75 @@ export async function POST(request: Request) {
         uploaded_by VARCHAR(255)
       )
     `;
+    console.log('✅ Media table ready');
 
     // Create indexes
+    console.log('Creating indexes...');
     await sql`CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_media_job ON media(job_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_media_location ON media(location_id)`;
+    console.log('✅ Indexes ready');
+
+    // Verify tables exist
+    const tables = await sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('locations', 'jobs', 'media')
+    `;
+    
+    console.log('✅ Database setup complete!');
+    console.log('Tables found:', tables.map((t: any) => t.table_name));
 
     return NextResponse.json({
       success: true,
       message: 'Database tables created successfully',
+      tables: tables.map((t: any) => t.table_name),
+    });
+
+  } catch (error: any) {
+    console.error('❌ Database setup failed:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    // Admin auth check
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    requireRole(claims, ['superadmin', 'admin']);
+
+    // Check if tables exist
+    const tables = await sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('locations', 'jobs', 'media')
+    `;
+
+    return NextResponse.json({
+      success: true,
+      tables: tables.map((t: any) => t.table_name),
+      allTablesExist: tables.length === 3,
     });
   } catch (error: any) {
-    console.error('Failed to setup database:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
