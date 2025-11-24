@@ -77,6 +77,7 @@ export default function RobotIntelligencePage() {
   
   async function loadStats() {
     try {
+      console.log('📊 Loading stats from SQL database...');
       const token = await getIdToken();
       const response = await fetch('/api/admin/robot-intelligence/stats', {
         headers: {
@@ -84,38 +85,82 @@ export default function RobotIntelligencePage() {
         },
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+      if (!response.ok) {
+        throw new Error(`Failed to load stats: ${response.status}`);
       }
-    } catch (error) {
-      console.error('Failed to load stats:', error);
+      
+      const data = await response.json();
+      console.log('✅ Stats loaded:', data);
+      
+      setStats(data);
+    } catch (error: any) {
+      console.error('❌ Failed to load stats:', error);
+      setError(`Failed to load stats: ${error.message}`);
     }
   }
   
   async function loadTasks() {
     setLoading(true);
     try {
+      console.log('📋 Loading tasks from SQL database...');
       const token = await getIdToken();
-      const params = new URLSearchParams();
-      if (filters.taskType) params.append('taskType', filters.taskType);
-      if (filters.humanVerified !== undefined) {
-        params.append('humanVerified', filters.humanVerified.toString());
-      }
       
-      const response = await fetch(`/api/admin/tasks?${params.toString()}`, {
+      const response = await fetch('/api/admin/jobs', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       
+      if (!response.ok) {
+        throw new Error(`Failed to load tasks: ${response.status}`);
+      }
+      
       const data = await response.json();
       
-      if (data.success) {
-        setTasks(data.tasks);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to load tasks');
       }
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
+      
+      console.log('✅ Tasks loaded:', data.jobs.length);
+      
+      // Transform SQL jobs to match the UI format
+      const transformedTasks = data.jobs.map((job: any) => ({
+        id: job.id,
+        title: job.title,
+        description: job.description || '',
+        task_type: job.category || 'general',
+        action_verb: '',
+        object_target: '',
+        room_location: job.location_name || '',
+        sequence_order: 0,
+        human_verified: false,
+        job_title: job.title,
+        location_name: job.location_name || '',
+        tags: [],
+        keywords: [],
+        created_at: new Date(job.created_at).toISOString(),
+        media: Array.isArray(job.media) ? job.media.map((m: any) => ({
+          mediaId: m.id,
+          mediaType: m.file_type || 'video/mp4',
+          storageUrl: m.storage_url,
+          thumbnailUrl: m.thumbnail_url,
+          durationSeconds: m.duration_seconds,
+        })) : [],
+      }));
+      
+      // Apply filters
+      let filtered = transformedTasks;
+      if (filters.taskType) {
+        filtered = filtered.filter((t: any) => t.task_type === filters.taskType);
+      }
+      if (filters.humanVerified !== undefined) {
+        filtered = filtered.filter((t: any) => t.human_verified === filters.humanVerified);
+      }
+      
+      setTasks(filtered);
+    } catch (error: any) {
+      console.error('❌ Failed to load tasks:', error);
+      setError(`Failed to load tasks: ${error.message}`);
     } finally {
       setLoading(false);
     }

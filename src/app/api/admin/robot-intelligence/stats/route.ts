@@ -22,23 +22,54 @@ export async function GET(request: Request) {
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     // Get stats from SQL database
-    const [locationsResult, shiftsResult, tasksResult, executionsResult, mediaResult] = await Promise.all([
-      sql`SELECT COUNT(*) as count FROM locations`,
-      sql`SELECT COUNT(*) as count FROM shifts`,
-      sql`SELECT COUNT(*) as count FROM tasks`,
-      sql`SELECT COUNT(*) as count FROM robot_executions`,
-      sql`SELECT COUNT(*) as count FROM media`, // ← CRITICAL: Count media
-    ]);
+    console.log('📊 Fetching stats from SQL database...');
+    
+    // Count locations
+    const locationsResult = await sql`SELECT COUNT(*) as count FROM locations`;
+    const locationsArray = Array.isArray(locationsResult) ? locationsResult : (locationsResult as any)?.rows || [];
+    const locationsCount = parseInt(locationsArray[0]?.count || '0');
+    
+    // Count jobs (not tasks - we renamed it)
+    const jobsResult = await sql`SELECT COUNT(*) as count FROM jobs`;
+    const jobsArray = Array.isArray(jobsResult) ? jobsResult : (jobsResult as any)?.rows || [];
+    const jobsCount = parseInt(jobsArray[0]?.count || '0');
+    
+    // Count media
+    const mediaResult = await sql`SELECT COUNT(*) as count FROM media`;
+    const mediaArray = Array.isArray(mediaResult) ? mediaResult : (mediaResult as any)?.rows || [];
+    const mediaCount = parseInt(mediaArray[0]?.count || '0');
+    
+    // Count shifts (sessions) if table exists
+    let shiftsCount = 0;
+    try {
+      const shiftsResult = await sql`SELECT COUNT(*) as count FROM shifts`;
+      const shiftsArray = Array.isArray(shiftsResult) ? shiftsResult : (shiftsResult as any)?.rows || [];
+      shiftsCount = parseInt(shiftsArray[0]?.count || '0');
+    } catch (e) {
+      // Shifts table might not exist, that's okay
+      console.log('Shifts table not found, skipping');
+    }
+    
+    // Count executions if table exists
+    let executionsCount = 0;
+    try {
+      const executionsResult = await sql`SELECT COUNT(*) as count FROM robot_executions`;
+      const executionsArray = Array.isArray(executionsResult) ? executionsResult : (executionsResult as any)?.rows || [];
+      executionsCount = parseInt(executionsArray[0]?.count || '0');
+    } catch (e) {
+      // Executions table might not exist, that's okay
+      console.log('Robot executions table not found, skipping');
+    }
     
     const stats = {
-      locations: parseInt(locationsResult.rows[0].count as string) || 0,
-      shifts: parseInt(shiftsResult.rows[0].count as string) || 0,
-      tasks: parseInt(tasksResult.rows[0].count as string) || 0,
-      executions: parseInt(executionsResult.rows[0].count as string) || 0,
-      media: parseInt(mediaResult.rows[0].count as string) || 0,
+      locations: locationsCount,
+      shifts: shiftsCount,
+      tasks: jobsCount, // jobs are called "tasks" in the UI
+      executions: executionsCount,
+      media: mediaCount,
     };
     
-    console.log('Robot Intelligence stats:', stats);
+    console.log('✅ Robot Intelligence stats:', stats);
     
     return NextResponse.json(stats);
     
