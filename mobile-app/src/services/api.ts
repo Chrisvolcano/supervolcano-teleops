@@ -1,5 +1,5 @@
 import { firestore } from '../config/firebase';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, or } from 'firebase/firestore';
 import { Location, Job } from '../types';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -156,24 +156,43 @@ export async function fetchLocationsViaREST(): Promise<Location[]> {
 
 /**
  * Fetch jobs for a specific location from Firestore with deep debugging
+ * Tasks use 'propertyId' field, not 'locationId'
  */
 export async function fetchJobsForLocation(locationId: string): Promise<Job[]> {
   try {
     console.log('\n💼 === FETCH JOBS DEBUG ===');
     console.log('💼 Location ID:', locationId);
-    console.log('💼 Querying tasks collection...');
+    
+    // First, get the location document to check if it has a propertyId field
+    console.log('💼 Step 1: Fetching location document...');
+    const locationDoc = await getDoc(doc(firestore, 'locations', locationId));
+    
+    if (!locationDoc.exists()) {
+      console.error('💼 ❌ Location not found:', locationId);
+      return [];
+    }
+    
+    const locationData = locationDoc.data();
+    console.log('💼 Location data fields:', Object.keys(locationData));
+    
+    // Determine the propertyId to search for
+    // Tasks use 'propertyId', so we need to find what propertyId this location maps to
+    // The location's ID might be the propertyId, or there might be a propertyId field
+    const propertyId = locationData.propertyId || locationId;
+    console.log('💼 Using propertyId for query:', propertyId);
     
     // First, let's try to get ALL tasks (no filter) to see if any exist
-    console.log('💼 Test 1: Fetching ALL tasks (no filter)...');
+    console.log('💼 Step 2: Fetching ALL tasks (no filter)...');
     const allTasksSnap = await getDocs(collection(firestore, 'tasks'));
     console.log('💼 Total tasks in database:', allTasksSnap.size);
     
     if (allTasksSnap.size > 0) {
-      console.log('💼 Sample task IDs:');
+      console.log('💼 Sample task fields:');
       allTasksSnap.docs.slice(0, 3).forEach(doc => {
         const data = doc.data();
-        console.log(`  - ${doc.id}: ${data.title || 'No title'}`);
-        console.log(`    locationId field: ${data.locationId || 'MISSING'}`);
+        console.log(`  - ${doc.id}: ${data.title || data.name || 'No title'}`);
+        console.log(`    propertyId: ${data.propertyId || 'MISSING'}`);
+        console.log(`    locationId: ${data.locationId || 'MISSING'}`);
         console.log(`    All fields:`, Object.keys(data));
       });
     } else {
@@ -182,46 +201,61 @@ export async function fetchJobsForLocation(locationId: string): Promise<Job[]> {
       return [];
     }
     
-    // Now try the filtered query
-    console.log('💼 Test 2: Querying with locationId filter...');
+    // Try querying with propertyId first (this is what tasks actually use)
+    console.log('💼 Step 3: Querying with propertyId filter...');
     const q = query(
       collection(firestore, 'tasks'),
-      where('locationId', '==', locationId)
+      where('propertyId', '==', propertyId)
     );
     
     console.log('💼 Executing filtered query...');
     const jobsSnap = await getDocs(q);
-    console.log('💼 Filtered results:', jobsSnap.size);
+    console.log('💼 Filtered results (propertyId):', jobsSnap.size);
     
-    if (jobsSnap.size === 0 && allTasksSnap.size > 0) {
-      console.warn('💼 ⚠️ Tasks exist but none match this locationId!');
+    // If no results with propertyId, try locationId as fallback (for backward compatibility)
+    let finalJobsSnap = jobsSnap;
+    if (jobsSnap.size === 0) {
+      console.log('💼 Step 4: Trying locationId as fallback...');
+      const q2 = query(
+        collection(firestore, 'tasks'),
+        where('locationId', '==', locationId)
+      );
+      finalJobsSnap = await getDocs(q2);
+      console.log('💼 Filtered results (locationId):', finalJobsSnap.size);
+    }
+    
+    if (finalJobsSnap.size === 0 && allTasksSnap.size > 0) {
+      console.warn('💼 ⚠️ Tasks exist but none match this location/property!');
       console.warn('💼 Check if:');
-      console.warn('  1. Tasks have the correct locationId field');
-      console.warn('  2. locationId values match exactly');
-      console.warn('  3. Field might be named differently');
+      console.warn('  1. Tasks have the correct propertyId field');
+      console.warn('  2. propertyId values match exactly');
       
-      // Show what locationIds actually exist
-      console.log('💼 Actual locationIds in tasks:');
-      const locationIds = new Set<string>();
+      // Show what propertyIds actually exist
+      console.log('💼 Actual propertyIds in tasks:');
+      const propertyIds = new Set<string>();
       allTasksSnap.docs.forEach(doc => {
         const data = doc.data();
-        if (data.locationId) {
-          locationIds.add(data.locationId);
+        if (data.propertyId) {
+          propertyIds.add(data.propertyId);
         }
       });
-      console.log('💼 Found locationIds:', Array.from(locationIds));
-      console.log('💼 Looking for:', locationId);
-      console.log('💼 Match?', locationIds.has(locationId));
+      console.log('💼 Found propertyIds:', Array.from(propertyIds));
+      console.log('💼 Looking for:', propertyId);
+      console.log('💼 Match?', propertyIds.has(propertyId));
     }
     
     const jobs: Job[] = [];
     
-    jobsSnap.forEach(doc => {
+    finalJobsSnap.forEach(doc => {
       const data = doc.data();
-      console.log(`💼 Found job: ${data.title} (${doc.id})`);
+      console.log(`💼 Found job: ${data.title || data.name} (${doc.id})`);
       
       jobs.push({
         id: doc.id,
+        title: data.title || data.name,
+        description: data.description,
+        category: data.category,
+        locationId: data.locationId || data.propertyId,
         ...data
       } as Job);
     });
