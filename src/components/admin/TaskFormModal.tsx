@@ -119,7 +119,6 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
       alert('Failed to save task');
     } finally {
       setSaving(false);
-      setUploadingMedia(false);
     }
   }
   
