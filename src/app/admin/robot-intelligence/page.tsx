@@ -123,23 +123,44 @@ export default function RobotIntelligencePage() {
     setSyncing(true);
     try {
       const token = await getIdToken();
-      const response = await fetch('/api/admin/sync', { 
+      
+      console.log('🔄 Starting sync...');
+      console.log('API URL:', '/api/admin/sync/all');
+      
+      const response = await fetch('/api/admin/sync/all', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
       
-      const data = await response.json();
-      if (data.success) {
-        alert(`Data synced successfully!\n\nLocations: ${data.counts?.locations || 0}\nJobs: ${data.counts?.jobs || 0}\nSessions: ${data.counts?.sessions || 0}\nMedia: ${data.counts?.media || 0}`);
-        loadStats();
-      } else {
-        alert('Sync failed: ' + (data.error || 'Unknown error'));
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Sync failed with status:', response.status);
+        console.error('Error response:', errorText);
+        throw new Error(`Sync failed: ${response.status} - ${errorText}`);
       }
-    } catch (error) {
-      console.error('Sync failed:', error);
-      alert('Sync failed. Check console for details.');
+
+      const data = await response.json();
+      console.log('Sync response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Sync failed');
+      }
+
+      // Show success message
+      alert(`✅ Sync complete!\n\nLocations: ${data.results?.locations || 0}\nJobs: ${data.results?.jobs || 0}\nMedia: ${data.results?.media || 0}\n\nErrors: ${data.results?.errors?.length || 0}`);
+      
+      // Reload stats
+      await loadStats();
+      
+    } catch (error: any) {
+      console.error('❌ Sync error:', error);
+      alert(`Sync failed: ${error.message || 'Unknown error'}\n\nCheck console for details.`);
     } finally {
       setSyncing(false);
     }
