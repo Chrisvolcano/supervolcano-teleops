@@ -97,19 +97,39 @@ export default function AdminLocationDetailPage() {
       }
 
       // Load tasks from Firestore (source of truth)
-      const response = await fetch(`/api/admin/locations/${locationId}/tasks`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Try simpler endpoint first, fall back to firestore endpoint if needed
+      let response;
+      let data;
       
-      console.log('🔍 LOCATION PAGE: Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
+      try {
+        response = await fetch(`/api/admin/locations/${locationId}/tasks`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        console.log('🔍 LOCATION PAGE: Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+        
+        data = await response.json();
+      } catch (error: any) {
+        console.warn('⚠️ LOCATION PAGE: Simple endpoint failed, trying firestore endpoint...', error);
+        // Fallback to firestore endpoint
+        response = await fetch(`/api/admin/locations/${locationId}/tasks/firestore`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Firestore API returned ${response.status}`);
+        }
+        
+        data = await response.json();
       }
-      
-      const data = await response.json();
       
       console.log('🔍 LOCATION PAGE: Tasks loaded:', {
         success: data.success,
