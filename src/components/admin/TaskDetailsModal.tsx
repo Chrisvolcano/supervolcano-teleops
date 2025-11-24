@@ -2,6 +2,7 @@
 
 import { X, Video, Clock, MapPin, Tag, AlertCircle, Loader2, Play } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import VideoPlayerModal from './VideoPlayerModal';
 
 interface TaskDetailsModalProps {
@@ -10,6 +11,7 @@ interface TaskDetailsModalProps {
 }
 
 export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
+  const { getIdToken } = useAuth();
   const [media, setMedia] = useState<any[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
@@ -31,7 +33,19 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
       console.log('Task object:', JSON.stringify(task, null, 2));
       console.log('API URL:', `/api/admin/tasks/${task.id}/media`);
       
-      const response = await fetch(`/api/admin/tasks/${task.id}/media`);
+      // Get authentication token
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      
+      console.log('Token obtained:', token ? 'YES' : 'NO');
+      
+      const response = await fetch(`/api/admin/tasks/${task.id}/media`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
