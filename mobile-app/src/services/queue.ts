@@ -53,18 +53,40 @@ async function saveQueue(queue: UploadQueueItem[]) {
 export async function processQueue(
   onItemProgress?: (item: UploadQueueItem, progress: number) => void
 ) {
-  const queue = await getQueue();
-  const pendingItems = queue.filter(item => item.status === 'pending' || item.status === 'error');
+  console.log('═══════════════════════════════════════');
+  console.log('🔄 PROCESS QUEUE START');
+  console.log('═══════════════════════════════════════');
   
-  console.log(`Processing ${pendingItems.length} pending uploads`);
+  const queue = await getQueue();
+  console.log('Total items in queue:', queue.length);
+  
+  const pendingItems = queue.filter(item => item.status === 'pending' || item.status === 'error');
+  console.log('Pending items:', pendingItems.length);
+  
+  if (pendingItems.length === 0) {
+    console.log('No pending uploads to process');
+    return;
+  }
   
   for (const item of pendingItems) {
+    console.log('\n═══════════════════════════════════════');
+    console.log(`📤 Processing: ${item.jobTitle}`);
+    console.log('═══════════════════════════════════════');
+    console.log('Item ID:', item.id);
+    console.log('Video URI:', item.videoUri);
+    console.log('Location ID:', item.locationId);
+    console.log('Job ID:', item.jobId);
+    console.log('Current status:', item.status);
+    
     try {
       // Update status to uploading
+      console.log('\n📝 Updating status to uploading...');
       item.status = 'uploading';
       await saveQueue(queue);
+      console.log('✅ Status updated');
       
       // Upload video (now returns metadata too)
+      console.log('\n⬆️ Starting video upload to Firebase Storage...');
       const uploadResult = await uploadVideoToFirebase(
         item.videoUri,
         item.locationId,
@@ -75,9 +97,22 @@ export async function processQueue(
         }
       );
       
+      console.log('✅ Video uploaded to Storage');
+      console.log('Storage URL:', uploadResult.storageUrl.substring(0, 100) + '...');
+      console.log('File size:', uploadResult.fileSize, 'bytes');
+      
       item.storageUrl = uploadResult.storageUrl;
       
       // Save metadata with duration and file size
+      console.log('\n💾 Saving metadata to Firestore via API...');
+      console.log('API URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+      console.log('Metadata payload:', {
+        taskId: item.jobId,
+        locationId: item.locationId,
+        fileSize: uploadResult.fileSize,
+        durationSeconds: uploadResult.durationSeconds,
+      });
+      
       await saveMediaMetadata({
         taskId: item.jobId,
         locationId: item.locationId,
@@ -88,22 +123,41 @@ export async function processQueue(
         durationSeconds: uploadResult.durationSeconds,
       });
       
+      console.log('✅ Metadata saved to Firestore');
+      
       // Delete local video
+      console.log('\n🗑️ Deleting local video file...');
       await deleteLocalVideo(item.videoUri);
+      console.log('✅ Local file cleanup complete');
       
       // Mark as success
       item.status = 'success';
       item.progress = 100;
       await saveQueue(queue);
       
-      console.log(`Successfully uploaded: ${item.jobTitle}`);
+      console.log('═══════════════════════════════════════');
+      console.log(`✅ SUCCESS: ${item.jobTitle}`);
+      console.log('═══════════════════════════════════════');
     } catch (error: any) {
-      console.error(`Failed to upload ${item.jobTitle}:`, error);
+      console.error('═══════════════════════════════════════');
+      console.error(`❌ FAILED: ${item.jobTitle}`);
+      console.error('═══════════════════════════════════════');
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error stack:', error.stack);
+      console.error('Full error:', JSON.stringify(error, null, 2));
+      
       item.status = 'error';
-      item.error = error.message;
+      item.error = error.message || 'Unknown error';
       await saveQueue(queue);
+      
+      console.error('Item marked as error, will retry on next attempt');
     }
   }
+  
+  console.log('\n═══════════════════════════════════════');
+  console.log('🔄 PROCESS QUEUE COMPLETE');
+  console.log('═══════════════════════════════════════');
 }
 
 /**

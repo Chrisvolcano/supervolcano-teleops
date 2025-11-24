@@ -77,14 +77,17 @@ export default function HomeScreen({ navigation }: any) {
 
   async function handleProcessUploads() {
     try {
+      console.log('🔄 User tapped upload banner - starting queue processing...');
       await processQueue((item, progress) => {
-        console.log(`Uploading ${item.jobTitle}: ${progress.toFixed(0)}%`);
+        console.log(`📊 Uploading ${item.jobTitle}: ${progress.toFixed(0)}%`);
       });
       
+      console.log('✅ Queue processing complete');
       Alert.alert('Success', 'All videos uploaded successfully!');
       loadData();
-    } catch (error) {
-      Alert.alert('Error', 'Some uploads failed. Check the queue.');
+    } catch (error: any) {
+      console.error('❌ Queue processing failed:', error);
+      Alert.alert('Error', 'Some uploads failed. Check the console for details.');
     }
   }
 

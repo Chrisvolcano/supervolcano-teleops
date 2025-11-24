@@ -52,59 +52,68 @@ export async function uploadVideoToFirebase(
   jobId: string,
   onProgress: (progress: UploadProgress) => void
 ): Promise<{ storageUrl: string; durationSeconds: number; fileSize: number }> {
+  console.log('═══════════════════════════════════════');
+  console.log('📹 UPLOAD START');
+  console.log('═══════════════════════════════════════');
+  console.log('Video URI:', videoUri);
+  console.log('Location ID:', locationId);
+  console.log('Job ID:', jobId);
+  
   try {
-    console.log('🚀 Starting upload:', videoUri);
+    // Step 1: Read video file
+    console.log('\n📦 Step 1: Reading video file...');
+    console.log('Fetching from URI:', videoUri);
     
-    // Get file size by reading the blob
-    // For Expo Go compatibility, we'll get size from the blob after fetching
-    let fileSize = 0;
-    try {
-      // Try to get file info first (may fail in Expo Go, that's OK)
-      try {
-        const fileInfo = await FileSystem.getInfoAsync(videoUri);
-        if (fileInfo.exists && fileInfo.size) {
-          fileSize = fileInfo.size;
-        }
-      } catch (fsError) {
-        console.log('⚠️ Could not get file info from FileSystem, will get from blob');
-      }
-    } catch (error) {
-      console.log('⚠️ FileSystem check failed, continuing with blob size');
-    }
-    
-    console.log('📦 Initial file size:', fileSize, 'bytes');
-    
-    // Get video duration - using FileSystem metadata if available
-    // expo-av requires a Video component which is complex for this use case
-    // For now, we'll set to 0 and let the backend process it if needed
-    let durationSeconds = 0;
-    console.log('⏱️ Video duration: Will be detected on backend or set to 0');
-    
-    // Read file as blob
     const response = await fetch(videoUri);
-    const blob = await response.blob();
+    console.log('Fetch response status:', response.status);
+    console.log('Fetch response ok:', response.ok);
     
-    // Get actual file size from blob if we didn't get it from FileSystem
-    if (fileSize === 0 && blob.size) {
-      fileSize = blob.size;
-      console.log('📦 File size from blob:', fileSize, 'bytes');
+    if (!response.ok) {
+      throw new Error(`Failed to read video file: ${response.status}`);
     }
     
-    // Create storage path
+    const blob = await response.blob();
+    console.log('✅ Blob created');
+    console.log('Blob size:', blob.size, 'bytes');
+    console.log('Blob type:', blob.type);
+    
+    if (blob.size === 0) {
+      throw new Error('Video file is empty (0 bytes)');
+    }
+    
+    const fileSize = blob.size;
+    let durationSeconds = 0;
+    
+    // Step 2: Create storage reference
+    console.log('\n☁️ Step 2: Creating storage reference...');
     const timestamp = Date.now();
     const fileName = `${timestamp}-video.mp4`;
     const storagePath = `media/${locationId}/${jobId}/${fileName}`;
+    console.log('Storage path:', storagePath);
     
-    console.log('📤 Uploading to:', storagePath);
+    // Verify storage is initialized
+    if (!storage) {
+      throw new Error('Firebase Storage is not initialized');
+    }
+    console.log('Storage instance:', storage ? 'EXISTS' : 'MISSING');
+    console.log('Storage app:', storage.app.name);
     
-    // Create storage reference
     const storageRef = ref(storage, storagePath);
+    console.log('Storage ref created');
+    console.log('Storage ref fullPath:', storageRef.fullPath);
+    console.log('Storage ref bucket:', storageRef.bucket);
     
-    // Start upload
+    // Step 3: Upload to Firebase Storage
+    console.log('\n⬆️ Step 3: Uploading to Firebase Storage...');
+    console.log('Starting uploadBytesResumable...');
+    
     const uploadTask = uploadBytesResumable(storageRef, blob, {
       contentType: 'video/mp4',
     });
     
+    console.log('Upload task created');
+    
+    // Monitor upload progress
     return new Promise((resolve, reject) => {
       uploadTask.on(
         'state_changed',
@@ -115,26 +124,58 @@ export async function uploadVideoToFirebase(
             progress: (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
           };
           onProgress(progress);
-          console.log(`📊 Upload progress: ${progress.progress.toFixed(0)}%`);
+          console.log(`📊 Upload progress: ${progress.progress.toFixed(1)}%`);
+          console.log(`   Bytes: ${snapshot.bytesTransferred} / ${snapshot.totalBytes}`);
+          console.log(`   State: ${snapshot.state}`);
         },
         (error) => {
-          console.error('❌ Upload error:', error);
+          console.error('═══════════════════════════════════════');
+          console.error('❌ UPLOAD ERROR');
+          console.error('═══════════════════════════════════════');
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error name:', error.name);
+          console.error('Error serverResponse:', error.serverResponse);
+          console.error('Full error:', JSON.stringify(error, null, 2));
           reject(error);
         },
         async () => {
-          // Upload complete - get URL
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          console.log('✅ Upload complete:', downloadURL);
-          resolve({
-            storageUrl: downloadURL,
-            durationSeconds,
-            fileSize,
-          });
+          console.log('✅ Upload to Storage complete!');
+          
+          try {
+            // Step 4: Get download URL
+            console.log('\n🔗 Step 4: Getting download URL...');
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log('✅ Download URL obtained');
+            console.log('URL (first 100 chars):', downloadURL.substring(0, 100) + '...');
+            
+            console.log('═══════════════════════════════════════');
+            console.log('✅ UPLOAD COMPLETE SUCCESS');
+            console.log('═══════════════════════════════════════');
+            console.log('Storage URL:', downloadURL);
+            console.log('File size:', fileSize, 'bytes');
+            console.log('Duration:', durationSeconds, 'seconds');
+            
+            resolve({
+              storageUrl: downloadURL,
+              durationSeconds,
+              fileSize,
+            });
+          } catch (error) {
+            console.error('❌ Error getting download URL:', error);
+            reject(error);
+          }
         }
       );
     });
-  } catch (error) {
-    console.error('❌ Upload failed:', error);
+  } catch (error: any) {
+    console.error('═══════════════════════════════════════');
+    console.error('❌ UPLOAD FAILED');
+    console.error('═══════════════════════════════════════');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 }

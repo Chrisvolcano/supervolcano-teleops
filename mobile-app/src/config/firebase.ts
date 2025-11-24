@@ -27,15 +27,36 @@ if (missingKeys.length > 0) {
 
 console.log('✅ Firebase config loaded');
 
+// Validate all config values are present
+const configValid = Object.values(firebaseConfig).every(value => value && value !== '');
+if (!configValid) {
+  console.error('❌ Firebase config validation failed!');
+  console.error('Config values:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasAuthDomain: !!firebaseConfig.authDomain,
+    hasProjectId: !!firebaseConfig.projectId,
+    hasStorageBucket: !!firebaseConfig.storageBucket,
+    hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+    hasAppId: !!firebaseConfig.appId,
+  });
+  throw new Error('Firebase config is incomplete');
+}
+
 const app = initializeApp(firebaseConfig);
+console.log('✅ Firebase app initialized');
+console.log('App name:', app.name);
 
 // Initialize Storage
 export const storage = getStorage(app);
+console.log('✅ Firebase Storage initialized');
+console.log('Storage bucket:', firebaseConfig.storageBucket);
 
 // Initialize Firestore with correct database ID (no parentheses!)
 // Use 'default' not '(default)'
 const databaseId = process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
 export const firestore = getFirestore(app, databaseId);
+console.log('✅ Firestore initialized');
+console.log('Database ID:', databaseId);
 
 // Enable network explicitly
 enableNetwork(firestore)
@@ -46,5 +67,6 @@ enableNetwork(firestore)
     console.error('❌ Failed to enable network:', error);
   });
 
-console.log(`✅ Firebase initialized with database ID: ${databaseId}`);
+console.log(`✅ Firebase fully initialized with database ID: ${databaseId}`);
+console.log('═══════════════════════════════════════');
 
