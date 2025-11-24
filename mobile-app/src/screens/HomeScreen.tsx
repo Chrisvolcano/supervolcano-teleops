@@ -33,13 +33,13 @@ export default function HomeScreen({ navigation }: any) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.spring(slideAnim, {
           toValue: 0,
-          tension: 50,
-          friction: 7,
+          tension: 40,
+          friction: 8,
           useNativeDriver: true,
         }),
       ]).start();
@@ -50,8 +50,8 @@ export default function HomeScreen({ navigation }: any) {
     // Animate progress bar
     Animated.spring(progressWidth, {
       toValue: gamification.getTodayProgress(),
-      tension: 50,
-      friction: 7,
+      tension: 40,
+      friction: 8,
       useNativeDriver: false,
     }).start();
   }, [gamification.todayCompleted]);
@@ -126,7 +126,7 @@ export default function HomeScreen({ navigation }: any) {
   }
 
   const handleLocationPress = (item: Location) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('JobSelect', { location: item });
   };
 
@@ -138,7 +138,7 @@ export default function HomeScreen({ navigation }: any) {
 
   const headerScale = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [1, 0.9],
+    outputRange: [1, 0.95],
     extrapolate: 'clamp',
   });
 
@@ -152,47 +152,40 @@ export default function HomeScreen({ navigation }: any) {
         }
       ]}
     >
-      <LinearGradient
-        colors={Gradients.mesh}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.statsCard}
-      >
-        <BlurView intensity={20} tint="light" style={styles.statsBlur}>
-          {/* Streak */}
-          <View style={styles.statItem}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="flame" size={24} color={Colors.streak} />
+      <View style={styles.glassCard}>
+        <BlurView intensity={80} tint="light" style={styles.glassBlur}>
+          <LinearGradient
+            colors={Gradients.glass}
+            style={styles.glassGradient}
+          >
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                  <Ionicons name="flame" size={22} color={Colors.streak} />
+                </View>
+                <Text style={styles.statValue}>{gamification.streak}</Text>
+                <Text style={styles.statLabel}>day streak</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                  <Ionicons name="flash" size={22} color={Colors.xp} />
+                </View>
+                <Text style={styles.statValue}>{gamification.xp}</Text>
+                <Text style={styles.statLabel}>XP earned</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                  <Ionicons name="trophy" size={22} color={Colors.gold} />
+                </View>
+                <Text style={styles.statValue}>L{gamification.level}</Text>
+                <Text style={styles.statLabel}>level</Text>
+              </View>
             </View>
-            <Text style={styles.statValue}>{gamification.streak}</Text>
-            <Text style={styles.statLabel}>day streak</Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.statDivider} />
-
-          {/* XP */}
-          <View style={styles.statItem}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="flash" size={24} color={Colors.xp} />
-            </View>
-            <Text style={styles.statValue}>{gamification.xp}</Text>
-            <Text style={styles.statLabel}>XP earned</Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.statDivider} />
-
-          {/* Level */}
-          <View style={styles.statItem}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="trophy" size={24} color={Colors.gold} />
-            </View>
-            <Text style={styles.statValue}>L{gamification.level}</Text>
-            <Text style={styles.statLabel}>level</Text>
-          </View>
+          </LinearGradient>
         </BlurView>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 
@@ -207,7 +200,14 @@ export default function HomeScreen({ navigation }: any) {
       ]}
     >
       <View style={styles.progressHeader}>
-        <Text style={styles.progressTitle}>Today's Progress</Text>
+        <View>
+          <Text style={styles.progressTitle}>Today's Progress</Text>
+          <Text style={styles.progressSubtitle}>
+            {gamification.todayCompleted >= 5 
+              ? 'Goal achieved!' 
+              : `${5 - gamification.todayCompleted} more to reach your goal`}
+          </Text>
+        </View>
         <Text style={styles.progressCount}>{gamification.todayCompleted}/5</Text>
       </View>
       
@@ -215,7 +215,7 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.progressBarBg}>
           <Animated.View
             style={[
-              styles.progressBarFillContainer,
+              styles.progressBarFill,
               {
                 width: progressWidth.interpolate({
                   inputRange: [0, 100],
@@ -228,17 +228,11 @@ export default function HomeScreen({ navigation }: any) {
               colors={Gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.progressBarFill}
+              style={styles.progressGradient}
             />
           </Animated.View>
         </View>
       </View>
-      
-      <Text style={styles.progressSubtitle}>
-        {gamification.todayCompleted >= 5 
-          ? '🎉 Goal achieved!' 
-          : `${5 - gamification.todayCompleted} more to reach your goal`}
-      </Text>
     </Animated.View>
   );
 
@@ -248,9 +242,9 @@ export default function HomeScreen({ navigation }: any) {
     useEffect(() => {
       Animated.spring(cardAnim, {
         toValue: 1,
-        delay: index * 100,
-        tension: 50,
-        friction: 7,
+        delay: index * 80,
+        tension: 40,
+        friction: 8,
         useNativeDriver: true,
       }).start();
     }, []);
@@ -258,20 +252,20 @@ export default function HomeScreen({ navigation }: any) {
     return (
       <Animated.View
         style={[
-          { marginTop: index === 0 ? 0 : Spacing.md },
+          styles.locationCardContainer,
           {
             opacity: cardAnim,
             transform: [
               {
                 translateY: cardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
               {
                 scale: cardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0.9, 1],
+                  outputRange: [0.95, 1],
                 }),
               },
             ],
@@ -281,42 +275,30 @@ export default function HomeScreen({ navigation }: any) {
         <TouchableOpacity
           style={styles.locationCard}
           onPress={() => handleLocationPress(item)}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
         >
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
-            style={styles.cardGradient}
-          >
-            <View style={styles.cardContent}>
-              <View style={styles.iconContainer}>
-                <LinearGradient
-                  colors={Gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.iconGradient}
-                >
-                  <Ionicons name="location" size={28} color="white" />
-                </LinearGradient>
-              </View>
-              
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.address && (
-                  <Text style={styles.locationAddress} numberOfLines={1}>
-                    {item.address}
-                  </Text>
-                )}
-              </View>
-              
-              <View style={styles.chevronContainer}>
-                <View style={styles.chevronBg}>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
-                </View>
+          <View style={styles.locationContent}>
+            <View style={styles.locationIconContainer}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="location" size={24} color={Colors.primary} />
               </View>
             </View>
-          </LinearGradient>
+            
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {item.address && (
+                <Text style={styles.locationAddress} numberOfLines={1}>
+                  {item.address}
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.chevronContainer}>
+              <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+            </View>
+          </View>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -347,7 +329,7 @@ export default function HomeScreen({ navigation }: any) {
         <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sparkles" size={48} color={Colors.primary} />
+            <Ionicons name="sparkles" size={40} color={Colors.primary} />
           </Animated.View>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -369,23 +351,16 @@ export default function HomeScreen({ navigation }: any) {
           }
         ]}
       >
-        <LinearGradient
-          colors={Gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.greeting}>Welcome back</Text>
-              <Text style={styles.title}>My Locations</Text>
-            </View>
-            <View style={styles.badge}>
-              <Ionicons name="location" size={16} color="white" />
-              <Text style={styles.badgeText}>{locations.length}</Text>
-            </View>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.greeting}>Welcome back</Text>
+            <Text style={styles.title}>My Locations</Text>
           </View>
-        </LinearGradient>
+          <View style={styles.badge}>
+            <Ionicons name="location" size={16} color={Colors.primary} />
+            <Text style={styles.badgeText}>{locations.length}</Text>
+          </View>
+        </View>
       </Animated.View>
 
       {/* Scrollable content */}
@@ -421,7 +396,7 @@ export default function HomeScreen({ navigation }: any) {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={Gradients.success}
+                colors={Gradients.primary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.uploadBannerGradient}
@@ -455,129 +430,146 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxl,
-    overflow: 'hidden',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
   },
-  headerGradient: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
+  loadingText: {
+    ...Typography.body,
+    marginTop: Spacing.md,
+    color: Colors.textSecondary,
+  },
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Platform.OS === 'ios' ? 60 : Spacing.xl,
+    paddingBottom: Spacing.md,
+    backgroundColor: Colors.background,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   greeting: {
-    ...Typography.bodyMedium,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: Spacing.xs,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginBottom: 2,
   },
   title: {
     ...Typography.displayMedium,
-    color: '#fff',
-    fontWeight: '700',
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.surface,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+    gap: 6,
+    ...Shadows.sm,
   },
   badgeText: {
-    ...Typography.labelLarge,
-    color: 'white',
-    fontWeight: '700',
+    ...Typography.label,
+    color: Colors.primary,
+    fontWeight: '600',
   },
   scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xxxl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   statsCardContainer: {
     marginBottom: Spacing.lg,
   },
-  statsCard: {
+  glassCard: {
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
-    ...Shadows.large,
+    ...Shadows.lg,
   },
-  statsBlur: {
-    flexDirection: 'row',
-    padding: Spacing.xl,
+  glassBlur: {
+    overflow: 'hidden',
     borderRadius: BorderRadius.xl,
+  },
+  glassGradient: {
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    padding: Spacing.lg,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
+    gap: Spacing.sm,
   },
   statIconContainer: {
-    marginBottom: Spacing.sm,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statValue: {
-    ...Typography.displaySmall,
-    color: Colors.textPrimary,
-    fontWeight: '800',
-    marginBottom: Spacing.xs,
+    ...Typography.headline,
+    fontWeight: '700',
+    color: Colors.text,
   },
   statLabel: {
-    ...Typography.bodySmall,
+    ...Typography.caption,
     color: Colors.textSecondary,
-    fontWeight: '600',
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: Spacing.md,
+    backgroundColor: Colors.glassBorder,
+    marginHorizontal: Spacing.sm,
   },
   progressCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceElevated,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xxl,
-    ...Shadows.medium,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    ...Shadows.sm,
   },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
   progressTitle: {
-    ...Typography.titleMedium,
-    color: Colors.textPrimary,
-    fontWeight: '600',
+    ...Typography.headline,
+    marginBottom: 2,
+  },
+  progressSubtitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   progressCount: {
-    ...Typography.titleMedium,
+    ...Typography.headline,
     color: Colors.primary,
     fontWeight: '700',
   },
   progressBarContainer: {
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: Colors.backgroundTertiary,
-    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.sm,
     overflow: 'hidden',
-  },
-  progressBarFillContainer: {
-    height: '100%',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.sm,
+    overflow: 'hidden',
   },
-  progressSubtitle: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+  progressGradient: {
+    flex: 1,
   },
   uploadBannerContainer: {
     marginBottom: Spacing.lg,
@@ -585,7 +577,7 @@ const styles = StyleSheet.create({
   uploadBanner: {
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-    ...Shadows.medium,
+    ...Shadows.md,
   },
   uploadBannerGradient: {
     flexDirection: 'row',
@@ -597,79 +589,61 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
   uploadBannerTitle: {
-    ...Typography.titleSmall,
+    ...Typography.bodyLarge,
     color: '#fff',
-    marginBottom: Spacing.xs,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   uploadBannerSubtitle: {
-    ...Typography.bodySmall,
+    ...Typography.caption,
     color: 'rgba(255, 255, 255, 0.9)',
   },
   locationsSection: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
   sectionTitle: {
-    ...Typography.titleLarge,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: Spacing.lg,
+    ...Typography.headline,
+    marginBottom: Spacing.md,
+  },
+  locationCardContainer: {
+    marginBottom: Spacing.md,
   },
   locationCard: {
-    borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    ...Shadows.large,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    ...Shadows.sm,
   },
-  cardGradient: {
-    borderRadius: BorderRadius.xl,
-  },
-  cardContent: {
+  locationContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: Spacing.md,
   },
-  iconContainer: {
+  locationIconContainer: {
     marginRight: Spacing.md,
   },
-  iconGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.lg,
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.glow,
   },
   locationInfo: {
     flex: 1,
+    gap: 2,
   },
   locationName: {
-    ...Typography.titleMedium,
-    color: Colors.textPrimary,
+    ...Typography.bodyLarge,
     fontWeight: '600',
-    marginBottom: Spacing.xs,
   },
   locationAddress: {
-    ...Typography.bodyMedium,
+    ...Typography.body,
     color: Colors.textSecondary,
   },
   chevronContainer: {
     marginLeft: Spacing.sm,
-  },
-  chevronBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.backgroundTertiary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    ...Typography.bodyLarge,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
   },
 });

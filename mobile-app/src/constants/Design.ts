@@ -1,218 +1,156 @@
+// Liquid Glass Design System - Sophisticated & Professional
+
 export const Colors = {
-  // Primary - Vibrant gradient palette
-  primary: '#6366F1',
-  primaryLight: '#818CF8',
-  primaryDark: '#4F46E5',
-  primaryGradient: ['#8B5CF6', '#6366F1', '#3B82F6'],
+  // Primary palette - Sophisticated blues & greys
+  primary: '#3B82F6',        // Clean blue
+  primaryDark: '#2563EB',    // Deeper blue
+  primaryLight: '#60A5FA',   // Light blue accent
   
-  // Accent - Multiple accent colors for variety
-  accent: '#06B6D4',
-  accentPink: '#EC4899',
-  accentOrange: '#F59E0B',
-  accentGreen: '#10B981',
-  accentPurple: '#A855F7',
-  
-  // Background - Sophisticated light theme
-  background: '#FAFAFA',
-  backgroundSecondary: '#F5F5F7',
-  backgroundTertiary: '#EFEFF0',
-  
-  // Surface with depth
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
-  surfaceGlass: 'rgba(255, 255, 255, 0.7)',
+  // Neutral palette - Professional greys
+  background: '#FFFFFF',      // Clean white
+  surface: '#F8FAFC',        // Subtle grey
+  surfaceElevated: '#FFFFFF', // White cards
   
   // Text hierarchy
-  textPrimary: '#1D1D1F',
-  textSecondary: '#6E6E73',
-  textTertiary: '#86868B',
-  textQuaternary: '#AEAEB2',
+  text: '#0F172A',           // Near black
+  textSecondary: '#475569',  // Medium grey
+  textTertiary: '#94A3B8',   // Light grey
   
-  // Status with gradients
-  success: '#10B981',
-  successGradient: ['#10B981', '#059669'],
-  warning: '#F59E0B',
-  warningGradient: ['#F59E0B', '#D97706'],
-  error: '#EF4444',
-  errorGradient: ['#EF4444', '#DC2626'],
+  // Glass effects
+  glassLight: 'rgba(255, 255, 255, 0.9)',
+  glassDark: 'rgba(15, 23, 42, 0.05)',
+  glassBorder: 'rgba(15, 23, 42, 0.08)',
   
-  // Priority badges
-  priorityHigh: '#FEE2E2',
-  priorityHighText: '#991B1B',
-  priorityMedium: '#FEF3C7',
-  priorityMediumText: '#92400E',
-  priorityLow: '#DCFCE7',
-  priorityLowText: '#166534',
+  // Accent colors - Refined
+  success: '#10B981',        // Refined green
+  warning: '#F59E0B',        // Refined amber
+  error: '#EF4444',          // Refined red
+  info: '#3B82F6',           // Clean blue
   
-  // Gamification
-  gold: '#FFD700',
-  silver: '#C0C0C0',
-  bronze: '#CD7F32',
-  streak: '#FF6B6B',
-  xp: '#4ECDC4',
-  
-  // Special effects
-  shimmer: 'rgba(255, 255, 255, 0.5)',
-  glow: 'rgba(99, 102, 241, 0.3)',
-  
-  // Borders
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
+  // Gamification - Subtle & sophisticated
+  streak: '#F59E0B',         // Refined gold
+  xp: '#3B82F6',             // Clean blue
+  gold: '#F59E0B',           // Refined gold
+  silver: '#94A3B8',         // Elegant silver
   
   // Overlay
-  overlay: 'rgba(0, 0, 0, 0.5)',
+  overlay: 'rgba(15, 23, 42, 0.4)',
+  overlayLight: 'rgba(15, 23, 42, 0.2)',
 };
 
 export const Typography = {
-  // Display
+  // Refined type scale
   displayLarge: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '700' as const,
     lineHeight: 40,
     letterSpacing: -0.5,
+    color: Colors.text,
   },
   displayMedium: {
     fontSize: 28,
-    fontWeight: '700' as const,
+    fontWeight: '600' as const,
     lineHeight: 36,
     letterSpacing: -0.5,
+    color: Colors.text,
   },
-  displaySmall: {
+  title: {
     fontSize: 24,
     fontWeight: '600' as const,
     lineHeight: 32,
+    letterSpacing: -0.3,
+    color: Colors.text,
   },
-  
-  // Title
-  titleLarge: {
+  headline: {
     fontSize: 20,
     fontWeight: '600' as const,
     lineHeight: 28,
+    letterSpacing: -0.2,
+    color: Colors.text,
   },
-  titleMedium: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    lineHeight: 24,
-  },
-  titleSmall: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    lineHeight: 22,
-  },
-  
-  // Body
   bodyLarge: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '400' as const,
     lineHeight: 24,
+    letterSpacing: 0,
+    color: Colors.text,
   },
-  bodyMedium: {
-    fontSize: 14,
+  body: {
+    fontSize: 15,
     fontWeight: '400' as const,
-    lineHeight: 20,
+    lineHeight: 22,
+    letterSpacing: 0,
+    color: Colors.textSecondary,
   },
-  bodySmall: {
+  caption: {
     fontSize: 13,
     fontWeight: '400' as const,
     lineHeight: 18,
+    letterSpacing: 0,
+    color: Colors.textTertiary,
   },
-  
-  // Label
-  labelLarge: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    lineHeight: 20,
-  },
-  labelMedium: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    lineHeight: 16,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
-  },
-  labelSmall: {
-    fontSize: 11,
+  label: {
+    fontSize: 15,
     fontWeight: '500' as const,
-    lineHeight: 16,
+    lineHeight: 20,
+    letterSpacing: 0.1,
+    color: Colors.textSecondary,
   },
 };
 
 export const Spacing = {
   xs: 4,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
 };
 
 export const BorderRadius = {
-  xs: 4,
   sm: 8,
   md: 12,
   lg: 16,
   xl: 20,
+  xxl: 24,
   full: 9999,
 };
 
-export const Gradients = {
-  primary: ['#8B5CF6', '#6366F1'],
-  secondary: ['#06B6D4', '#3B82F6'],
-  success: ['#10B981', '#059669'],
-  sunset: ['#FF6B6B', '#FFE66D'],
-  ocean: ['#2E3192', '#1BFFFF'],
-  fire: ['#FF0080', '#FF8C00'],
-  purple: ['#667EEA', '#764BA2'],
-  mesh: ['#8B5CF6', '#EC4899', '#06B6D4', '#F59E0B'],
-};
-
-export const Animations = {
-  spring: {
-    damping: 15,
-    stiffness: 150,
-    mass: 1,
-  },
-  gentle: {
-    damping: 20,
-    stiffness: 90,
-    mass: 1,
-  },
-  bouncy: {
-    damping: 10,
-    stiffness: 200,
-    mass: 1,
-  },
-};
-
 export const Shadows = {
-  small: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+  sm: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  medium: {
-    shadowColor: '#000',
+  md: {
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  large: {
-    shadowColor: '#000',
+  lg: {
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
+    elevation: 5,
+  },
+  xl: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
     elevation: 8,
   },
-  glow: {
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
 };
 
+// Sophisticated gradients - subtle and professional
+export const Gradients = {
+  primary: ['#3B82F6', '#2563EB'],           // Blue gradient
+  subtle: ['#F8FAFC', '#F1F5F9'],           // Grey gradient
+  glass: ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)'], // Glass effect
+  overlay: ['rgba(15,23,42,0)', 'rgba(15,23,42,0.4)'], // Dark overlay
+};
