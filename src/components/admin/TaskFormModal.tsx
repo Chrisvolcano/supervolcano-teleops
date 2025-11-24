@@ -7,12 +7,14 @@ import { useFirebaseUpload } from '@/lib/hooks/useFirebaseUpload';
 
 interface TaskFormModalProps {
   locationId: string;
+  locationName?: string;
+  partnerOrgId?: string;
   task?: any;
   onClose: () => void;
   onSave: () => void;
 }
 
-export default function TaskFormModal({ locationId, task, onClose, onSave }: TaskFormModalProps) {
+export default function TaskFormModal({ locationId, locationName, partnerOrgId, task, onClose, onSave }: TaskFormModalProps) {
   const { getIdToken, claims } = useAuth();
   const { uploadFile, uploading, progress, error: uploadError } = useFirebaseUpload();
   const [formData, setFormData] = useState({
@@ -49,6 +51,8 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
           },
           body: JSON.stringify({
             locationId,
+            locationName: locationName || '',
+            partnerOrgId: partnerOrgId || 'demo-org',
             title: formData.title,
             description: formData.description,
             category: formData.category,

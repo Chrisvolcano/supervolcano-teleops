@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTasks, createTask } from '@/lib/repositories/sql/tasks';
+import { getTasks } from '@/lib/repositories/sql/tasks';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Create a new task in Firestore (not SQL)
+ * Firestore is the source of truth, SQL is synced copy
+ */
 export async function POST(request: NextRequest) {
   try {
     // Admin auth check
@@ -66,18 +71,74 @@ export async function POST(request: NextRequest) {
     // Only allow superadmin, admin, and partner_admin
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
-    const body = await request.json();
-    const result = await createTask(body);
+    const data = await request.json();
     
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(result, { status: 400 });
+    console.log('Creating task in Firestore:', data);
+    
+    // Validate required fields
+    if (!data.title) {
+      return NextResponse.json(
+        { success: false, error: 'Title is required' },
+        { status: 400 }
+      );
     }
+    
+    if (!data.locationId) {
+      return NextResponse.json(
+        { success: false, error: 'Location ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Create task document in Firestore
+    const taskData = {
+      title: data.title,
+      description: data.description || '',
+      category: data.category || 'general',
+      locationId: data.locationId, // ← Use locationId consistently
+      locationName: data.locationName || '',
+      estimatedDuration: data.estimatedDurationMinutes || null,
+      priority: data.priority || 'medium',
+      status: 'available',
+      state: 'available',
+      assigned_to: 'unassigned',
+      createdAt: new Date(),
+      createdBy: claims.uid || 'admin',
+      updatedAt: new Date(),
+      partnerOrgId: data.partnerOrgId || 'demo-org',
+    };
+    
+    console.log('Task data to save:', taskData);
+    
+    // Add to Firestore
+    const docRef = await adminDb.collection('tasks').add(taskData);
+    
+    console.log('Task created in Firestore:', docRef.id);
+    
+    // OPTIONAL: Auto-sync to SQL (don't fail if this fails)
+    try {
+      console.log('Auto-syncing task to SQL...');
+      const { syncJobFromRoot } = await import('@/lib/services/sync/firestoreToSql');
+      await syncJobFromRoot(docRef.id, data.locationId);
+      console.log('Task synced to SQL successfully');
+    } catch (syncError: any) {
+      console.error('Failed to sync to SQL (task still saved in Firestore):', syncError);
+      // Don't fail the request - task is saved in Firestore
+    }
+    
+    return NextResponse.json({
+      success: true,
+      id: docRef.id,
+      message: 'Task created successfully in Firestore',
+      task: {
+        id: docRef.id,
+        ...taskData
+      }
+    });
   } catch (error: any) {
-    console.error('Create task error:', error);
+    console.error('Failed to create task:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create task' },
+      { success: false, error: error.message || 'Failed to create task' },
       { status: 500 }
     );
   }

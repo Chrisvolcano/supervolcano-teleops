@@ -326,6 +326,8 @@ export default function AdminLocationDetailPage() {
       {showTaskForm && (
         <TaskFormModal
           locationId={locationId}
+          locationName={location?.name}
+          partnerOrgId={location?.assignedOrganizationId || location?.partnerOrgId}
           task={editingTask}
           onClose={() => {
             setShowTaskForm(false);
