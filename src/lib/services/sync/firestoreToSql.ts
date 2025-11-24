@@ -361,6 +361,23 @@ export async function syncMedia(mediaId: string) {
     console.error(`[MEDIA SYNC] Detail:`, error.detail);
     console.error(`[MEDIA SYNC] Stack:`, error.stack);
     
+    // Detect schema issues and provide helpful message
+    if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+      const missingColumn = error.message.match(/column "([^"]+)" of relation "media"/)?.[1];
+      console.error(`[MEDIA SYNC] ⚠ SCHEMA ISSUE: Missing column "${missingColumn}"`);
+      console.error(`[MEDIA SYNC] Run this in Neon Console:`);
+      console.error(`[MEDIA SYNC] ALTER TABLE media ADD COLUMN IF NOT EXISTS ${missingColumn} TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+      
+      return { 
+        success: false, 
+        error: `Schema issue: Missing column "${missingColumn}". See FIX_MEDIA_SCHEMA.md for instructions.`,
+        code: error.code,
+        detail: error.detail,
+        schemaIssue: true,
+        missingColumn,
+      };
+    }
+    
     return { 
       success: false, 
       error: error.message || 'Unknown error',
