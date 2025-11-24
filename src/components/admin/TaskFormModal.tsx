@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef } from 'react';
-import { X, Upload, Video, Loader2, Trash2, Plus, Image as ImageIcon } from 'lucide-react';
+import { X, Upload, Video, Loader2, Trash2, Plus, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useFirebaseUpload } from '@/lib/hooks/useFirebaseUpload';
 
 interface TaskFormModalProps {
   locationId: string;
@@ -12,7 +13,8 @@ interface TaskFormModalProps {
 }
 
 export default function TaskFormModal({ locationId, task, onClose, onSave }: TaskFormModalProps) {
-  const { getIdToken } = useAuth();
+  const { getIdToken, claims } = useAuth();
+  const { uploadFile, uploading, progress, error: uploadError } = useFirebaseUpload();
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -21,8 +23,8 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
     priority: task?.priority || 'medium',
   });
   const [saving, setSaving] = useState(false);
-  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [uploadedMedia, setUploadedMedia] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   async function handleSubmit(e: React.FormEvent) {
@@ -65,12 +67,58 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
       
       const jobId = task?.id || taskData.id; // This is actually a job ID (Firestore "tasks" = SQL "jobs")
       
-      // 2. Upload media files if any
+      // 2. Upload media files directly to Firebase Storage
       if (mediaFiles.length > 0) {
-        setUploadingMedia(true);
-        await uploadMediaFiles(jobId, locationId, token);
+        console.log(`Uploading ${mediaFiles.length} media files directly to Firebase Storage...`);
+        
+        for (const file of mediaFiles) {
+          try {
+            // Upload directly to Firebase Storage
+            const path = `media/${locationId}/${jobId}/${Date.now()}-${file.name}`;
+            
+            await new Promise<void>((resolve, reject) => {
+              uploadFile(
+                file,
+                path,
+                async (storageUrl) => {
+                  // Save metadata to Firestore via API
+                  const metadataResponse = await fetch('/api/admin/media/metadata', {
+                    method: 'POST',
+                    headers: { 
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                      jobId,
+                      locationId,
+                      mediaType: file.type.startsWith('video/') ? 'video' : 'image',
+                      storageUrl,
+                      fileName: file.name,
+                      fileSize: file.size,
+                      mimeType: file.type,
+                    }),
+                  });
+                  
+                  const metadataData = await metadataResponse.json();
+                  if (metadataData.success) {
+                    console.log('Media metadata saved:', metadataData.id);
+                    setUploadedMedia(prev => [...prev, { url: storageUrl, ...metadataData }]);
+                    resolve();
+                  } else {
+                    reject(new Error(metadataData.error || 'Failed to save metadata'));
+                  }
+                }
+              );
+            });
+          } catch (error: any) {
+            console.error('Failed to upload media:', error);
+            alert(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
+            // Continue with other files
+          }
+        }
       }
       
+      alert('Task and media saved successfully!');
       onSave();
     } catch (error) {
       console.error('Failed to save task:', error);
@@ -81,59 +129,19 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
     }
   }
   
-  async function uploadMediaFiles(jobId: string, locationId: string, token: string) {
-    for (const file of mediaFiles) {
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('jobId', jobId); // Changed from taskId - media is linked to jobs
-        formData.append('locationId', locationId);
-        formData.append('mediaType', file.type.startsWith('video/') ? 'video' : 'image');
-        
-        const response = await fetch('/api/admin/media/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          // Handle 413 errors specifically
-          if (response.status === 413) {
-            let errorMessage = 'File too large for upload';
-            try {
-              const errorText = await response.text();
-              const errorData = JSON.parse(errorText);
-              errorMessage = errorData.error || errorMessage;
-            } catch {
-              // If response is not JSON, use default message
-            }
-            alert(`Upload failed: ${errorMessage}`);
-            continue;
-          }
-          
-          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-          alert(`Upload failed: ${errorData.error || 'Unknown error'}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-          console.error('Failed to upload media:', data.error);
-          alert(`Upload failed: ${data.error || 'Unknown error'}`);
-        }
-      } catch (error: any) {
-        console.error('Error uploading media:', error);
-        alert(`Upload error: ${error.message || 'Failed to upload file'}`);
-      }
-    }
-  }
-  
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      setMediaFiles([...mediaFiles, ...Array.from(e.target.files)]);
+      const newFiles = Array.from(e.target.files);
+      
+      // Check file sizes (500MB limit)
+      const oversizedFiles = newFiles.filter(f => f.size > 500 * 1024 * 1024);
+      
+      if (oversizedFiles.length > 0) {
+        alert(`Some files are too large (max 500MB): ${oversizedFiles.map(f => f.name).join(', ')}`);
+        return;
+      }
+      
+      setMediaFiles([...mediaFiles, ...newFiles]);
     }
   }
   
@@ -264,10 +272,11 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                disabled={uploading || saving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload className="h-5 w-5" />
-                <span>Upload Videos or Images</span>
+                <span>Upload Videos or Images (up to 500MB each)</span>
               </button>
               
               <input
@@ -278,6 +287,31 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
                 onChange={handleFileSelect}
                 className="hidden"
               />
+              
+              {/* Upload Progress */}
+              {uploading && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                    <span className="text-sm font-medium text-blue-900">
+                      Uploading to Firebase Storage... {progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Error Display */}
+              {uploadError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-900">Upload failed: {uploadError}</p>
+                </div>
+              )}
               
               {/* File List */}
               {mediaFiles.length > 0 && (
@@ -307,7 +341,8 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
                       <button
                         type="button"
                         onClick={() => removeFile(index)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        disabled={uploading || saving}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         aria-label="Remove file"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -317,8 +352,21 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
                 </div>
               )}
               
+              {/* Uploaded Files */}
+              {uploadedMedia.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-green-700">✓ Uploaded successfully:</p>
+                  {uploadedMedia.map((media, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-900">{media.fileName || 'File uploaded'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <p className="text-xs text-gray-500">
-                Upload videos showing how to perform this task. These will be used for robot learning and moment extraction.
+                Videos upload directly to Firebase Storage (no size limit). Large files may take a few minutes.
               </p>
             </div>
           </div>
@@ -328,20 +376,20 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
             <button
               type="button"
               onClick={onClose}
-              disabled={saving || uploadingMedia}
+              disabled={saving || uploading}
               className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving || uploadingMedia || !formData.title}
+              disabled={saving || uploading || !formData.title}
               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {saving || uploadingMedia ? (
+              {saving || uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {uploadingMedia ? 'Uploading media...' : 'Saving...'}
+                  {uploading ? `Uploading... ${progress}%` : 'Saving...'}
                 </>
               ) : (
                 <>
