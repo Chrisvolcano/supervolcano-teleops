@@ -78,7 +78,7 @@ export async function GET(
     const mediaResults = await Promise.all(mediaPromises);
     const mediaMap = new Map(mediaResults.map(r => [r.taskId, r]));
     
-    const tasks = tasksSnap.docs.map(doc => {
+    const tasks = tasksSnap.docs.map((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       const taskId = doc.id;
       const mediaData = mediaMap.get(taskId) || { count: 0, media: [] };
