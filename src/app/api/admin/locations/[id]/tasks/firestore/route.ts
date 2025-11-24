@@ -60,13 +60,13 @@ export async function GET(
     const taskIds = tasksSnap.docs.map((doc: QueryDocumentSnapshot) => doc.id);
     
     // Query media for all tasks in parallel
-    const mediaPromises = taskIds.map(async (taskId) => {
+    const mediaPromises = taskIds.map(async (taskId: string) => {
       const mediaSnap = await adminDb
         .collection('media')
         .where('locationId', '==', params.id)
         .where('jobId', '==', taskId) // Media uses jobId (which is the task ID in Firestore)
         .get();
-      return { taskId, count: mediaSnap.size, media: mediaSnap.docs.map(doc => ({
+      return { taskId, count: mediaSnap.size, media: mediaSnap.docs.map((doc: QueryDocumentSnapshot) => ({
         id: doc.id,
         ...doc.data(),
         storageUrl: doc.data().storageUrl,
