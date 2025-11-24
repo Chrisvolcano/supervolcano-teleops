@@ -322,10 +322,10 @@ export default function HomeScreen({ navigation }: any) {
     );
   };
 
-  if (loading) {
-    const spinValue = useRef(new Animated.Value(0)).current;
+  const spinValue = useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
+  useEffect(() => {
+    if (loading) {
       Animated.loop(
         Animated.timing(spinValue, {
           toValue: 1,
@@ -333,13 +333,15 @@ export default function HomeScreen({ navigation }: any) {
           useNativeDriver: true,
         })
       ).start();
-    }, []);
+    }
+  }, [loading]);
 
-    const spin = spinValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg'],
-    });
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
+  if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
