@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { MotiView } from 'moti';
 import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
@@ -18,10 +17,44 @@ export default function HomeScreen({ navigation }: any) {
   const [pendingUploads, setPendingUploads] = useState(0);
   const gamification = useGamification();
   const scrollY = useRef(new Animated.Value(0)).current;
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const progressWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!loading && locations.length > 0) {
+      // Animate entrance
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading, locations.length]);
+
+  useEffect(() => {
+    // Animate progress bar
+    Animated.spring(progressWidth, {
+      toValue: gamification.getTodayProgress(),
+      tension: 50,
+      friction: 7,
+      useNativeDriver: false,
+    }).start();
+  }, [gamification.todayCompleted]);
 
   async function loadData() {
     try {
@@ -110,10 +143,14 @@ export default function HomeScreen({ navigation }: any) {
   });
 
   const renderStatsCard = () => (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', duration: 600 }}
+    <Animated.View 
+      style={[
+        styles.statsCardContainer,
+        { 
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }
+      ]}
     >
       <LinearGradient
         colors={Gradients.mesh}
@@ -156,15 +193,18 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         </BlurView>
       </LinearGradient>
-    </MotiView>
+    </Animated.View>
   );
 
   const renderProgressCard = () => (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', duration: 600, delay: 100 }}
-      style={styles.progressCard}
+    <Animated.View 
+      style={[
+        styles.progressCard,
+        { 
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }
+      ]}
     >
       <View style={styles.progressHeader}>
         <Text style={styles.progressTitle}>Today's Progress</Text>
@@ -173,10 +213,16 @@ export default function HomeScreen({ navigation }: any) {
       
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBarBg}>
-          <MotiView
-            from={{ width: '0%' }}
-            animate={{ width: `${gamification.getTodayProgress()}%` }}
-            transition={{ type: 'spring', damping: 15, stiffness: 100 }}
+          <Animated.View
+            style={[
+              styles.progressBarFillContainer,
+              {
+                width: progressWidth.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]}
           >
             <LinearGradient
               colors={Gradients.primary}
@@ -184,7 +230,7 @@ export default function HomeScreen({ navigation }: any) {
               end={{ x: 1, y: 0 }}
               style={styles.progressBarFill}
             />
-          </MotiView>
+          </Animated.View>
         </View>
       </View>
       
@@ -193,90 +239,115 @@ export default function HomeScreen({ navigation }: any) {
           ? '🎉 Goal achieved!' 
           : `${5 - gamification.todayCompleted} more to reach your goal`}
       </Text>
-    </MotiView>
+    </Animated.View>
   );
 
-  const renderLocation = ({ item, index }: { item: Location; index: number }) => (
-    <MotiView
-      from={{ opacity: 0, translateY: 50, scale: 0.9 }}
-      animate={{ opacity: 1, translateY: 0, scale: 1 }}
-      transition={{ 
-        type: 'spring',
+  const LocationCard = ({ item, index }: { item: Location; index: number }) => {
+    const cardAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.spring(cardAnim, {
+        toValue: 1,
         delay: index * 100,
-        damping: 15,
-        stiffness: 100,
-      }}
-    >
-      <TouchableOpacity
-        style={[styles.locationCard, { marginTop: index === 0 ? 0 : Spacing.md }]}
-        onPress={() => handleLocationPress(item)}
-        activeOpacity={0.8}
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    }, []);
+
+    return (
+      <Animated.View
+        style={[
+          { marginTop: index === 0 ? 0 : Spacing.md },
+          {
+            opacity: cardAnim,
+            transform: [
+              {
+                translateY: cardAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [50, 0],
+                }),
+              },
+              {
+                scale: cardAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.9, 1],
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
-          style={styles.cardGradient}
+        <TouchableOpacity
+          style={styles.locationCard}
+          onPress={() => handleLocationPress(item)}
+          activeOpacity={0.8}
         >
-          <View style={styles.cardContent}>
-            <View style={styles.iconContainer}>
-              <LinearGradient
-                colors={Gradients.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.iconGradient}
-              >
-                <MotiView
-                  from={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ 
-                    type: 'spring',
-                    delay: (index * 100) + 200,
-                    damping: 12,
-                    stiffness: 200,
-                  }}
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
+            style={styles.cardGradient}
+          >
+            <View style={styles.cardContent}>
+              <View style={styles.iconContainer}>
+                <LinearGradient
+                  colors={Gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.iconGradient}
                 >
                   <Ionicons name="location" size={28} color="white" />
-                </MotiView>
-              </LinearGradient>
-            </View>
-            
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {item.address && (
-                <Text style={styles.locationAddress} numberOfLines={1}>
-                  {item.address}
+                </LinearGradient>
+              </View>
+              
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationName} numberOfLines={1}>
+                  {item.name}
                 </Text>
-              )}
-            </View>
-            
-            <View style={styles.chevronContainer}>
-              <View style={styles.chevronBg}>
-                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                {item.address && (
+                  <Text style={styles.locationAddress} numberOfLines={1}>
+                    {item.address}
+                  </Text>
+                )}
+              </View>
+              
+              <View style={styles.chevronContainer}>
+                <View style={styles.chevronBg}>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                </View>
               </View>
             </View>
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
-    </MotiView>
-  );
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   if (loading) {
+    const spinValue = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    }, []);
+
+    const spin = spinValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
-          <MotiView
-            from={{ rotate: '0deg' }}
-            animate={{ rotate: '360deg' }}
-            transition={{ 
-              type: 'timing',
-              duration: 1000,
-              loop: true,
-            }}
-          >
+          <Animated.View style={{ transform: [{ rotate: spin }] }}>
             <Ionicons name="sparkles" size={48} color={Colors.primary} />
-          </MotiView>
+          </Animated.View>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </View>
     );
@@ -304,31 +375,13 @@ export default function HomeScreen({ navigation }: any) {
         >
           <View style={styles.headerContent}>
             <View>
-              <MotiView
-                from={{ opacity: 0, translateX: -20 }}
-                animate={{ opacity: 1, translateX: 0 }}
-                transition={{ type: 'spring', delay: 200 }}
-              >
-                <Text style={styles.greeting}>Welcome back</Text>
-              </MotiView>
-              <MotiView
-                from={{ opacity: 0, translateX: -20 }}
-                animate={{ opacity: 1, translateX: 0 }}
-                transition={{ type: 'spring', delay: 300 }}
-              >
-                <Text style={styles.title}>My Locations</Text>
-              </MotiView>
+              <Text style={styles.greeting}>Welcome back</Text>
+              <Text style={styles.title}>My Locations</Text>
             </View>
-            <MotiView
-              from={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', delay: 400, damping: 12 }}
-            >
-              <View style={styles.badge}>
-                <Ionicons name="location" size={16} color="white" />
-                <Text style={styles.badgeText}>{locations.length}</Text>
-              </View>
-            </MotiView>
+            <View style={styles.badge}>
+              <Ionicons name="location" size={16} color="white" />
+              <Text style={styles.badgeText}>{locations.length}</Text>
+            </View>
           </View>
         </LinearGradient>
       </Animated.View>
@@ -351,10 +404,14 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* Pending Uploads Banner */}
         {pendingUploads > 0 && (
-          <MotiView
-            from={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', delay: 200 }}
+          <Animated.View
+            style={[
+              styles.uploadBannerContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              }
+            ]}
           >
             <TouchableOpacity
               style={styles.uploadBanner}
@@ -376,16 +433,14 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-          </MotiView>
+          </Animated.View>
         )}
 
         {/* Locations */}
         <View style={styles.locationsSection}>
           <Text style={styles.sectionTitle}>Your Locations</Text>
           {locations.map((item, index) => (
-            <View key={item.id}>
-              {renderLocation({ item, index })}
-            </View>
+            <LocationCard key={item.id} item={item} index={index} />
           ))}
         </View>
       </Animated.ScrollView>
@@ -442,10 +497,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xxxl,
   },
+  statsCardContainer: {
+    marginBottom: Spacing.lg,
+  },
   statsCard: {
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
-    marginBottom: Spacing.lg,
     ...Shadows.large,
   },
   statsBlur: {
@@ -508,6 +565,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
   },
+  progressBarFillContainer: {
+    height: '100%',
+  },
   progressBarFill: {
     height: '100%',
     borderRadius: BorderRadius.full,
@@ -517,8 +577,10 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  uploadBanner: {
+  uploadBannerContainer: {
     marginBottom: Spacing.lg,
+  },
+  uploadBanner: {
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     ...Shadows.medium,
@@ -602,5 +664,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    ...Typography.bodyLarge,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
 });
