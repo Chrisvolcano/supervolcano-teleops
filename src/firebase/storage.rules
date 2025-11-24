@@ -36,10 +36,12 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
-    // Media uploads for robot intelligence (allow authenticated users)
+    // Media uploads for robot intelligence
+    // TEMPORARY: Allow unauthenticated uploads during development
+    // TODO: Change to `if request.auth != null` for production
     match /media/{allPaths=**} {
       allow read: if true; // Public read for robot access
-      allow write: if isAuthenticated(); // Any authenticated user can upload
+      allow write: if true; // TEMPORARY: Allow unauthenticated uploads
     }
   }
 }

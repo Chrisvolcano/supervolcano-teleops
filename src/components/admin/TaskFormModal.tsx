@@ -66,20 +66,38 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
       }
       
       const jobId = task?.id || taskData.id; // This is actually a job ID (Firestore "tasks" = SQL "jobs")
+      console.log('Job saved:', jobId);
       
       // 2. Upload media files directly to Firebase Storage
       if (mediaFiles.length > 0) {
-        console.log(`Uploading ${mediaFiles.length} media files directly to Firebase Storage...`);
+        console.log(`Uploading ${mediaFiles.length} media files...`);
+        const uploadedUrls: string[] = [];
         
-        for (const file of mediaFiles) {
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const file = mediaFiles[i];
+          console.log(`Uploading file ${i + 1}/${mediaFiles.length}: ${file.name}`);
+          
           try {
             // Upload directly to Firebase Storage
-            const path = `media/${locationId}/${jobId}/${Date.now()}-${file.name}`;
+            const timestamp = Date.now();
+            const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const path = `media/${locationId}/${jobId}/${timestamp}-${sanitizedFileName}`;
             
-            // Upload directly to Firebase Storage
-            const storageUrl = await uploadFile(file, path);
+            const storageUrl = await new Promise<string>((resolve, reject) => {
+              uploadFile(file, path, (url) => {
+                resolve(url);
+              }).catch(reject);
+            });
+            
+            if (!storageUrl) {
+              throw new Error('Upload failed to return URL');
+            }
+            
+            console.log('File uploaded to:', storageUrl);
+            uploadedUrls.push(storageUrl);
             
             // Save metadata to Firestore via API
+            console.log('Saving metadata to Firestore...');
             const metadataResponse = await fetch('/api/admin/media/metadata', {
               method: 'POST',
               headers: { 
@@ -87,7 +105,7 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
                 'Content-Type': 'application/json' 
               },
               body: JSON.stringify({
-                jobId,
+                jobId, // This is actually the jobId (Firestore "tasks")
                 locationId,
                 mediaType: file.type.startsWith('video/') ? 'video' : 'image',
                 storageUrl,
@@ -100,19 +118,26 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
             const metadataData = await metadataResponse.json();
             if (metadataData.success) {
               console.log('Media metadata saved:', metadataData.id);
-              setUploadedMedia(prev => [...prev, { url: storageUrl, ...metadataData }]);
+              setUploadedMedia(prev => [...prev, { 
+                id: metadataData.id,
+                url: storageUrl, 
+                fileName: file.name 
+              }]);
             } else {
-              throw new Error(metadataData.error || 'Failed to save metadata');
+              console.error('Failed to save metadata:', metadataData.error);
+              alert(`Warning: File uploaded but metadata save failed: ${metadataData.error}`);
             }
           } catch (error: any) {
-            console.error('Failed to upload media:', error);
+            console.error(`Failed to upload ${file.name}:`, error);
             alert(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
             // Continue with other files
           }
         }
+        
+        console.log(`Successfully uploaded ${uploadedUrls.length}/${mediaFiles.length} files`);
       }
       
-      alert('Task and media saved successfully!');
+      alert('Job and media saved successfully! Click sync in Robot Intelligence to update the SQL database.');
       onSave();
     } catch (error) {
       console.error('Failed to save task:', error);

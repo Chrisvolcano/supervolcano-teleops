@@ -13,76 +13,77 @@ export function useFirebaseUpload() {
     file: File,
     path: string,
     onComplete?: (url: string) => void
-  ): Promise<string> {
-    // Ensure user is authenticated before uploading
-    const currentUser = firebaseAuth.currentUser;
-    if (!currentUser) {
-      const errorMsg = 'You must be logged in to upload files';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-    
-    // Wait for auth token to be ready
-    try {
-      await currentUser.getIdToken(true); // Force refresh to ensure token is valid
-    } catch (authError) {
-      const errorMsg = 'Authentication failed. Please log in again.';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-    
+  ): Promise<string | null> {
     setUploading(true);
     setProgress(0);
     setError(null);
     
-    return new Promise((resolve, reject) => {
-      try {
-        // Create storage reference
-        const storageRef = ref(storage, path);
-        
-        // Start upload with resumable upload (handles large files)
-        const uploadTask = uploadBytesResumable(storageRef, file, {
-          contentType: file.type,
-        });
-        
+    try {
+      console.log(`Starting upload: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) to ${path}`);
+      
+      // Create storage reference
+      const storageRef = ref(storage, path);
+      
+      // Start upload with resumable upload (handles large files)
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        contentType: file.type,
+      });
+      
+      return new Promise((resolve, reject) => {
         // Monitor upload progress
         uploadTask.on(
           'state_changed',
           (snapshot) => {
             const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             setProgress(Math.round(percent));
+            console.log(`Upload progress: ${Math.round(percent)}%`);
           },
           (error) => {
             console.error('Upload error:', error);
-            setError(error.message);
+            let errorMessage = error.message;
+            
+            // Provide helpful error messages
+            if (error.code === 'storage/unauthorized') {
+              errorMessage = 'Permission denied. Please check Firebase Storage rules.';
+            } else if (error.code === 'storage/canceled') {
+              errorMessage = 'Upload canceled.';
+            } else if (error.code === 'storage/quota-exceeded') {
+              errorMessage = 'Storage quota exceeded.';
+            }
+            
+            setError(errorMessage);
             setUploading(false);
             reject(error);
           },
           async () => {
+            // Upload completed - get download URL
             try {
-              // Upload completed - get download URL
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('Upload complete! URL:', downloadURL);
+              
               setUploading(false);
               setProgress(100);
               
               if (onComplete) {
                 onComplete(downloadURL);
               }
+              
               resolve(downloadURL);
             } catch (error: any) {
-              setError(error.message);
+              console.error('Failed to get download URL:', error);
+              setError('Upload completed but failed to get URL');
               setUploading(false);
               reject(error);
             }
           }
         );
-      } catch (error: any) {
-        console.error('Upload failed:', error);
-        setError(error.message);
-        setUploading(false);
-        reject(error);
-      }
-    });
+      });
+    } catch (error: any) {
+      console.error('Upload setup failed:', error);
+      setError(error.message);
+      setUploading(false);
+      return null;
+    }
   }
   
   return {

@@ -1,15 +1,58 @@
 'use client'
 
-import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TaskCardProps {
   task: any;
   onEdit: () => void;
   onDelete: () => void;
-  onViewMoments: () => void;
+  onViewMoments?: () => void;
 }
 
 export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: TaskCardProps) {
+  const { getIdToken } = useAuth();
+  const [media, setMedia] = useState<any[]>(task.media || []);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  
+  useEffect(() => {
+    // Load media if not already provided
+    if (!task.media || task.media.length === 0) {
+      loadMedia();
+    } else {
+      setMedia(task.media);
+    }
+  }, [task.id]);
+  
+  async function loadMedia() {
+    setLoadingMedia(true);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      
+      // Load from Firestore
+      const response = await fetch(`/api/admin/tasks/${task.id}/media`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`Loaded ${data.media.length} media files for job ${task.id}`);
+        setMedia(data.media);
+      } else {
+        console.error('Failed to load media:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to load media:', error);
+    } finally {
+      setLoadingMedia(false);
+    }
+  }
+  
   return (
     <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between">
@@ -36,11 +79,60 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
             <p className="text-sm text-gray-600 mb-3">{task.description}</p>
           )}
           
-          <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+          {/* Media Display */}
+          {loadingMedia ? (
+            <div className="text-xs text-gray-500 mb-3 flex items-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Loading media...
+            </div>
+          ) : media.length > 0 ? (
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-2">
+                {media.map((item: any) => (
+                  <a
+                    key={item.id}
+                    href={item.storageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative"
+                    title={item.fileName}
+                  >
+                    <div className={`w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-colors ${
+                      item.mediaType === 'video' ? 'bg-purple-50' : 'bg-blue-50'
+                    }`}>
+                      {item.mediaType === 'video' ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Video className="h-8 w-8 text-purple-600" />
+                        </div>
+                      ) : item.thumbnailUrl ? (
+                        <img 
+                          src={item.thumbnailUrl} 
+                          alt={item.fileName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-blue-600" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center rounded-lg">
+                      <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {media.filter((m: any) => m.mediaType === 'video').length} video(s), {media.filter((m: any) => m.mediaType === 'image').length} image(s)
+              </p>
+            </div>
+          ) : null}
+          
+          <div className="flex items-center gap-4 text-xs text-gray-500">
             {task.estimated_duration_minutes && (
               <span>~{task.estimated_duration_minutes} min</span>
             )}
-            {task.moment_count > 0 && (
+            {task.moment_count > 0 && onViewMoments && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -52,50 +144,13 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
                 {task.moment_count} moments
               </button>
             )}
-            {task.media_count > 0 && (
+            {media.length > 0 && (
               <span className="flex items-center gap-1">
                 <Video className="h-3 w-3" />
-                {task.media_count} media
+                {media.length} media
               </span>
             )}
           </div>
-          
-          {/* Media Preview */}
-          {task.media && task.media.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {task.media.slice(0, 4).map((mediaItem: any) => (
-                <div
-                  key={mediaItem.id}
-                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
-                >
-                  {mediaItem.mediaType === 'video' ? (
-                    <video
-                      src={mediaItem.storageUrl}
-                      className="w-full h-full object-cover"
-                      muted
-                      playsInline
-                    />
-                  ) : (
-                    <img
-                      src={mediaItem.storageUrl}
-                      alt={mediaItem.fileName || 'Media'}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
-                    <p className="text-[10px] text-white truncate">
-                      {mediaItem.fileName || 'File'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {task.media.length > 4 && (
-                <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center text-xs text-gray-500">
-                  +{task.media.length - 4} more
-                </div>
-              )}
-            </div>
-          )}
         </div>
         
         <div className="flex items-center gap-2">
