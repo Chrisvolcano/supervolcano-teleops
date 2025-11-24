@@ -50,12 +50,15 @@ export async function POST(request: NextRequest) {
     // Check if tables exist
     console.log('Checking if tables exist...');
     try {
-      const tables = await sql`
+      const tablesResult = await sql`
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'public' 
         AND table_name IN ('locations', 'jobs', 'media')
       `;
+      
+      // Vercel Postgres returns arrays directly from template literals
+      const tables = Array.isArray(tablesResult) ? tablesResult : [];
       
       if (tables.length !== 3) {
         const missingTables = ['locations', 'jobs', 'media'].filter(

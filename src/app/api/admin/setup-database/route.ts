@@ -100,20 +100,25 @@ export async function POST(request: Request) {
     console.log('✅ Indexes ready');
 
     // Verify tables exist
-    const tables = await sql`
+    const tablesResult = await sql`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_name IN ('locations', 'jobs', 'media')
     `;
     
+    // Vercel Postgres returns arrays directly from template literals
+    const tableNames = Array.isArray(tablesResult) 
+      ? tablesResult.map((row: any) => row.table_name)
+      : [];
+    
     console.log('✅ Database setup complete!');
-    console.log('Tables found:', tables.map((t: any) => t.table_name));
+    console.log('Tables found:', tableNames);
 
     return NextResponse.json({
       success: true,
       message: 'Database tables created successfully',
-      tables: tables.map((t: any) => t.table_name),
+      tables: tableNames,
     });
 
   } catch (error: any) {
@@ -146,17 +151,22 @@ export async function GET(request: Request) {
     requireRole(claims, ['superadmin', 'admin']);
 
     // Check if tables exist
-    const tables = await sql`
+    const tablesResult = await sql`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_name IN ('locations', 'jobs', 'media')
     `;
 
+    // Vercel Postgres returns arrays directly from template literals
+    const tableNames = Array.isArray(tablesResult)
+      ? tablesResult.map((row: any) => row.table_name)
+      : [];
+
     return NextResponse.json({
       success: true,
-      tables: tables.map((t: any) => t.table_name),
-      allTablesExist: tables.length === 3,
+      tables: tableNames,
+      allTablesExist: tableNames.length === 3,
     });
   } catch (error: any) {
     return NextResponse.json(
