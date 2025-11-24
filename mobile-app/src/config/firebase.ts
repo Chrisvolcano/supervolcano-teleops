@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 console.log('🔥 Initializing Firebase...');
 console.log('🔥 Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
@@ -28,8 +28,16 @@ if (missingKeys.length > 0) {
 console.log('✅ Firebase config loaded successfully');
 
 const app = initializeApp(firebaseConfig);
-export const storage = getStorage(app);
-export const firestore = getFirestore(app);
 
-console.log('✅ Firebase initialized');
+// Initialize Storage
+export const storage = getStorage(app);
+
+// Initialize Firestore with explicit default database
+// Use initializeFirestore instead of getFirestore for better control
+export const firestore = initializeFirestore(app, {
+  experimentalForceLongPolling: true, // Better for mobile
+  useFetchStreams: false,
+});
+
+console.log('✅ Firebase initialized with default database');
 
