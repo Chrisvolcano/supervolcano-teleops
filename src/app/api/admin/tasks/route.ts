@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTasks } from '@/lib/repositories/sql/tasks';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +71,10 @@ export async function POST(request: NextRequest) {
     // Only allow superadmin, admin, and partner_admin
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
+    // Get user ID from token
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const userId = decodedToken.uid;
+    
     const data = await request.json();
     
     console.log('Creating task in Firestore:', data);
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
       state: 'available',
       assigned_to: 'unassigned',
       createdAt: new Date(),
-      createdBy: claims.uid || 'admin',
+      createdBy: userId || 'admin',
       updatedAt: new Date(),
       partnerOrgId: data.partnerOrgId || 'demo-org',
     };
