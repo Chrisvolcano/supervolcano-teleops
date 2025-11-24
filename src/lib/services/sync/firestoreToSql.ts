@@ -256,6 +256,7 @@ export async function syncMedia(mediaId: string) {
     }
     
     // 5. Insert/update media in SQL
+    // Use simplified INSERT with only essential columns to avoid schema issues
     console.log(`[MEDIA SYNC] Inserting media into SQL...`);
     
     // Handle Firestore Timestamp conversion
@@ -263,44 +264,92 @@ export async function syncMedia(mediaId: string) {
       ? media.uploadedAt.toDate() 
       : (media.uploadedAt ? new Date(media.uploadedAt) : new Date());
     
-    await sql`
-      INSERT INTO media (
-        id, organization_id, location_id, job_id, shift_id,
-        media_type, storage_url, thumbnail_url,
-        duration_seconds, resolution, fps,
-        processing_status, ai_processed, moments_extracted,
-        uploaded_by, uploaded_at, tags, synced_at
-      ) VALUES (
-        ${mediaId},
-        ${organizationId},
-        ${media.locationId},
-        ${jobId},
-        ${media.shiftId || null},
-        ${media.mediaType || 'video'},
-        ${media.storageUrl},
-        ${media.thumbnailUrl || null},
-        ${media.durationSeconds || null},
-        ${media.resolution || null},
-        ${media.fps || null},
-        ${media.processingStatus || 'completed'},
-        ${media.aiProcessed || false},
-        ${media.momentsExtracted || 0},
-        ${media.uploadedBy || 'admin'},
-        ${uploadedAt},
-        ${media.tags || []},
-        NOW()
-      )
-      ON CONFLICT (id) DO UPDATE SET
-        organization_id = EXCLUDED.organization_id,
-        location_id = EXCLUDED.location_id,
-        job_id = EXCLUDED.job_id,
-        storage_url = EXCLUDED.storage_url,
-        thumbnail_url = EXCLUDED.thumbnail_url,
-        processing_status = EXCLUDED.processing_status,
-        ai_processed = EXCLUDED.ai_processed,
-        moments_extracted = EXCLUDED.moments_extracted,
-        synced_at = NOW()
-    `;
+    // Try full insert first, fall back to minimal if schema issues
+    try {
+      await sql`
+        INSERT INTO media (
+          id, 
+          organization_id, 
+          location_id, 
+          job_id,
+          shift_id,
+          media_type, 
+          storage_url, 
+          thumbnail_url,
+          duration_seconds,
+          resolution,
+          fps,
+          processing_status,
+          ai_processed,
+          moments_extracted,
+          uploaded_by, 
+          uploaded_at,
+          tags
+        ) VALUES (
+          ${mediaId},
+          ${organizationId},
+          ${media.locationId},
+          ${jobId},
+          ${media.shiftId || null},
+          ${media.mediaType || 'video'},
+          ${media.storageUrl},
+          ${media.thumbnailUrl || null},
+          ${media.durationSeconds || null},
+          ${media.resolution || null},
+          ${media.fps || null},
+          ${media.processingStatus || 'completed'},
+          ${media.aiProcessed || false},
+          ${media.momentsExtracted || 0},
+          ${media.uploadedBy || 'admin'},
+          ${uploadedAt},
+          ${media.tags || []}
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          organization_id = EXCLUDED.organization_id,
+          location_id = EXCLUDED.location_id,
+          job_id = EXCLUDED.job_id,
+          storage_url = EXCLUDED.storage_url,
+          thumbnail_url = EXCLUDED.thumbnail_url,
+          processing_status = EXCLUDED.processing_status,
+          ai_processed = EXCLUDED.ai_processed,
+          moments_extracted = EXCLUDED.moments_extracted
+      `;
+    } catch (schemaError: any) {
+      // If schema error, try minimal insert (only required columns)
+      if (schemaError.message?.includes('column') && schemaError.message?.includes('does not exist')) {
+        console.warn(`[MEDIA SYNC] Schema issue detected, using minimal insert`);
+        console.warn(`[MEDIA SYNC] Missing column: ${schemaError.message}`);
+        
+        await sql`
+          INSERT INTO media (
+            id, 
+            organization_id, 
+            location_id, 
+            job_id,
+            media_type, 
+            storage_url, 
+            uploaded_by, 
+            uploaded_at
+          ) VALUES (
+            ${mediaId},
+            ${organizationId},
+            ${media.locationId},
+            ${jobId},
+            ${media.mediaType || 'video'},
+            ${media.storageUrl},
+            ${media.uploadedBy || 'admin'},
+            ${uploadedAt}
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            storage_url = EXCLUDED.storage_url,
+            job_id = EXCLUDED.job_id
+        `;
+        
+        console.warn(`[MEDIA SYNC] ⚠ Used minimal insert due to schema issues. Please run migration to add missing columns.`);
+      } else {
+        throw schemaError; // Re-throw if it's not a schema error
+      }
+    }
     
     console.log(`[MEDIA SYNC] ✓ Successfully synced media ${mediaId}`);
     return { success: true };
