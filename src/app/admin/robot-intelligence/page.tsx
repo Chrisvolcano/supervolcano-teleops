@@ -256,8 +256,9 @@ export default function RobotIntelligencePage() {
       
       alert(successMessage);
       
-      // Reload stats to show updated counts
+      // Reload stats AND tasks from SQL
       await loadStats();
+      await loadTasks();
       
     } catch (error: any) {
       console.error('❌ Sync error:', error);
