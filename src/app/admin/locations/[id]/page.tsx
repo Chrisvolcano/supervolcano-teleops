@@ -88,22 +88,49 @@ export default function AdminLocationDetailPage() {
   async function loadTasks() {
     setLoadingTasks(true);
     try {
+      console.log('🔍 LOCATION PAGE: Loading tasks for location:', locationId);
+      
       const token = await getIdToken();
-      if (!token) return;
+      if (!token) {
+        console.error('❌ LOCATION PAGE: No auth token');
+        return;
+      }
 
       // Load tasks from Firestore (source of truth)
-      const response = await fetch(`/api/admin/locations/${locationId}/tasks/firestore`, {
+      const response = await fetch(`/api/admin/locations/${locationId}/tasks`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      const data = await response.json();
-      if (data.success) {
-        setTasks(data.tasks);
+      console.log('🔍 LOCATION PAGE: Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
       }
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
+      
+      const data = await response.json();
+      
+      console.log('🔍 LOCATION PAGE: Tasks loaded:', {
+        success: data.success,
+        count: data.tasks?.length || 0,
+        tasks: data.tasks?.map((t: any) => ({ id: t.id, title: t.title })),
+      });
+      
+      if (data.success) {
+        setTasks(data.tasks || []);
+        console.log('✅ LOCATION PAGE: Tasks state updated with', data.tasks?.length || 0, 'tasks');
+      } else {
+        console.error('❌ LOCATION PAGE: API returned error:', data.error);
+        setTasks([]);
+      }
+    } catch (error: any) {
+      console.error('❌ LOCATION PAGE: Failed to load tasks:', error);
+      console.error('❌ LOCATION PAGE: Error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      setTasks([]);
     } finally {
       setLoadingTasks(false);
     }
@@ -333,10 +360,13 @@ export default function AdminLocationDetailPage() {
             setShowTaskForm(false);
             setEditingTask(null);
           }}
-          onSave={() => {
+          onSave={async (task: any) => {
+            console.log('🔍 LOCATION PAGE: Task saved callback triggered:', task);
             setShowTaskForm(false);
             setEditingTask(null);
-            loadTasks();
+            console.log('🔍 LOCATION PAGE: Reloading tasks...');
+            await loadTasks();
+            console.log('✅ LOCATION PAGE: Tasks reloaded after save');
           }}
         />
       )}

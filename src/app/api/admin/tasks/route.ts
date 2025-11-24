@@ -77,10 +77,16 @@ export async function POST(request: NextRequest) {
     
     const data = await request.json();
     
-    console.log('Creating task in Firestore:', data);
+    console.log('🔍 API: Received task creation request:', {
+      title: data.title,
+      locationId: data.locationId,
+      locationName: data.locationName,
+      category: data.category,
+    });
     
     // Validate required fields
     if (!data.title) {
+      console.error('❌ API: Missing title');
       return NextResponse.json(
         { success: false, error: 'Title is required' },
         { status: 400 }
@@ -88,6 +94,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (!data.locationId) {
+      console.error('❌ API: Missing locationId');
       return NextResponse.json(
         { success: false, error: 'Location ID is required' },
         { status: 400 }
@@ -112,12 +119,21 @@ export async function POST(request: NextRequest) {
       partnerOrgId: data.partnerOrgId || 'demo-org',
     };
     
-    console.log('Task data to save:', taskData);
+    console.log('🔍 API: Task data to save:', taskData);
     
     // Add to Firestore
     const docRef = await adminDb.collection('tasks').add(taskData);
     
-    console.log('Task created in Firestore:', docRef.id);
+    console.log('✅ API: Task saved to Firestore with ID:', docRef.id);
+    
+    // Verify it was saved
+    const savedDoc = await docRef.get();
+    console.log('🔍 API: Verification - Document exists:', savedDoc.exists());
+    if (savedDoc.exists()) {
+      console.log('🔍 API: Verification - Saved data:', savedDoc.data());
+    } else {
+      console.error('❌ API: Verification failed - Document does not exist!');
+    }
     
     // OPTIONAL: Auto-sync to SQL (don't fail if this fails)
     try {

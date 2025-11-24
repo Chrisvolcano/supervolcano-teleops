@@ -34,11 +34,27 @@ export default function TaskFormModal({ locationId, locationName, partnerOrgId, 
     setSaving(true);
     
     try {
+      console.log('🔍 TASK FORM: Starting task submission...');
+      
       const token = await getIdToken();
       if (!token) {
+        console.error('❌ TASK FORM: Not authenticated');
         alert('Not authenticated');
         return;
       }
+
+      const payload = {
+        locationId,
+        locationName: locationName || '',
+        partnerOrgId: partnerOrgId || 'demo-org',
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        estimatedDurationMinutes: formData.estimatedDuration ? parseInt(formData.estimatedDuration) : null,
+        priority: formData.priority,
+      };
+
+      console.log('🔍 TASK FORM: Submitting task with payload:', payload);
 
       // 1. Create/update task
       const taskResponse = await fetch(
@@ -49,28 +65,23 @@ export default function TaskFormModal({ locationId, locationName, partnerOrgId, 
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json' 
           },
-          body: JSON.stringify({
-            locationId,
-            locationName: locationName || '',
-            partnerOrgId: partnerOrgId || 'demo-org',
-            title: formData.title,
-            description: formData.description,
-            category: formData.category,
-            estimatedDurationMinutes: formData.estimatedDuration ? parseInt(formData.estimatedDuration) : null,
-            priority: formData.priority,
-          }),
+          body: JSON.stringify(payload),
         }
       );
       
+      console.log('🔍 TASK FORM: Response status:', taskResponse.status);
+      
       const taskData = await taskResponse.json();
+      console.log('🔍 TASK FORM: Response data:', taskData);
       
       if (!taskData.success) {
+        console.error('❌ TASK FORM: Task save failed:', taskData.error);
         alert('Failed to save task: ' + (taskData.error || 'Unknown error'));
         return;
       }
       
-      const jobId = task?.id || taskData.id; // This is actually a job ID (Firestore "tasks" = SQL "jobs")
-      console.log('Job saved:', jobId);
+      const jobId = task?.id || taskData.id;
+      console.log('✅ TASK FORM: Task saved successfully with ID:', jobId);
       
       // 2. Upload media files directly to Firebase Storage
       if (mediaFiles.length > 0) {
@@ -141,11 +152,16 @@ export default function TaskFormModal({ locationId, locationName, partnerOrgId, 
         console.log(`Successfully uploaded ${uploadedUrls.length}/${mediaFiles.length} files`);
       }
       
-      alert('Job and media saved successfully! Click sync in Robot Intelligence to update the SQL database.');
+      console.log('✅ TASK FORM: All operations complete, calling onSave callback');
+      alert('Task saved successfully!');
       onSave();
-    } catch (error) {
-      console.error('Failed to save task:', error);
-      alert('Failed to save task');
+    } catch (error: any) {
+      console.error('❌ TASK FORM: Failed to save task:', error);
+      console.error('❌ TASK FORM: Error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      alert('Failed to save task: ' + (error.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
