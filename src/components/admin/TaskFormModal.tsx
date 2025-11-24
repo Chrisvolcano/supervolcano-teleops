@@ -76,40 +76,34 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
             // Upload directly to Firebase Storage
             const path = `media/${locationId}/${jobId}/${Date.now()}-${file.name}`;
             
-            await new Promise<void>((resolve, reject) => {
-              uploadFile(
-                file,
-                path,
-                async (storageUrl) => {
-                  // Save metadata to Firestore via API
-                  const metadataResponse = await fetch('/api/admin/media/metadata', {
-                    method: 'POST',
-                    headers: { 
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({
-                      jobId,
-                      locationId,
-                      mediaType: file.type.startsWith('video/') ? 'video' : 'image',
-                      storageUrl,
-                      fileName: file.name,
-                      fileSize: file.size,
-                      mimeType: file.type,
-                    }),
-                  });
-                  
-                  const metadataData = await metadataResponse.json();
-                  if (metadataData.success) {
-                    console.log('Media metadata saved:', metadataData.id);
-                    setUploadedMedia(prev => [...prev, { url: storageUrl, ...metadataData }]);
-                    resolve();
-                  } else {
-                    reject(new Error(metadataData.error || 'Failed to save metadata'));
-                  }
-                }
-              );
+            // Upload directly to Firebase Storage
+            const storageUrl = await uploadFile(file, path);
+            
+            // Save metadata to Firestore via API
+            const metadataResponse = await fetch('/api/admin/media/metadata', {
+              method: 'POST',
+              headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json' 
+              },
+              body: JSON.stringify({
+                jobId,
+                locationId,
+                mediaType: file.type.startsWith('video/') ? 'video' : 'image',
+                storageUrl,
+                fileName: file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+              }),
             });
+            
+            const metadataData = await metadataResponse.json();
+            if (metadataData.success) {
+              console.log('Media metadata saved:', metadataData.id);
+              setUploadedMedia(prev => [...prev, { url: storageUrl, ...metadataData }]);
+            } else {
+              throw new Error(metadataData.error || 'Failed to save metadata');
+            }
           } catch (error: any) {
             console.error('Failed to upload media:', error);
             alert(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);

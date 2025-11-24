@@ -9,55 +9,63 @@ export function useFirebaseUpload() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
-  async function uploadFile(
+  function uploadFile(
     file: File,
     path: string,
     onComplete?: (url: string) => void
-  ) {
+  ): Promise<string> {
     setUploading(true);
     setProgress(0);
     setError(null);
     
-    try {
-      // Create storage reference
-      const storageRef = ref(storage, path);
-      
-      // Start upload with resumable upload (handles large files)
-      const uploadTask = uploadBytesResumable(storageRef, file, {
-        contentType: file.type,
-      });
-      
-      // Monitor upload progress
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setProgress(Math.round(percent));
-        },
-        (error) => {
-          console.error('Upload error:', error);
-          setError(error.message);
-          setUploading(false);
-        },
-        async () => {
-          // Upload completed - get download URL
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setUploading(false);
-          setProgress(100);
-          
-          if (onComplete) {
-            onComplete(downloadURL);
+    return new Promise((resolve, reject) => {
+      try {
+        // Create storage reference
+        const storageRef = ref(storage, path);
+        
+        // Start upload with resumable upload (handles large files)
+        const uploadTask = uploadBytesResumable(storageRef, file, {
+          contentType: file.type,
+        });
+        
+        // Monitor upload progress
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setProgress(Math.round(percent));
+          },
+          (error) => {
+            console.error('Upload error:', error);
+            setError(error.message);
+            setUploading(false);
+            reject(error);
+          },
+          async () => {
+            try {
+              // Upload completed - get download URL
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              setUploading(false);
+              setProgress(100);
+              
+              if (onComplete) {
+                onComplete(downloadURL);
+              }
+              resolve(downloadURL);
+            } catch (error: any) {
+              setError(error.message);
+              setUploading(false);
+              reject(error);
+            }
           }
-        }
-      );
-      
-      return uploadTask;
-    } catch (error: any) {
-      console.error('Upload failed:', error);
-      setError(error.message);
-      setUploading(false);
-      throw error;
-    }
+        );
+      } catch (error: any) {
+        console.error('Upload failed:', error);
+        setError(error.message);
+        setUploading(false);
+        reject(error);
+      }
+    });
   }
   
   return {
