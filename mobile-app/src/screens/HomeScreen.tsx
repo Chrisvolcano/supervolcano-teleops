@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchLocations, testFetchSpecificLocation } from '../services/api';
+import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
 
