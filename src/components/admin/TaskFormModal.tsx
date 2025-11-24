@@ -63,12 +63,12 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
         return;
       }
       
-      const taskId = task?.id || taskData.id;
+      const jobId = task?.id || taskData.id; // This is actually a job ID (Firestore "tasks" = SQL "jobs")
       
       // 2. Upload media files if any
       if (mediaFiles.length > 0) {
         setUploadingMedia(true);
-        await uploadMediaFiles(taskId, locationId, token);
+        await uploadMediaFiles(jobId, locationId, token);
       }
       
       onSave();
@@ -81,12 +81,12 @@ export default function TaskFormModal({ locationId, task, onClose, onSave }: Tas
     }
   }
   
-  async function uploadMediaFiles(taskId: string, locationId: string, token: string) {
+  async function uploadMediaFiles(jobId: string, locationId: string, token: string) {
     for (const file of mediaFiles) {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('taskId', taskId);
+        formData.append('jobId', jobId); // Changed from taskId - media is linked to jobs
         formData.append('locationId', locationId);
         formData.append('mediaType', file.type.startsWith('video/') ? 'video' : 'image');
         
