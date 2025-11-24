@@ -1,5 +1,4 @@
-import { adminDb } from '@/lib/firebase/firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 /**
  * Migrate all tasks from propertyId to locationId

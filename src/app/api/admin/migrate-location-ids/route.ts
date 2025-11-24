@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { migratePropertyIdToLocationId } from '@/lib/scripts/migratePropertyIdToLocationId';
-import { adminAuth } from '@/lib/firebase/firebaseAdmin';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 /**
  * API endpoint to migrate propertyId to locationId
