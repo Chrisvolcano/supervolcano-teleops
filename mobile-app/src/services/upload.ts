@@ -1,6 +1,6 @@
 import { storage } from '../config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystem } from 'expo-file-system';
 
 export interface UploadProgress {
   bytesTransferred: number;
@@ -15,9 +15,17 @@ export async function getVideoMetadata(videoUri: string): Promise<{ durationSeco
   try {
     console.log('📹 Getting video metadata for:', videoUri);
     
-    // Get file size
-    const fileInfo = await FileSystem.getInfoAsync(videoUri);
-    const fileSize = fileInfo.exists && fileInfo.size ? fileInfo.size : 0;
+    // Get file size - try FileSystem first, fallback to blob
+    let fileSize = 0;
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(videoUri);
+      if (fileInfo.exists && fileInfo.size) {
+        fileSize = fileInfo.size;
+      }
+    } catch (error) {
+      // If FileSystem fails, we'll get size from blob later
+      console.log('⚠️ Could not get file size from FileSystem');
+    }
     console.log('📹 File size:', fileSize, 'bytes');
     
     // Get video duration - expo-av doesn't have a simple API for this
@@ -47,14 +55,24 @@ export async function uploadVideoToFirebase(
   try {
     console.log('🚀 Starting upload:', videoUri);
     
-    // Get file info and metadata
-    const fileInfo = await FileSystem.getInfoAsync(videoUri);
-    if (!fileInfo.exists) {
-      throw new Error('Video file not found');
+    // Get file size by reading the blob
+    // For Expo Go compatibility, we'll get size from the blob after fetching
+    let fileSize = 0;
+    try {
+      // Try to get file info first (may fail in Expo Go, that's OK)
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(videoUri);
+        if (fileInfo.exists && fileInfo.size) {
+          fileSize = fileInfo.size;
+        }
+      } catch (fsError) {
+        console.log('⚠️ Could not get file info from FileSystem, will get from blob');
+      }
+    } catch (error) {
+      console.log('⚠️ FileSystem check failed, continuing with blob size');
     }
     
-    const fileSize = fileInfo.size || 0;
-    console.log('📦 File size:', fileSize, 'bytes');
+    console.log('📦 Initial file size:', fileSize, 'bytes');
     
     // Get video duration - using FileSystem metadata if available
     // expo-av requires a Video component which is complex for this use case
@@ -65,6 +83,12 @@ export async function uploadVideoToFirebase(
     // Read file as blob
     const response = await fetch(videoUri);
     const blob = await response.blob();
+    
+    // Get actual file size from blob if we didn't get it from FileSystem
+    if (fileSize === 0 && blob.size) {
+      fileSize = blob.size;
+      console.log('📦 File size from blob:', fileSize, 'bytes');
+    }
     
     // Create storage path
     const timestamp = Date.now();
@@ -123,7 +147,8 @@ export async function deleteLocalVideo(videoUri: string) {
     await FileSystem.deleteAsync(videoUri, { idempotent: true });
     console.log('Deleted local video:', videoUri);
   } catch (error) {
-    console.error('Failed to delete local video:', error);
+    // Silently fail - file might already be deleted or not accessible
+    console.log('Note: Could not delete local video (may already be deleted)');
   }
 }
 

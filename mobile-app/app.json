@@ -61,7 +61,8 @@
         {
           "cameraPermission": "Allow SuperVolcano to access your camera to record cleaning tasks."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
