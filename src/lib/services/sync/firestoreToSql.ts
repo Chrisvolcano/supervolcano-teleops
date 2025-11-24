@@ -185,14 +185,35 @@ export async function syncMedia(mediaId: string) {
     const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
     
     if (!mediaDoc.exists) {
+      console.error(`[sync] Media ${mediaId} not found in Firestore`);
       return { success: false, error: 'Media not found' };
     }
     
     const media = mediaDoc.data();
     
     if (!media) {
+      console.error(`[sync] Media ${mediaId} data is empty`);
       return { success: false, error: 'Media data is empty' };
     }
+    
+    console.log(`[sync] Syncing media ${mediaId}: ${media.fileName || 'unnamed'}`);
+    console.log(`[sync]   - Location: ${media.locationId}`);
+    console.log(`[sync]   - Job: ${media.taskId || 'none'}`);
+    console.log(`[sync]   - Type: ${media.mediaType || 'unknown'}`);
+    console.log(`[sync]   - URL: ${media.storageUrl ? 'present' : 'missing'}`);
+    
+    // Get organization_id from location (must exist in SQL first)
+    const orgResult = await sql`
+      SELECT organization_id FROM locations WHERE id = ${media.locationId} LIMIT 1
+    `;
+    
+    if (orgResult.rows.length === 0) {
+      console.error(`[sync] Location ${media.locationId} not found in SQL for media ${mediaId}`);
+      return { success: false, error: 'Location not found in SQL - sync locations first' };
+    }
+    
+    const organizationId = orgResult.rows[0].organization_id;
+    console.log(`[sync]   - Organization: ${organizationId}`);
     
     // Handle Firestore Timestamp conversion
     const uploadedAt = media.uploadedAt?.toDate 
@@ -208,11 +229,11 @@ export async function syncMedia(mediaId: string) {
         uploaded_by, uploaded_at, tags, synced_at
       ) VALUES (
         ${mediaId},
-        (SELECT organization_id FROM locations WHERE id = ${media.locationId} LIMIT 1),
+        ${organizationId},
         ${media.locationId || null},
         ${media.taskId || null},
         ${media.shiftId || null},
-        ${media.mediaType || 'unknown'},
+        ${media.mediaType || 'video'},
         ${media.storageUrl || ''},
         ${media.thumbnailUrl || null},
         ${media.durationSeconds || null},
@@ -221,12 +242,15 @@ export async function syncMedia(mediaId: string) {
         ${media.processingStatus || 'completed'},
         ${media.aiProcessed || false},
         ${media.momentsExtracted || 0},
-        ${media.uploadedBy || 'unknown'},
+        ${media.uploadedBy || 'admin'},
         ${uploadedAt},
         ${media.tags || []},
         NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
+        organization_id = EXCLUDED.organization_id,
+        location_id = EXCLUDED.location_id,
+        job_id = EXCLUDED.job_id,
         storage_url = EXCLUDED.storage_url,
         thumbnail_url = EXCLUDED.thumbnail_url,
         processing_status = EXCLUDED.processing_status,
@@ -235,10 +259,12 @@ export async function syncMedia(mediaId: string) {
         synced_at = NOW()
     `;
     
+    console.log(`[sync] ✓ Successfully synced media ${mediaId}`);
     return { success: true };
-  } catch (error) {
-    console.error('Failed to sync media:', error);
-    return { success: false, error: 'Sync failed' };
+  } catch (error: any) {
+    console.error(`[sync] ✗ Failed to sync media ${mediaId}:`, error.message);
+    console.error(`[sync]   Error details:`, error.stack);
+    return { success: false, error: error.message || 'Sync failed' };
   }
 }
 
@@ -360,12 +386,13 @@ export async function syncAllData() {
     }
     
     // Sync media (CRITICAL FOR VISUAL DATABASE)
-    console.log('Syncing media...');
+    console.log('\n[4/4] Syncing media files...');
     const mediaSnapshot = await adminDb.collection('media').get();
     console.log(`Found ${mediaSnapshot.docs.length} media files in Firestore`);
     
     let mediaSynced = 0;
     let mediaErrors = 0;
+    const mediaErrorDetails: string[] = [];
     
     for (const doc of mediaSnapshot.docs) {
       try {
@@ -374,12 +401,21 @@ export async function syncAllData() {
           mediaSynced++;
         } else {
           mediaErrors++;
-          console.error(`Failed to sync media ${doc.id}:`, result.error);
+          const errorMsg = `Media ${doc.id}: ${result.error}`;
+          console.error(`  ✗ ${errorMsg}`);
+          mediaErrorDetails.push(errorMsg);
         }
       } catch (error: any) {
         mediaErrors++;
-        console.error(`Error syncing media ${doc.id}:`, error.message);
+        const errorMsg = `Media ${doc.id}: ${error.message}`;
+        console.error(`  ✗ ${errorMsg}`);
+        mediaErrorDetails.push(errorMsg);
       }
+    }
+    
+    console.log(`✓ Synced ${mediaSynced}/${mediaSnapshot.docs.length} media files`);
+    if (mediaErrors > 0) {
+      console.log(`  ⚠ ${mediaErrors} media files failed to sync`);
     }
     
     // Auto-link media to tasks
@@ -401,31 +437,44 @@ export async function syncAllData() {
     }
     console.log(`Created ${totalLinks} media-task links`);
     
-    console.log('Sync complete:', {
-      locations: { synced: locationsSynced, errors: locationsErrors },
-      jobs: { synced: tasksSynced, errors: tasksErrors },
-      shifts: { synced: shiftsSynced, errors: shiftsErrors },
-      media: { synced: mediaSynced, errors: mediaErrors },
-      mediaTaskLinks: totalLinks,
-    });
+    console.log('\n========================================');
+    console.log('SYNC COMPLETE');
+    console.log('========================================');
+    console.log(`Locations: ${locationsSynced} synced, ${locationsErrors} errors`);
+    console.log(`Jobs: ${tasksSynced} synced, ${tasksErrors} errors`);
+    console.log(`Sessions: ${shiftsSynced} synced, ${shiftsErrors} errors`);
+    console.log(`Media: ${mediaSynced} synced, ${mediaErrors} errors`);
+    console.log(`Media-Task Links: ${totalLinks} created`);
+    
+    if (mediaErrorDetails.length > 0) {
+      console.log('\nMedia sync errors:');
+      mediaErrorDetails.forEach(err => console.log(`  - ${err}`));
+    }
+    
+    const message = `Synced ${locationsSynced} locations, ${tasksSynced} jobs, ${shiftsSynced} sessions, ${mediaSynced} media files`;
     
     return { 
       success: true, 
-      message: 'All data synced',
-      stats: {
+      message,
+      counts: {
         locations: locationsSynced,
-        jobs: tasksSynced, // Note: variable name kept as tasksSynced for backward compatibility
+        jobs: tasksSynced,
         tasks: tasksSynced, // Alias for backward compatibility
-        shifts: shiftsSynced,
+        sessions: shiftsSynced,
+        shifts: shiftsSynced, // Alias for backward compatibility
         media: mediaSynced,
         mediaTaskLinks: totalLinks,
-        errors: {
-          locations: locationsErrors,
-          jobs: tasksErrors,
-          tasks: tasksErrors, // Alias for backward compatibility
-          shifts: shiftsErrors,
-          media: mediaErrors,
-        }
+      },
+      errors: {
+        locations: locationsErrors,
+        jobs: tasksErrors,
+        tasks: tasksErrors,
+        sessions: shiftsErrors,
+        shifts: shiftsErrors,
+        media: mediaErrors,
+      },
+      errorDetails: {
+        media: mediaErrorDetails,
       }
     };
   } catch (error: any) {
