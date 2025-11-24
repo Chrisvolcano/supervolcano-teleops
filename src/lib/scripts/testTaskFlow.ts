@@ -39,6 +39,9 @@ export async function testTaskFlow() {
     }
     console.log('✅ Task exists in Firestore');
     const savedData = taskDoc.data();
+    if (!savedData) {
+      throw new Error('Task document has no data!');
+    }
     console.log('   Data:', {
       id: docRef.id,
       title: savedData.title,

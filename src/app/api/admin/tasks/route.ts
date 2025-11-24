@@ -126,10 +126,10 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ API: Task saved to Firestore with ID:', docRef.id);
     
-    // Verify it was saved
+    // Verify it was saved (exists is a property, not a method)
     const savedDoc = await docRef.get();
-    console.log('🔍 API: Verification - Document exists:', savedDoc.exists());
-    if (savedDoc.exists()) {
+    console.log('🔍 API: Verification - Document exists:', savedDoc.exists);
+    if (savedDoc.exists) {
       console.log('🔍 API: Verification - Saved data:', savedDoc.data());
     } else {
       console.error('❌ API: Verification failed - Document does not exist!');

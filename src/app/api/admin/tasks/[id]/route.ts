@@ -97,11 +97,13 @@ export async function PATCH(
     try {
       const { syncJobFromRoot } = await import('@/lib/services/sync/firestoreToSql');
       const taskDoc = await adminDb.collection('tasks').doc(taskId).get();
-      const taskData = taskDoc.data();
-      const locationId = taskData?.locationId || taskData?.propertyId;
-      if (locationId) {
-        await syncJobFromRoot(taskId, locationId);
-        console.log('Task synced to SQL');
+      if (taskDoc.exists) {
+        const taskData = taskDoc.data();
+        const locationId = taskData?.locationId || taskData?.propertyId;
+        if (locationId) {
+          await syncJobFromRoot(taskId, locationId);
+          console.log('Task synced to SQL');
+        }
       }
     } catch (syncError: any) {
       console.warn('Failed to sync to SQL (not critical):', syncError.message);
