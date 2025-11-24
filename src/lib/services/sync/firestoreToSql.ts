@@ -190,10 +190,14 @@ export async function syncMedia(mediaId: string) {
     
     const media = mediaDoc.data();
     
+    if (!media) {
+      return { success: false, error: 'Media data is empty' };
+    }
+    
     // Handle Firestore Timestamp conversion
-    const uploadedAt = media?.uploadedAt?.toDate 
+    const uploadedAt = media.uploadedAt?.toDate 
       ? media.uploadedAt.toDate() 
-      : (media?.uploadedAt ? new Date(media.uploadedAt) : new Date());
+      : (media.uploadedAt ? new Date(media.uploadedAt) : new Date());
     
     await sql`
       INSERT INTO media (
@@ -205,11 +209,11 @@ export async function syncMedia(mediaId: string) {
       ) VALUES (
         ${mediaId},
         (SELECT organization_id FROM locations WHERE id = ${media.locationId} LIMIT 1),
-        ${media.locationId},
+        ${media.locationId || null},
         ${media.taskId || null},
         ${media.shiftId || null},
-        ${media.mediaType},
-        ${media.storageUrl},
+        ${media.mediaType || 'unknown'},
+        ${media.storageUrl || ''},
         ${media.thumbnailUrl || null},
         ${media.durationSeconds || null},
         ${media.resolution || null},
@@ -217,7 +221,7 @@ export async function syncMedia(mediaId: string) {
         ${media.processingStatus || 'completed'},
         ${media.aiProcessed || false},
         ${media.momentsExtracted || 0},
-        ${media.uploadedBy},
+        ${media.uploadedBy || 'unknown'},
         ${uploadedAt},
         ${media.tags || []},
         NOW()
