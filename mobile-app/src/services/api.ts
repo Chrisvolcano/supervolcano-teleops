@@ -9,14 +9,30 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
  */
 export async function fetchLocations(): Promise<Location[]> {
   try {
-    const locationsSnap = await getDocs(collection(firestore, 'locations'));
+    console.log('📍 Fetching locations from Firestore...');
     
-    return locationsSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Location));
-  } catch (error) {
-    console.error('Failed to fetch locations:', error);
+    // Check if firestore is initialized
+    if (!firestore) {
+      throw new Error('Firestore not initialized');
+    }
+    
+    const locationsSnap = await getDocs(collection(firestore, 'locations'));
+    console.log(`📍 Found ${locationsSnap.size} locations in Firestore`);
+    
+    const locations = locationsSnap.docs.map(doc => {
+      const data = doc.data();
+      console.log(`📍 Location: ${data.name} (${doc.id})`);
+      return {
+        id: doc.id,
+        ...data
+      } as Location;
+    });
+    
+    return locations;
+  } catch (error: any) {
+    console.error('❌ Failed to fetch locations:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     throw error;
   }
 }
@@ -26,19 +42,30 @@ export async function fetchLocations(): Promise<Location[]> {
  */
 export async function fetchJobsForLocation(locationId: string): Promise<Job[]> {
   try {
+    console.log(`💼 Fetching jobs for location: ${locationId}`);
+    
     const q = query(
       collection(firestore, 'tasks'),
       where('locationId', '==', locationId)
     );
     
     const jobsSnap = await getDocs(q);
+    console.log(`💼 Found ${jobsSnap.size} jobs`);
     
-    return jobsSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Job));
-  } catch (error) {
-    console.error('Failed to fetch jobs:', error);
+    const jobs = jobsSnap.docs.map(doc => {
+      const data = doc.data();
+      console.log(`💼 Job: ${data.title} (${doc.id})`);
+      return {
+        id: doc.id,
+        ...data
+      } as Job;
+    });
+    
+    return jobs;
+  } catch (error: any) {
+    console.error('❌ Failed to fetch jobs:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     throw error;
   }
 }
@@ -56,6 +83,9 @@ export async function saveMediaMetadata(data: {
   durationSeconds?: number;
 }) {
   try {
+    console.log('💾 Saving media metadata...');
+    console.log('💾 API URL:', `${API_BASE_URL}/api/admin/media/metadata`);
+    
     const response = await fetch(`${API_BASE_URL}/api/admin/media/metadata`, {
       method: 'POST',
       headers: {
@@ -79,9 +109,11 @@ export async function saveMediaMetadata(data: {
       throw new Error(result.error || 'Failed to save metadata');
     }
     
+    console.log('✅ Media metadata saved');
     return result;
-  } catch (error) {
-    console.error('Failed to save media metadata:', error);
+  } catch (error: any) {
+    console.error('❌ Failed to save media metadata:', error);
+    console.error('❌ Error details:', error.message);
     throw error;
   }
 }

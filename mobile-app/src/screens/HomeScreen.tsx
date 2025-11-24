@@ -18,14 +18,31 @@ export default function HomeScreen({ navigation }: any) {
   async function loadData() {
     try {
       setLoading(true);
+      
+      // DEBUG: Check if Firebase is configured
+      console.log('🔍 DEBUG: Starting loadData...');
+      console.log('🔍 Firebase Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
+      console.log('🔍 API Base URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+      
+      console.log('🔍 Fetching locations from Firestore...');
       const locs = await fetchLocations();
+      console.log('🔍 Locations fetched:', locs.length);
+      
       setLocations(locs);
       
       const queue = await getQueue();
       const pending = queue.filter(item => item.status === 'pending' || item.status === 'error').length;
       setPendingUploads(pending);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load locations');
+      
+      console.log('✅ Load data complete');
+    } catch (error: any) {
+      console.error('❌ Load data failed:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      Alert.alert('Error', 'Failed to load locations: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
