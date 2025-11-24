@@ -28,8 +28,7 @@ export default function HomeScreen({ navigation }: any) {
       // You can find this in Firebase Console → Firestore → locations → click a document
       try {
         console.log('🧪 Running specific document test...');
-        // TODO: Replace this ID with an actual location ID from your Firebase Console
-        const testLocationId = 'bd577ffe-d733-4002-abb8-9ea047c0f326'; // Example ID - replace with real one
+        const testLocationId = 'bd577ffe-d733-4002-abb8-9ea047c0f326'; // Real location ID from Firebase Console
         const testResult = await testFetchSpecificLocation(testLocationId);
         console.log('🧪 Test result:', testResult ? 'SUCCESS - Document found!' : 'FAILED - Document not found');
         if (testResult) {
