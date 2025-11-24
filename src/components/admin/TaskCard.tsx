@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
+import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles, ExternalLink, Loader2, Play } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import VideoPlayerModal from './VideoPlayerModal';
 
 interface TaskCardProps {
   task: any;
@@ -15,6 +16,7 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
   const { getIdToken } = useAuth();
   const [media, setMedia] = useState<any[]>(task.media || []);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<any>(null);
   
   useEffect(() => {
     // Load media if not already provided
@@ -89,11 +91,15 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
             <div className="mb-3">
               <div className="flex flex-wrap gap-2">
                 {media.map((item: any) => (
-                  <a
+                  <button
                     key={item.id}
-                    href={item.storageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    onClick={() => {
+                      if (item.mediaType === 'video') {
+                        setPlayingVideo(item); // Play video in modal
+                      } else {
+                        window.open(item.storageUrl, '_blank'); // Open image in new tab
+                      }
+                    }}
                     className="group relative"
                     title={item.fileName}
                   >
@@ -101,8 +107,12 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
                       item.mediaType === 'video' ? 'bg-purple-50' : 'bg-blue-50'
                     }`}>
                       {item.mediaType === 'video' ? (
-                        <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-full h-full flex items-center justify-center relative">
                           <Video className="h-8 w-8 text-purple-600" />
+                          {/* Play button overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all">
+                            <Play className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
                         </div>
                       ) : item.thumbnailUrl ? (
                         <img 
@@ -116,10 +126,7 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
                         </div>
                       )}
                     </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center rounded-lg">
-                      <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </a>
+                  </button>
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-2">
@@ -176,6 +183,15 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
           </button>
         </div>
       </div>
+      
+      {/* Video Player Modal */}
+      {playingVideo && (
+        <VideoPlayerModal
+          videoUrl={playingVideo.storageUrl}
+          fileName={playingVideo.fileName}
+          onClose={() => setPlayingVideo(null)}
+        />
+      )}
     </div>
   );
 }
