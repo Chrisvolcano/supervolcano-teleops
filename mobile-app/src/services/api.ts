@@ -1,38 +1,144 @@
 import { firestore } from '../config/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { Location, Job } from '../types';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
- * Fetch all locations from Firestore
+ * Fetch all locations from Firestore with deep debugging
  */
 export async function fetchLocations(): Promise<Location[]> {
   try {
-    console.log('📍 Fetching locations from Firestore...');
+    console.log('📍 === FETCH LOCATIONS DEBUG ===');
+    console.log('📍 Firestore instance:', firestore ? 'EXISTS' : 'MISSING');
+    console.log('📍 Firestore app:', firestore?.app?.name);
     
-    // Check if firestore is initialized
-    if (!firestore) {
-      throw new Error('Firestore not initialized');
+    // Test 1: Try to list all collections (root level)
+    console.log('📍 Test 1: Attempting to query locations collection...');
+    
+    const locationsRef = collection(firestore, 'locations');
+    console.log('📍 Collection reference created:', locationsRef.path);
+    console.log('📍 Collection ID:', locationsRef.id);
+    console.log('📍 Collection parent:', locationsRef.parent?.path);
+    
+    console.log('📍 Executing getDocs...');
+    const locationsSnap = await getDocs(locationsRef);
+    console.log('📍 Query completed. Snapshot received.');
+    console.log('📍 Snapshot size:', locationsSnap.size);
+    console.log('📍 Snapshot empty:', locationsSnap.empty);
+    console.log('📍 Snapshot metadata:', JSON.stringify(locationsSnap.metadata));
+    
+    if (locationsSnap.empty) {
+      console.warn('⚠️ Query returned empty! But 7 docs exist in console.');
+      console.warn('⚠️ Possible causes:');
+      console.warn('  1. Firestore rules blocking read');
+      console.warn('  2. Wrong database instance');
+      console.warn('  3. Collection name mismatch');
+      console.warn('  4. Network/cache issue');
+      
+      // Test 2: Try to get a specific document if we know an ID
+      console.log('📍 Test 2: Attempting direct document read...');
+      console.log('📍 (Skipping - need document ID)');
     }
     
-    const locationsSnap = await getDocs(collection(firestore, 'locations'));
-    console.log(`📍 Found ${locationsSnap.size} locations in Firestore`);
+    const locations: Location[] = [];
     
-    const locations = locationsSnap.docs.map(doc => {
-      const data = doc.data();
-      console.log(`📍 Location: ${data.name} (${doc.id})`);
-      return {
-        id: doc.id,
+    locationsSnap.forEach((docSnap) => {
+      console.log('📍 Processing document:', docSnap.id);
+      const data = docSnap.data();
+      console.log('📍 Document data keys:', Object.keys(data));
+      console.log('📍 Document name:', data.name);
+      
+      locations.push({
+        id: docSnap.id,
         ...data
-      } as Location;
+      } as Location);
     });
+    
+    console.log('📍 Total locations processed:', locations.length);
+    console.log('📍 === END DEBUG ===');
     
     return locations;
   } catch (error: any) {
-    console.error('❌ Failed to fetch locations:', error);
-    console.error('❌ Error code:', error.code);
+    console.error('❌ === FETCH LOCATIONS ERROR ===');
+    console.error('❌ Error name:', error.name);
     console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error('❌ === END ERROR ===');
+    throw error;
+  }
+}
+
+/**
+ * Test function to fetch a specific location by ID
+ */
+export async function testFetchSpecificLocation(locationId: string) {
+  try {
+    console.log(`🧪 Testing fetch for location: ${locationId}`);
+    
+    const docRef = doc(firestore, 'locations', locationId);
+    console.log('🧪 Document reference:', docRef.path);
+    
+    const docSnap = await getDoc(docRef);
+    console.log('🧪 Document exists:', docSnap.exists());
+    
+    if (docSnap.exists()) {
+      console.log('🧪 Document data:', docSnap.data());
+      return docSnap.data();
+    } else {
+      console.log('🧪 Document does NOT exist');
+      return null;
+    }
+  } catch (error: any) {
+    console.error('🧪 Test failed:', error);
+    console.error('🧪 Error code:', error.code);
+    console.error('🧪 Error message:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Fetch locations using REST API (fallback method)
+ */
+export async function fetchLocationsViaREST(): Promise<Location[]> {
+  try {
+    const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
+    
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/locations?key=${apiKey}`;
+    
+    console.log('🌐 Fetching via REST API:', url);
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log('🌐 REST API response status:', response.status);
+    console.log('🌐 REST API response:', JSON.stringify(data, null, 2));
+    
+    if (data.documents) {
+      const locations = data.documents.map((doc: any) => {
+        const id = doc.name.split('/').pop();
+        const fields = doc.fields;
+        
+        return {
+          id,
+          name: fields.name?.stringValue || fields.name,
+          address: fields.address?.stringValue || fields.address,
+          assignedOrganizationName: fields.assignedOrganizationName?.stringValue || fields.assignedOrganizationName,
+        } as Location;
+      });
+      
+      console.log('🌐 REST API parsed locations:', locations.length);
+      return locations;
+    }
+    
+    console.warn('🌐 REST API returned no documents');
+    return [];
+  } catch (error: any) {
+    console.error('🌐 REST API failed:', error);
+    console.error('🌐 Error message:', error.message);
     throw error;
   }
 }

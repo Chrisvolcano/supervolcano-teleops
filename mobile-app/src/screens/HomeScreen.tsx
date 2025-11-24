@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchLocations } from '../services/api';
+import { fetchLocations, testFetchSpecificLocation } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
 
@@ -19,14 +19,42 @@ export default function HomeScreen({ navigation }: any) {
     try {
       setLoading(true);
       
-      // DEBUG: Check if Firebase is configured
       console.log('🔍 DEBUG: Starting loadData...');
       console.log('🔍 Firebase Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
       console.log('🔍 API Base URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
       
-      console.log('🔍 Fetching locations from Firestore...');
-      const locs = await fetchLocations();
+      // TEST: Try to fetch a specific location by ID
+      // Replace with one of your actual location IDs from Firebase Console
+      // You can find this in Firebase Console → Firestore → locations → click a document
+      try {
+        console.log('🧪 Running specific document test...');
+        // TODO: Replace this ID with an actual location ID from your Firebase Console
+        const testLocationId = 'bd577ffe-d733-4002-abb8-9ea047c0f326'; // Example ID - replace with real one
+        const testResult = await testFetchSpecificLocation(testLocationId);
+        console.log('🧪 Test result:', testResult ? 'SUCCESS - Document found!' : 'FAILED - Document not found');
+        if (testResult) {
+          console.log('🧪 Test document data:', testResult);
+        }
+      } catch (testError: any) {
+        console.error('🧪 Test error:', testError);
+        console.error('🧪 Test error code:', testError.code);
+        console.error('🧪 Test error message:', testError.message);
+      }
+      
+      console.log('🔍 Fetching all locations...');
+      let locs = await fetchLocations();
       console.log('🔍 Locations fetched:', locs.length);
+      
+      // If SDK returns 0, try REST API as fallback
+      if (locs.length === 0) {
+        console.warn('⚠️ SDK returned 0 locations, trying REST API fallback...');
+        try {
+          locs = await fetchLocationsViaREST();
+          console.log('🌐 REST API returned:', locs.length, 'locations');
+        } catch (restError) {
+          console.error('🌐 REST API also failed:', restError);
+        }
+      }
       
       setLocations(locs);
       
