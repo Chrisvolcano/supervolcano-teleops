@@ -36,7 +36,7 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
             <p className="text-sm text-gray-600 mb-3">{task.description}</p>
           )}
           
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+          <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
             {task.estimated_duration_minutes && (
               <span>~{task.estimated_duration_minutes} min</span>
             )}
@@ -59,6 +59,43 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
               </span>
             )}
           </div>
+          
+          {/* Media Preview */}
+          {task.media && task.media.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {task.media.slice(0, 4).map((mediaItem: any) => (
+                <div
+                  key={mediaItem.id}
+                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
+                >
+                  {mediaItem.mediaType === 'video' ? (
+                    <video
+                      src={mediaItem.storageUrl}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={mediaItem.storageUrl}
+                      alt={mediaItem.fileName || 'Media'}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
+                    <p className="text-[10px] text-white truncate">
+                      {mediaItem.fileName || 'File'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {task.media.length > 4 && (
+                <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center text-xs text-gray-500">
+                  +{task.media.length - 4} more
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-2">

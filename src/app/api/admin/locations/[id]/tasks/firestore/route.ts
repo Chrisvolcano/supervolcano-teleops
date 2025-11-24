@@ -31,8 +31,33 @@ export async function GET(
       .where('status', '==', 'active')
       .get();
     
+    // Get all task IDs to query media
+    const taskIds = tasksSnap.docs.map(doc => doc.id);
+    
+    // Query media for all tasks in parallel
+    const mediaPromises = taskIds.map(async (taskId) => {
+      const mediaSnap = await adminDb
+        .collection('media')
+        .where('locationId', '==', params.id)
+        .where('taskId', '==', taskId)
+        .get();
+      return { taskId, count: mediaSnap.size, media: mediaSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        storageUrl: doc.data().storageUrl,
+        mediaType: doc.data().mediaType,
+        fileName: doc.data().fileName,
+      })) };
+    });
+    
+    const mediaResults = await Promise.all(mediaPromises);
+    const mediaMap = new Map(mediaResults.map(r => [r.taskId, r]));
+    
     const tasks = tasksSnap.docs.map(doc => {
       const data = doc.data();
+      const taskId = doc.id;
+      const mediaData = mediaMap.get(taskId) || { count: 0, media: [] };
+      
       return {
         id: doc.id,
         title: data.title || data.name || 'Unnamed Task',
@@ -43,6 +68,8 @@ export async function GET(
         status: data.status || 'active',
         locationId: params.id,
         createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        media_count: mediaData.count,
+        media: mediaData.media, // Include actual media array
         ...data
       };
     });
