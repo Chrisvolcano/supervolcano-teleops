@@ -14,6 +14,7 @@ import {
 import LocationPreferencesPanel from '@/components/admin/LocationPreferencesPanel';
 import TaskCard from '@/components/admin/TaskCard';
 import TaskFormModal from '@/components/admin/TaskFormModal';
+import { TaskDetailsModal } from '@/components/admin/TaskDetailsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, ClipboardList } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export default function AdminLocationDetailPage() {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   
   useEffect(() => {
     loadLocation();
@@ -353,6 +355,7 @@ export default function AdminLocationDetailPage() {
                   }
                 }}
                 onViewMoments={() => router.push(`/admin/robot-intelligence?taskId=${task.id}`)}
+                onClick={() => setSelectedTask(task)}
               />
             ))
           )}
@@ -388,6 +391,14 @@ export default function AdminLocationDetailPage() {
             await loadTasks();
             console.log('✅ LOCATION PAGE: Tasks reloaded after save');
           }}
+        />
+      )}
+
+      {/* Task Details Modal */}
+      {selectedTask && (
+        <TaskDetailsModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
         />
       )}
     </div>

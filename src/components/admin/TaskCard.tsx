@@ -10,9 +10,10 @@ interface TaskCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onViewMoments?: () => void;
+  onClick?: () => void; // Add this prop
 }
 
-export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: TaskCardProps) {
+export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClick }: TaskCardProps) {
   const { getIdToken } = useAuth();
   const [media, setMedia] = useState<any[]>(task.media || []);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -56,7 +57,10 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments }: Task
   }
   
   return (
-    <div className="p-6 hover:bg-gray-50 transition-colors">
+    <div 
+      onClick={onClick}
+      className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
