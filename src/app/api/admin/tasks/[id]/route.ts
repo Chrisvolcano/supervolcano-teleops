@@ -29,48 +29,88 @@ export async function DELETE(
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
     const taskId = params.id;
-    console.log(`🗑️  Deleting task: ${taskId}`);
+    console.log('═══════════════════════════════════════');
+    console.log(`🗑️  DELETING TASK: ${taskId}`);
+    console.log('═══════════════════════════════════════');
     
-    // Delete from Firestore
-    console.log('Deleting from Firestore...');
-    await adminDb.collection('tasks').doc(taskId).delete();
-    console.log('✅ Deleted from Firestore');
+    // STEP 1: Delete from Firestore FIRST (source of truth)
+    console.log('Step 1: Deleting from Firestore...');
+    const taskRef = adminDb.collection('tasks').doc(taskId);
     
-    // Delete associated media from Firestore
-    const mediaSnapshot = await adminDb
-      .collection('media')
-      .where('taskId', '==', taskId)
-      .get();
+    // Check if task exists first
+    const taskDoc = await taskRef.get();
+    let taskExisted = false;
+    if (!taskDoc.exists) {
+      console.warn(`⚠️  Task ${taskId} not found in Firestore`);
+    } else {
+      taskExisted = true;
+      await taskRef.delete();
+      console.log('✅ Deleted task from Firestore');
+    }
     
-    const mediaDeletePromises = mediaSnapshot.docs.map(doc => doc.ref.delete());
+    // STEP 2: Delete associated media from Firestore
+    console.log('Step 2: Deleting media from Firestore...');
+    const mediaQuery = adminDb.collection('media').where('taskId', '==', taskId);
+    const mediaSnapshot = await mediaQuery.get();
+    
+    console.log(`Found ${mediaSnapshot.size} media items to delete`);
+    
+    const mediaDeletePromises = mediaSnapshot.docs.map(doc => {
+      console.log(`  Deleting media: ${doc.id}`);
+      return doc.ref.delete();
+    });
+    
     await Promise.all(mediaDeletePromises);
     console.log(`✅ Deleted ${mediaSnapshot.size} media items from Firestore`);
     
-    // Delete from SQL database
-    console.log('Deleting from SQL...');
+    // STEP 3: Delete from SQL database
+    console.log('Step 3: Deleting from SQL...');
+    
+    let sqlMediaDeleted = false;
+    let sqlJobDeleted = false;
     
     // Delete media from SQL
     try {
-      await sql`DELETE FROM media WHERE job_id = ${taskId}`;
-      console.log('✅ Deleted media from SQL');
+      const mediaDeleteResult = await sql`DELETE FROM media WHERE job_id = ${taskId}`;
+      sqlMediaDeleted = true;
+      const deletedCount = Array.isArray(mediaDeleteResult) 
+        ? mediaDeleteResult.length 
+        : (mediaDeleteResult as any)?.rowCount || 0;
+      console.log(`✅ Deleted media from SQL (${deletedCount} rows)`);
     } catch (mediaError: any) {
       console.warn('⚠️ Could not delete media from SQL:', mediaError.message);
     }
     
     // Delete job from SQL
     try {
-      await sql`DELETE FROM jobs WHERE id = ${taskId}`;
-      console.log('✅ Deleted job from SQL');
+      const jobDeleteResult = await sql`DELETE FROM jobs WHERE id = ${taskId}`;
+      sqlJobDeleted = true;
+      const deletedCount = Array.isArray(jobDeleteResult)
+        ? jobDeleteResult.length
+        : (jobDeleteResult as any)?.rowCount || 0;
+      console.log(`✅ Deleted job from SQL (${deletedCount} rows)`);
     } catch (jobError: any) {
       console.warn('⚠️ Could not delete job from SQL:', jobError.message);
     }
     
-    console.log(`✅ Task ${taskId} deleted successfully from both databases`);
+    console.log('═══════════════════════════════════════');
+    console.log(`✅ TASK ${taskId} DELETION COMPLETE`);
+    console.log('═══════════════════════════════════════');
     
     return NextResponse.json({
       success: true,
-      message: 'Task deleted successfully',
+      message: 'Task deleted successfully from both Firestore and SQL',
       taskId,
+      deleted: {
+        firestore: {
+          task: taskExisted,
+          media: mediaSnapshot.size,
+        },
+        sql: {
+          job: sqlJobDeleted,
+          media: sqlMediaDeleted,
+        },
+      },
     });
   } catch (error: any) {
     console.error('❌ Failed to delete task:', error);

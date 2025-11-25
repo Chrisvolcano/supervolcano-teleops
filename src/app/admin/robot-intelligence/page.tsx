@@ -388,12 +388,15 @@ export default function RobotIntelligencePage() {
   }
 
   async function handleDeleteTask(taskId: string) {
-    if (!confirm('Are you sure you want to delete this task?')) {
+    const task = tasks.find(t => t.id === taskId);
+    const taskTitle = task?.title || 'this task';
+    
+    if (!confirm(`Delete "${taskTitle}"?\n\nThis will remove it from Firestore and SQL.`)) {
       return;
     }
     
     try {
-      console.log(`Deleting task: ${taskId}`);
+      console.log(`🗑️  Deleting task: ${taskId}`);
       const token = await getIdToken();
       
       const response = await fetch(`/api/admin/tasks/${taskId}`, {
@@ -403,23 +406,40 @@ export default function RobotIntelligencePage() {
         },
       });
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Delete failed: ${response.status} - ${errorText}`);
+      }
+      
       const data = await response.json();
       
       if (!data.success) {
         throw new Error(data.error || 'Failed to delete task');
       }
       
-      console.log('✅ Task deleted successfully');
+      console.log('✅ Task deleted successfully:', data);
       
-      // Remove from UI immediately
-      setTasks(tasks.filter(t => t.id !== taskId));
+      // Update UI immediately
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
       
-      // Reload stats
+      // Update stats count immediately
+      setStats(prevStats => prevStats ? ({
+        ...prevStats,
+        tasks: prevStats.tasks - 1,
+      }) : null);
+      
+      // Show success message
+      alert(`✅ Task deleted: "${taskTitle}"`);
+      
+      // Reload stats to get accurate counts
       await loadStats();
       
     } catch (error: any) {
       console.error('❌ Failed to delete task:', error);
-      alert(`Failed to delete task: ${error.message}`);
+      alert(`Failed to delete task:\n\n${error.message}`);
+      
+      // Reload tasks to show current state
+      await loadTasks();
     }
   }
   
