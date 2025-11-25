@@ -78,7 +78,9 @@ export default function AssignCleanersModal({
       setAssignments(assignmentsData.assignments);
       
       // Pre-select currently assigned cleaners
-      const assignedIds = new Set(assignmentsData.assignments.map((a: Assignment) => a.user_id));
+      const assignedIds = new Set<string>(
+        (assignmentsData.assignments as Assignment[]).map((a) => a.user_id)
+      );
       setSelectedUserIds(assignedIds);
       
     } catch (err: any) {
@@ -257,4 +259,5 @@ export default function AssignCleanersModal({
     </div>
   );
 }
+
 
