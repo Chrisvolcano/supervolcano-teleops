@@ -34,6 +34,7 @@ export interface LocationData {
   address: string;
   addressData?: AddressData;
   organizationId: string;
+  partnerOrgId?: string; // Optional - will be auto-assigned from user claims if not provided
 }
 
 export interface StructureData {
@@ -73,12 +74,17 @@ export default function CreateLocationWizard({
   onSuccess,
 }: CreateLocationWizardProps) {
   const router = useRouter();
-  const { getIdToken } = useAuth();
+  const { getIdToken, claims } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // Get partnerOrgId from user claims if available
+  const partnerOrgId = (claims?.partnerId || claims?.partner_org_id) as string | undefined;
+  
   const [locationData, setLocationData] = useState<LocationData>({
     name: '',
     address: '',
     organizationId,
+    partnerOrgId: partnerOrgId || organizationId, // Use partnerId from claims or fallback to organizationId
   });
   const [structureData, setStructureData] = useState<StructureData>({
     floors: [],

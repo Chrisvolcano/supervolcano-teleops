@@ -85,18 +85,28 @@ export async function POST(request: NextRequest) {
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
-    // Get user email from token (if available)
+    // Get user email and partner ID from token
     let userEmail = 'system';
+    let userPartnerId: string | undefined = undefined;
     try {
-      // Decode token again to get email if available
+      // Decode token again to get email and partnerId
       const decodedToken = await adminAuth.verifyIdToken(token);
       const userRecord = await adminAuth.getUser(decodedToken.uid);
       userEmail = userRecord.email || 'system';
+      // Get partnerId from decoded token (custom claim)
+      userPartnerId = (decodedToken as any).partnerId as string | undefined;
+      console.log('POST /api/admin/locations - User partnerId from token:', userPartnerId);
     } catch (emailError) {
-      console.warn('POST /api/admin/locations - Could not fetch user email:', emailError);
+      console.warn('POST /api/admin/locations - Could not fetch user info:', emailError);
       // Use fallback
       userEmail = 'system';
     }
+    
+    // Also get partnerId from claims (already decoded)
+    const partnerIdFromClaims = claims.partnerId;
+    const finalPartnerId = partnerIdFromClaims || userPartnerId;
+    console.log('POST /api/admin/locations - Partner ID from claims:', partnerIdFromClaims);
+    console.log('POST /api/admin/locations - Final partner ID to use:', finalPartnerId);
     
     // Parse request body
     let body;
@@ -120,21 +130,29 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (!body.partnerOrgId) {
-      console.error('POST /api/admin/locations - Missing partnerOrgId field');
+    // Auto-assign partnerOrgId from user context if not provided
+    const partnerOrgId = body.partnerOrgId || finalPartnerId || body.organizationId;
+    
+    if (!partnerOrgId) {
+      console.error('POST /api/admin/locations - No partnerOrgId available from request or user context');
       return NextResponse.json(
-        { success: false, error: 'Partner organization ID is required' },
+        { 
+          success: false, 
+          error: 'Partner organization ID is required. Please ensure your account is associated with an organization.' 
+        },
         { status: 400 }
       );
     }
+    
+    console.log('POST /api/admin/locations - Using partnerOrgId:', partnerOrgId);
     
     // Prepare location data
     const locationData = {
       name: body.name,
       address: body.address || '',
       addressData: body.addressData || null,
-      partnerOrgId: body.partnerOrgId,
-      assignedOrganizationId: body.partnerOrgId, // Same as partnerOrgId for now
+      partnerOrgId: partnerOrgId,
+      assignedOrganizationId: body.organizationId || partnerOrgId, // Use provided orgId or fallback to partnerOrgId
       status: 'active',
       createdAt: new Date(),
       createdBy: userEmail,
