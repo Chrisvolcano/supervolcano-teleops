@@ -90,16 +90,20 @@ export default function RobotIntelligencePage() {
       }
       
       const data = await response.json();
-      console.log('✅ Stats loaded:', data);
-      console.log('Media count:', data.media);
+      console.log('✅ Stats loaded (raw):', data);
+      console.log('Media count from API:', data.media);
+      console.log('Media count type:', typeof data.media);
       
-      setStats({
-        locations: data.locations || 0,
-        shifts: data.shifts || 0,
-        tasks: data.tasks || 0,
-        executions: data.executions || 0,
-        media: data.media || 0, // Make sure this is set!
-      });
+      const statsData = {
+        locations: Number(data.locations) || 0,
+        shifts: Number(data.shifts) || 0,
+        tasks: Number(data.tasks) || 0,
+        executions: Number(data.executions) || 0,
+        media: Number(data.media) || 0, // Make sure this is set!
+      };
+      
+      console.log('✅ Stats data to set:', statsData);
+      setStats(statsData);
     } catch (error: any) {
       console.error('❌ Failed to load stats:', error);
       setError(`Failed to load stats: ${error.message}`);
