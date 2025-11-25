@@ -45,7 +45,8 @@
         },
         "NSCameraUsageDescription": "This app needs camera access to record cleaning tasks for robot learning.",
         "NSMicrophoneUsageDescription": "This app needs microphone access to record audio with videos.",
-        "NSPhotoLibraryUsageDescription": "This app does NOT save to your photo library."
+        "NSPhotoLibraryUsageDescription": "This app does NOT save to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -56,9 +57,6 @@
       "package": "com.supervolcano.camera",
       "versionCode": 1,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.WRITE_EXTERNAL_STORAGE"

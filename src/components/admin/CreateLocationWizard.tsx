@@ -100,6 +100,8 @@ export default function CreateLocationWizard({
       }
 
       // Step 1: Create location in Firestore
+      console.log('Creating location with data:', locationData);
+      
       const locationResponse = await fetch('/api/admin/locations', {
         method: 'POST',
         headers: { 
@@ -109,7 +111,30 @@ export default function CreateLocationWizard({
         body: JSON.stringify(locationData),
       });
 
-      const locationResult = await locationResponse.json();
+      console.log('Location creation response status:', locationResponse.status);
+      console.log('Location creation response headers:', Object.fromEntries(locationResponse.headers.entries()));
+
+      // Check if response is JSON
+      const contentType = locationResponse.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await locationResponse.text();
+        console.error('Non-JSON response from location API:', text);
+        throw new Error(`Server returned non-JSON response: ${locationResponse.status} ${locationResponse.statusText}`);
+      }
+
+      let locationResult;
+      try {
+        locationResult = await locationResponse.json();
+        console.log('Location creation result:', locationResult);
+      } catch (jsonError) {
+        const text = await locationResponse.text();
+        console.error('Failed to parse JSON response:', text);
+        throw new Error(`Invalid JSON response from server: ${text.substring(0, 200)}`);
+      }
+
+      if (!locationResponse.ok) {
+        throw new Error(locationResult.error || `HTTP error! status: ${locationResponse.status}`);
+      }
 
       if (!locationResult.success) {
         throw new Error(locationResult.error || 'Failed to create location');
@@ -118,8 +143,11 @@ export default function CreateLocationWizard({
       const locationId = locationResult.locationId || locationResult.location?.id;
 
       if (!locationId) {
+        console.error('Location result:', locationResult);
         throw new Error('Location ID not returned from API');
       }
+
+      console.log('Location created successfully with ID:', locationId);
 
       // Step 2: Create structure
       for (const floor of structureData.floors) {
