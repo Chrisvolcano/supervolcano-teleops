@@ -363,8 +363,8 @@ export default function LocationWizardStep2_Structure({
 interface FloorCardProps {
   floor: Floor;
   roomTypes: RoomType[];
-  targetTypes: TargetType[];
-  actionTypes: ActionType[];
+  targetTypes: TargetTypeData[];
+  actionTypes: ActionTypeData[];
   expanded: boolean;
   expandedRooms: Set<string>;
   expandedTargets: Set<string>;
@@ -453,8 +453,8 @@ function FloorCard({
 
 interface RoomCardProps {
   room: Room;
-  targetTypes: TargetType[];
-  actionTypes: ActionType[];
+  targetTypes: TargetTypeData[];
+  actionTypes: ActionTypeData[];
   expanded: boolean;
   expandedTargets: Set<string>;
   onToggle: () => void;
@@ -530,7 +530,7 @@ function RoomCard({
 
 interface TargetCardProps {
   target: TargetType;
-  actionTypes: ActionType[];
+  actionTypes: ActionTypeData[];
   expanded: boolean;
   onToggle: () => void;
   onRemove: () => void;
@@ -632,7 +632,7 @@ function RoomPickerModal({ roomTypes, onSelect, onClose }: RoomPickerModalProps)
 }
 
 interface TargetPickerModalProps {
-  targetTypes: TargetType[];
+  targetTypes: TargetTypeData[];
   onSelect: (id: string) => void;
   onClose: () => void;
 }
@@ -665,7 +665,7 @@ function TargetPickerModal({ targetTypes, onSelect, onClose }: TargetPickerModal
 }
 
 interface ActionPickerModalProps {
-  actionTypes: ActionType[];
+  actionTypes: ActionTypeData[];
   onSelect: (id: string) => void;
   onClose: () => void;
 }
