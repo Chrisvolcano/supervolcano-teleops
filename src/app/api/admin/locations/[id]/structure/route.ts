@@ -29,6 +29,16 @@ export async function GET(
 
     const locationId = params.id;
     
+    console.log('Loading structure for location:', locationId);
+    
+    if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+      console.error('Invalid locationId:', locationId);
+      return NextResponse.json(
+        { success: false, error: 'Invalid location ID' },
+        { status: 400 }
+      );
+    }
+    
     // Get floors
     const floorsResult = await sql`
       SELECT * FROM location_floors
@@ -176,9 +186,18 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    console.error('Failed to fetch location structure:', error);
+    console.error('Failed to fetch location structure - DETAILED ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      locationId: params.id,
+    });
     return NextResponse.json(
-      { success: false, error: error.message },
+      { 
+        success: false, 
+        error: error.message,
+        details: error.code || 'Unknown error',
+      },
       { status: 500 }
     );
   }
