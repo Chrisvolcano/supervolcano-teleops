@@ -31,55 +31,47 @@ export async function DELETE(
     const taskId = params.id;
     console.log(`🗑️  Deleting task: ${taskId}`);
     
+    // Delete from Firestore
+    console.log('Deleting from Firestore...');
+    await adminDb.collection('tasks').doc(taskId).delete();
+    console.log('✅ Deleted from Firestore');
+    
+    // Delete associated media from Firestore
+    const mediaSnapshot = await adminDb
+      .collection('media')
+      .where('taskId', '==', taskId)
+      .get();
+    
+    const mediaDeletePromises = mediaSnapshot.docs.map(doc => doc.ref.delete());
+    await Promise.all(mediaDeletePromises);
+    console.log(`✅ Deleted ${mediaSnapshot.size} media items from Firestore`);
+    
+    // Delete from SQL database
+    console.log('Deleting from SQL...');
+    
+    // Delete media from SQL
     try {
-      // Delete from Firestore
-      console.log('Deleting from Firestore...');
-      await adminDb.collection('tasks').doc(taskId).delete();
-      console.log('✅ Deleted from Firestore');
-      
-      // Delete associated media from Firestore
-      const mediaSnapshot = await adminDb
-        .collection('media')
-        .where('taskId', '==', taskId)
-        .get();
-      
-      const mediaDeletePromises = mediaSnapshot.docs.map(doc => doc.ref.delete());
-      await Promise.all(mediaDeletePromises);
-      console.log(`✅ Deleted ${mediaSnapshot.size} media items from Firestore`);
-      
-      // Delete from SQL database
-      console.log('Deleting from SQL...');
-      
-      // Delete media from SQL
-      try {
-        await sql`DELETE FROM media WHERE job_id = ${taskId}`;
-        console.log('✅ Deleted media from SQL');
-      } catch (mediaError: any) {
-        console.warn('⚠️ Could not delete media from SQL:', mediaError.message);
-      }
-      
-      // Delete job from SQL
-      try {
-        await sql`DELETE FROM jobs WHERE id = ${taskId}`;
-        console.log('✅ Deleted job from SQL');
-      } catch (jobError: any) {
-        console.warn('⚠️ Could not delete job from SQL:', jobError.message);
-      }
-      
-      console.log(`✅ Task ${taskId} deleted successfully from both databases`);
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Task deleted successfully',
-        taskId,
-      });
-    } catch (error: any) {
-      console.error('Failed to delete task:', error);
-      return NextResponse.json(
-        { success: false, error: error.message || 'Failed to delete task' },
-        { status: 500 }
-      );
+      await sql`DELETE FROM media WHERE job_id = ${taskId}`;
+      console.log('✅ Deleted media from SQL');
+    } catch (mediaError: any) {
+      console.warn('⚠️ Could not delete media from SQL:', mediaError.message);
     }
+    
+    // Delete job from SQL
+    try {
+      await sql`DELETE FROM jobs WHERE id = ${taskId}`;
+      console.log('✅ Deleted job from SQL');
+    } catch (jobError: any) {
+      console.warn('⚠️ Could not delete job from SQL:', jobError.message);
+    }
+    
+    console.log(`✅ Task ${taskId} deleted successfully from both databases`);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Task deleted successfully',
+      taskId,
+    });
   } catch (error: any) {
     console.error('❌ Failed to delete task:', error);
     return NextResponse.json(
