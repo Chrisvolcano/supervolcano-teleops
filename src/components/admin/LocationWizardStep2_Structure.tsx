@@ -284,8 +284,8 @@ export default function LocationWizardStep2_Structure({
               }}
               onRemove={() => removeFloor(floor.tempId)}
               onAddRoom={() => setShowRoomPicker({ floorId: floor.tempId })}
-              onRemoveRoom={(roomId) => removeRoom(floor.tempId, roomId)}
-              onToggleRoom={(roomId) => {
+              onRemoveRoom={(roomId: string) => removeRoom(floor.tempId, roomId)}
+              onToggleRoom={(roomId: string) => {
                 const newSet = new Set(expandedRooms);
                 if (newSet.has(roomId)) {
                   newSet.delete(roomId);
@@ -294,9 +294,9 @@ export default function LocationWizardStep2_Structure({
                 }
                 setExpandedRooms(newSet);
               }}
-              onAddTarget={(roomId) => setShowTargetPicker({ floorId: floor.tempId, roomId })}
-              onRemoveTarget={(roomId, targetId) => removeTarget(floor.tempId, roomId, targetId)}
-              onToggleTarget={(targetId) => {
+              onAddTarget={(roomId: string) => setShowTargetPicker({ floorId: floor.tempId, roomId })}
+              onRemoveTarget={(roomId: string, targetId: string) => removeTarget(floor.tempId, roomId, targetId)}
+              onToggleTarget={(targetId: string) => {
                 const newSet = new Set(expandedTargets);
                 if (newSet.has(targetId)) {
                   newSet.delete(targetId);
@@ -305,10 +305,10 @@ export default function LocationWizardStep2_Structure({
                 }
                 setExpandedTargets(newSet);
               }}
-              onAddAction={(roomId, targetId) =>
+              onAddAction={(roomId: string, targetId: string) =>
                 setShowActionPicker({ floorId: floor.tempId, roomId, targetId })
               }
-              onRemoveAction={(roomId, targetId, actionIndex) =>
+              onRemoveAction={(roomId: string, targetId: string, actionIndex: number) =>
                 removeAction(floor.tempId, roomId, targetId, actionIndex)
               }
             />
