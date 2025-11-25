@@ -360,6 +360,26 @@ export default function LocationWizardStep2_Structure({
   );
 }
 
+interface FloorCardProps {
+  floor: Floor;
+  roomTypes: RoomType[];
+  targetTypes: TargetType[];
+  actionTypes: ActionType[];
+  expanded: boolean;
+  expandedRooms: Set<string>;
+  expandedTargets: Set<string>;
+  onToggle: () => void;
+  onRemove: () => void;
+  onAddRoom: () => void;
+  onRemoveRoom: (roomId: string) => void;
+  onToggleRoom: (roomId: string) => void;
+  onAddTarget: (roomId: string) => void;
+  onRemoveTarget: (roomId: string, targetId: string) => void;
+  onToggleTarget: (targetId: string) => void;
+  onAddAction: (roomId: string, targetId: string) => void;
+  onRemoveAction: (roomId: string, targetId: string, actionIndex: number) => void;
+}
+
 function FloorCard({
   floor,
   roomTypes,
@@ -378,7 +398,7 @@ function FloorCard({
   onToggleTarget,
   onAddAction,
   onRemoveAction,
-}: any) {
+}: FloorCardProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="p-4 flex items-center justify-between bg-gray-50">
@@ -431,6 +451,21 @@ function FloorCard({
   );
 }
 
+interface RoomCardProps {
+  room: Room;
+  targetTypes: TargetType[];
+  actionTypes: ActionType[];
+  expanded: boolean;
+  expandedTargets: Set<string>;
+  onToggle: () => void;
+  onRemove: () => void;
+  onAddTarget: () => void;
+  onRemoveTarget: (targetId: string) => void;
+  onToggleTarget: (targetId: string) => void;
+  onAddAction: (targetId: string) => void;
+  onRemoveAction: (targetId: string, actionIndex: number) => void;
+}
+
 function RoomCard({
   room,
   targetTypes,
@@ -444,7 +479,7 @@ function RoomCard({
   onToggleTarget,
   onAddAction,
   onRemoveAction,
-}: any) {
+}: RoomCardProps) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="p-3 flex items-center justify-between bg-white">
@@ -493,6 +528,16 @@ function RoomCard({
   );
 }
 
+interface TargetCardProps {
+  target: TargetType;
+  actionTypes: ActionType[];
+  expanded: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  onAddAction: () => void;
+  onRemoveAction: (actionIndex: number) => void;
+}
+
 function TargetCard({
   target,
   actionTypes,
@@ -501,7 +546,7 @@ function TargetCard({
   onRemove,
   onAddAction,
   onRemoveAction,
-}: any) {
+}: TargetCardProps) {
   return (
     <div className="border border-gray-200 rounded bg-white">
       <div className="p-2 flex items-center justify-between">
@@ -580,7 +625,13 @@ function RoomPickerModal({ roomTypes, onSelect, onClose }: any) {
   );
 }
 
-function TargetPickerModal({ targetTypes, onSelect, onClose }: any) {
+interface TargetPickerModalProps {
+  targetTypes: TargetType[];
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}
+
+function TargetPickerModal({ targetTypes, onSelect, onClose }: TargetPickerModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
@@ -607,7 +658,13 @@ function TargetPickerModal({ targetTypes, onSelect, onClose }: any) {
   );
 }
 
-function ActionPickerModal({ actionTypes, onSelect, onClose }: any) {
+interface ActionPickerModalProps {
+  actionTypes: ActionType[];
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}
+
+function ActionPickerModal({ actionTypes, onSelect, onClose }: ActionPickerModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full">

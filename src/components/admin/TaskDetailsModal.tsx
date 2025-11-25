@@ -249,6 +249,7 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
                           }`}
                         >
                           {item.thumbnailUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={item.thumbnailUrl}
                               alt={`Video ${index + 1}`}
@@ -282,6 +283,7 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
                           className="relative aspect-video bg-slate-100 rounded-lg overflow-hidden border-2 border-transparent hover:border-slate-300 transition-all"
                         >
                           {item.thumbnailUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={item.thumbnailUrl}
                               alt={`Image ${index + 1}`}
@@ -289,6 +291,7 @@ export function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
                             />
                           ) : (
                             <div className="flex items-center justify-center h-full">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={item.storageUrl}
                                 alt={`Image ${index + 1}`}

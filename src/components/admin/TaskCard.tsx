@@ -8,13 +8,14 @@ import VideoPlayerModal from './VideoPlayerModal';
 
 interface TaskCardProps {
   task: any;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onViewMoments?: () => void;
-  onClick?: () => void; // Add this prop
+  onClick?: () => void;
+  onUpdate?: () => void | Promise<void>; // Add this prop
 }
 
-export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClick }: TaskCardProps) {
+export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClick, onUpdate }: TaskCardProps) {
   const { getIdToken } = useAuth();
   const [media, setMedia] = useState<any[]>(task.media || []);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -121,6 +122,7 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
                           </div>
                         </div>
                       ) : item.thumbnailUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img 
                           src={item.thumbnailUrl} 
                           alt={item.fileName}
