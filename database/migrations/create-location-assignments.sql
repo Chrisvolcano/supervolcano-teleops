@@ -61,3 +61,4 @@ COMMENT ON COLUMN location_assignments.location_id IS 'UUID of the location from
 COMMENT ON COLUMN location_assignments.is_active IS 'Soft delete flag - set to false instead of deleting';
 
 
+
