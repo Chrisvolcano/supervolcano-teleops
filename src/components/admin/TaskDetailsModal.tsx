@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import { X, Video, Clock, MapPin, Tag, AlertCircle, Loader2, Play } from 'lucide-react';

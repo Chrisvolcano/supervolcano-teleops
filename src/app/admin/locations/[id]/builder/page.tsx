@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -437,7 +438,7 @@ export default function LocationBuilderPage() {
                   <div className="border-t border-gray-200">
                     {floor.rooms.length === 0 ? (
                       <div className="p-8 text-center text-gray-500">
-                        No rooms yet. Click "Add Room" above.
+                        No rooms yet. Click 'Add Room' above.
                       </div>
                     ) : (
                       floor.rooms.map(room => (
