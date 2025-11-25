@@ -211,7 +211,7 @@ export default function RobotIntelligencePage() {
   }
 
   async function handleCleanupTasks() {
-    if (!confirm('Are you sure you want to delete unwanted tasks? This will remove:\n- Drone reconnaissance sweep\n- Unnamed general tasks\n- Thermal sensor calibration')) {
+    if (!confirm('Delete unwanted tasks (drone, thermal sensor, unnamed general)? This cannot be undone.')) {
       return;
     }
 
@@ -228,30 +228,25 @@ export default function RobotIntelligencePage() {
       });
 
       const data = await response.json();
-      console.log('Cleanup response:', data);
+      console.log('✅ Cleanup complete:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Cleanup failed');
       }
 
-      alert(`✅ Cleanup complete!\n\nDeleted ${data.deletedCount} tasks:\n${data.deletedTasks.join('\n')}\n\nRe-syncing to update SQL database...`);
+      alert(
+        `✅ Cleanup complete!\n\n` +
+        `Deleted ${data.deletedCount} tasks:\n` +
+        data.deletedTasks.map((t: any) => `- ${t.title || t.id || t}`).join('\n') +
+        `\n\nNow syncing to SQL...`
+      );
+
+      // Re-sync to update SQL
+      await syncData();
       
-      // Re-sync after cleanup to update SQL, then reload UI
-      try {
-        await syncData();
-        
-        // Wait a moment for sync to complete, then force reload
-        setTimeout(async () => {
-          console.log('🔄 Reloading tasks and stats after cleanup...');
-          await loadTasks();
-          await loadStats();
-        }, 1000);
-      } catch (syncError) {
-        console.error('Sync after cleanup failed:', syncError);
-        // Still reload even if sync fails
-        await loadTasks();
-        await loadStats();
-      }
+      // Reload UI after sync
+      await loadTasks();
+      await loadStats();
       
     } catch (error: any) {
       console.error('❌ Cleanup error:', error);
@@ -392,28 +387,39 @@ export default function RobotIntelligencePage() {
     }
   }
 
-  async function deleteTask(id: string) {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm('Are you sure you want to delete this task?')) {
+      return;
+    }
     
     try {
+      console.log(`Deleting task: ${taskId}`);
       const token = await getIdToken();
-      const response = await fetch(`/api/admin/tasks/${id}`, {
+      
+      const response = await fetch(`/api/admin/tasks/${taskId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      if (response.ok) {
-        loadTasks();
-        loadStats();
-      } else {
-        const data = await response.json();
-        alert('Failed to delete: ' + (data.error || 'Unknown error'));
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete task');
       }
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      alert('Failed to delete task');
+      
+      console.log('✅ Task deleted successfully');
+      
+      // Remove from UI immediately
+      setTasks(tasks.filter(t => t.id !== taskId));
+      
+      // Reload stats
+      await loadStats();
+      
+    } catch (error: any) {
+      console.error('❌ Failed to delete task:', error);
+      alert(`Failed to delete task: ${error.message}`);
     }
   }
   
@@ -834,9 +840,10 @@ export default function RobotIntelligencePage() {
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => deleteTask(task.id)}
+                      onClick={() => handleDeleteTask(task.id)}
                       className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       aria-label="Delete task"
+                      title="Delete task"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

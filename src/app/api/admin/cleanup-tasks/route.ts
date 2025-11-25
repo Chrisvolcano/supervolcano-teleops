@@ -21,82 +21,55 @@ export async function POST(request: Request) {
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    console.log('🧹 Cleaning up unwanted tasks from Firestore and SQL...');
-    
-    const tasksToDelete = [
-      'Drone reconnaissance sweep',
-      'general',
-      'Thermal sensor calibration',
-    ];
+    console.log('🧹 Cleaning up unwanted tasks from Firestore...');
     
     try {
-      // Step 1: Delete from Firestore
       const tasksRef = adminDb.collection('tasks');
       const snapshot = await tasksRef.get();
       
-      console.log(`📋 Found ${snapshot.docs.length} tasks in Firestore`);
+      console.log(`📋 Found ${snapshot.size} total tasks`);
       
-      let deletedFromFirestore = 0;
-      const deletedTasks: string[] = [];
-      const deletedTaskIds: string[] = [];
+      let deletedCount = 0;
+      const deletedTasks: Array<{id: string, title: string}> = [];
+      
+      // Define unwanted task patterns
+      const unwantedPatterns = [
+        'drone reconnaissance',
+        'thermal sensor calibration',
+      ];
       
       for (const doc of snapshot.docs) {
         const data = doc.data();
         const title = (data.title || '').toLowerCase();
         const actualTitle = data.title || '';
         
-        console.log(`Checking task: ${doc.id} - "${actualTitle}" (category: ${data.category})`);
+        // Check if task matches unwanted patterns
+        const isUnwanted = 
+          unwantedPatterns.some(pattern => title.includes(pattern)) ||
+          (title === 'general' || title === '') ||
+          (data.category === 'general' && !title);
         
-        // Check if task matches any of the unwanted tasks
-        const shouldDelete = tasksToDelete.some(unwanted => {
-          const unwantedLower = unwanted.toLowerCase();
-          return (
-            title.includes(unwantedLower) ||
-            actualTitle === unwanted ||
-            (actualTitle === '' && data.category === 'general') ||
-            actualTitle === 'general' ||
-            (unwanted === 'general' && data.category === 'general' && !actualTitle)
-          );
-        });
-        
-        if (shouldDelete) {
-          console.log(`✓ Deleting from Firestore: ${doc.id} - "${actualTitle || 'unnamed'}"`);
+        if (isUnwanted) {
+          console.log(`Deleting task: ${doc.id} - "${actualTitle || 'unnamed'}"`);
+          
+          // Delete from Firestore
           await doc.ref.delete();
-          deletedTasks.push(actualTitle || doc.id);
-          deletedTaskIds.push(doc.id);
-          deletedFromFirestore++;
+          
+          deletedTasks.push({
+            id: doc.id,
+            title: actualTitle || 'unnamed',
+          });
+          deletedCount++;
         }
       }
       
-      console.log(`✅ Deleted ${deletedFromFirestore} tasks from Firestore`);
-      
-      // Step 2: Delete from SQL (jobs table) using task IDs
-      let deletedFromSQL = 0;
-      if (deletedTaskIds.length > 0) {
-        console.log(`🗄️ Deleting ${deletedTaskIds.length} tasks from SQL...`);
-        for (const taskId of deletedTaskIds) {
-          try {
-            // Try to delete by Firestore ID (stored in jobs.firestore_id or jobs.id)
-            const result = await sql`
-              DELETE FROM jobs 
-              WHERE id = ${taskId} OR firestore_id = ${taskId}
-            `;
-            deletedFromSQL++;
-            console.log(`✓ Deleted from SQL: ${taskId}`);
-          } catch (sqlError: any) {
-            console.warn(`⚠️ Could not delete ${taskId} from SQL:`, sqlError.message);
-          }
-        }
-      }
-      
-      console.log(`✅ Cleanup complete: ${deletedFromFirestore} from Firestore, ${deletedFromSQL} from SQL`);
+      console.log(`✅ Deleted ${deletedCount} unwanted tasks from Firestore`);
       
       return NextResponse.json({
         success: true,
-        deletedCount: deletedFromFirestore,
-        deletedFromSQL,
+        deletedCount,
         deletedTasks,
-        message: `Deleted ${deletedFromFirestore} tasks from Firestore and ${deletedFromSQL} from SQL`,
+        message: `Deleted ${deletedCount} unwanted tasks. Run sync to update SQL.`,
       });
       
     } catch (error: any) {
