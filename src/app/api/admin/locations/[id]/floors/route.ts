@@ -31,9 +31,19 @@ export async function POST(
     const body = await request.json();
     const { name, sort_order } = body;
     
+    console.log('Creating floor:', { locationId, name, sort_order });
+    
     if (!name) {
       return NextResponse.json(
         { success: false, error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+      console.error('Invalid locationId:', locationId);
+      return NextResponse.json(
+        { success: false, error: 'Invalid location ID' },
         { status: 400 }
       );
     }
@@ -46,14 +56,25 @@ export async function POST(
     
     const floor = Array.isArray(result) ? result[0] : (result as any)?.rows?.[0];
     
+    console.log('Floor created successfully:', floor);
+    
     return NextResponse.json({
       success: true,
       floor,
     });
   } catch (error: any) {
-    console.error('Failed to create floor:', error);
+    console.error('Failed to create floor - DETAILED ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      locationId: params.id,
+    });
     return NextResponse.json(
-      { success: false, error: error.message },
+      { 
+        success: false, 
+        error: error.message,
+        details: error.code || 'Unknown error',
+      },
       { status: 500 }
     );
   }

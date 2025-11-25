@@ -1,0 +1,714 @@
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable react-hooks/exhaustive-deps */
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Plus,
+  Building2,
+  Home,
+  Target,
+  Zap,
+  ChevronRight,
+  ChevronDown,
+  Sparkles,
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+
+interface RoomType {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+interface TargetType {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface ActionType {
+  id: string;
+  name: string;
+  estimated_duration_minutes: number;
+}
+
+interface Floor {
+  id: string;
+  name: string;
+  rooms: Room[];
+}
+
+interface Room {
+  id: string;
+  room_type_name: string;
+  custom_name: string;
+  room_type_icon: string;
+  room_type_color: string;
+  targets: TargetItem[];
+}
+
+interface TargetItem {
+  id: string;
+  target_type_name: string;
+  custom_name: string;
+  target_type_icon: string;
+  actions: Action[];
+}
+
+interface Action {
+  id: string;
+  action_type_name: string;
+  default_duration: number;
+}
+
+export default function LocationStructureTab({ locationId }: { locationId: string }) {
+  const { getIdToken } = useAuth();
+
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [targetTypes, setTargetTypes] = useState<TargetType[]>([]);
+  const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
+
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [roomsWithoutFloors, setRoomsWithoutFloors] = useState<Room[]>([]);
+  
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
+  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
+  const [expandedTargets, setExpandedTargets] = useState<Set<string>>(new Set());
+  
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  
+  // Modals
+  const [showAddFloorModal, setShowAddFloorModal] = useState(false);
+  const [showAddRoomModal, setShowAddRoomModal] = useState(false);
+  const [showAddTargetModal, setShowAddTargetModal] = useState(false);
+  const [showAddActionModal, setShowAddActionModal] = useState(false);
+  
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+
+  const loadLibrary = useCallback(async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const [roomTypesRes, targetTypesRes, actionTypesRes] = await Promise.all([
+        fetch('/api/admin/library/room-types', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch('/api/admin/library/target-types', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch('/api/admin/library/action-types', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+      ]);
+
+      const roomTypesData = await roomTypesRes.json();
+      const targetTypesData = await targetTypesRes.json();
+      const actionTypesData = await actionTypesRes.json();
+
+      if (roomTypesData.success) setRoomTypes(roomTypesData.roomTypes);
+      if (targetTypesData.success) setTargetTypes(targetTypesData.targetTypes);
+      if (actionTypesData.success) setActionTypes(actionTypesData.actionTypes);
+    } catch (error) {
+      console.error('Failed to load library:', error);
+    }
+  }, [getIdToken]);
+
+  const loadStructure = useCallback(async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/locations/${locationId}/structure`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setFloors(data.structure.floors);
+        setRoomsWithoutFloors(data.structure.roomsWithoutFloors);
+        
+        // Auto-expand first floor and first room
+        if (data.structure.floors.length > 0) {
+          const firstFloor = data.structure.floors[0];
+          setExpandedFloors(new Set([firstFloor.id]));
+          
+          if (firstFloor.rooms.length > 0) {
+            setExpandedRooms(new Set([firstFloor.rooms[0].id]));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load structure:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [locationId, getIdToken]);
+
+  useEffect(() => {
+    loadLibrary();
+    loadStructure();
+  }, [loadLibrary, loadStructure]);
+
+  async function handleAddFloor(name: string) {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await loadStructure();
+        setShowAddFloorModal(false);
+      } else {
+        alert('Failed to add floor: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Failed to add floor:', error);
+      alert('Failed to add floor: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  async function handleAddRoom(roomTypeId: string, customName?: string) {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/locations/${locationId}/rooms`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          room_type_id: roomTypeId,
+          floor_id: selectedFloorId,
+          custom_name: customName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await loadStructure();
+        setShowAddRoomModal(false);
+      } else {
+        alert('Failed to add room: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Failed to add room:', error);
+      alert('Failed to add room: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  async function handleAddTarget(targetTypeId: string) {
+    if (!selectedRoomId) return;
+
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/rooms/${selectedRoomId}/targets`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ target_type_id: targetTypeId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await loadStructure();
+        setShowAddTargetModal(false);
+      } else {
+        alert('Failed to add target: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Failed to add target:', error);
+      alert('Failed to add target: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  async function handleAddAction(actionTypeId: string) {
+    if (!selectedTargetId) return;
+
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/targets/${selectedTargetId}/actions`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action_type_id: actionTypeId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await loadStructure();
+        setShowAddActionModal(false);
+      } else {
+        alert('Failed to add action: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Failed to add action:', error);
+      alert('Failed to add action: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  async function handleGenerateTasks() {
+    setGenerating(true);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/locations/${locationId}/generate-tasks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`✅ Generated ${data.tasksCreated} tasks!`);
+      } else {
+        alert('Failed to generate tasks: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Failed to generate tasks:', error);
+      alert('Failed to generate tasks: ' + (error.message || 'Unknown error'));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const toggleFloor = (floorId: string) => {
+    const newSet = new Set(expandedFloors);
+    if (newSet.has(floorId)) {
+      newSet.delete(floorId);
+    } else {
+      newSet.add(floorId);
+    }
+    setExpandedFloors(newSet);
+  };
+
+  const toggleRoom = (roomId: string) => {
+    const newSet = new Set(expandedRooms);
+    if (newSet.has(roomId)) {
+      newSet.delete(roomId);
+    } else {
+      newSet.add(roomId);
+    }
+    setExpandedRooms(newSet);
+  };
+
+  const toggleTarget = (targetId: string) => {
+    const newSet = new Set(expandedTargets);
+    if (newSet.has(targetId)) {
+      newSet.delete(targetId);
+    } else {
+      newSet.add(targetId);
+    }
+    setExpandedTargets(newSet);
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading structure...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Action Bar */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-900">Location Structure</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Build your location structure, then generate tasks
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAddFloorModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Floor
+          </button>
+          <button
+            onClick={handleGenerateTasks}
+            disabled={generating || floors.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Sparkles className="h-4 w-4" />
+            {generating ? 'Generating...' : 'Generate Tasks'}
+          </button>
+        </div>
+      </div>
+
+      {/* Structure Display */}
+      {floors.length === 0 && roomsWithoutFloors.length === 0 ? (
+        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+          <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Start Building Your Location
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Add floors and rooms to create the structure of this location
+          </p>
+          <button
+            onClick={() => setShowAddFloorModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add First Floor
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {floors.map(floor => (
+            <div key={floor.id} className="bg-white rounded-lg border border-gray-200">
+              {/* Floor Header */}
+              <button
+                onClick={() => toggleFloor(floor.id)}
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {expandedFloors.has(floor.id) ? (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  )}
+                  <Building2 className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-gray-900">{floor.name}</span>
+                  <span className="text-sm text-gray-500">
+                    ({floor.rooms.length} rooms)
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFloorId(floor.id);
+                    setShowAddRoomModal(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-white"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Room
+                </button>
+              </button>
+
+              {/* Rooms */}
+              {expandedFloors.has(floor.id) && (
+                <div className="border-t border-gray-200 p-4 space-y-3">
+                  {floor.rooms.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No rooms yet. Click Add Room above.
+                    </p>
+                  ) : (
+                    floor.rooms.map(room => (
+                      <div key={room.id} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Home className="h-4 w-4" style={{ color: room.room_type_color }} />
+                            <span className="font-medium text-gray-900">
+                              {room.custom_name || room.room_type_name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedRoomId(room.id);
+                              setShowAddTargetModal(true);
+                            }}
+                            className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            + Target
+                          </button>
+                        </div>
+                        {room.targets.length === 0 ? (
+                          <p className="text-xs text-gray-500">No targets yet</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {room.targets.map(target => (
+                              <div key={target.id} className="ml-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <Target className="h-3 w-3 text-purple-600" />
+                                  <span>{target.custom_name || target.target_type_name}</span>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTargetId(target.id);
+                                      setShowAddActionModal(true);
+                                    }}
+                                    className="text-xs px-1.5 py-0.5 border border-gray-300 rounded"
+                                  >
+                                    + Action
+                                  </button>
+                                </div>
+                                {target.actions.length > 0 && (
+                                  <div className="ml-5 mt-1 space-y-1">
+                                    {target.actions.map(action => (
+                                      <div key={action.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                                        <Zap className="h-3 w-3 text-green-600" />
+                                        <span>{action.action_type_name} ({action.default_duration}min)</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals - Simplified versions */}
+      {showAddFloorModal && (
+        <AddFloorModal
+          onClose={() => setShowAddFloorModal(false)}
+          onAdd={handleAddFloor}
+        />
+      )}
+
+      {showAddRoomModal && (
+        <AddRoomModal
+          roomTypes={roomTypes}
+          onClose={() => setShowAddRoomModal(false)}
+          onAdd={handleAddRoom}
+        />
+      )}
+
+      {showAddTargetModal && (
+        <AddTargetModal
+          targetTypes={targetTypes}
+          onClose={() => setShowAddTargetModal(false)}
+          onAdd={handleAddTarget}
+        />
+      )}
+
+      {showAddActionModal && (
+        <AddActionModal
+          actionTypes={actionTypes}
+          onClose={() => setShowAddActionModal(false)}
+          onAdd={handleAddAction}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal Components
+function AddFloorModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: string) => void }) {
+  const [name, setName] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Floor</h3>
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="e.g., 1st Floor, 2nd Floor, Basement"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+          autoFocus
+          onKeyDown={e => e.key === 'Enter' && name && onAdd(name)}
+        />
+        <div className="flex items-center gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => name && onAdd(name)}
+            disabled={!name}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add Floor
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddRoomModal({ roomTypes, onClose, onAdd }: { roomTypes: RoomType[]; onClose: () => void; onAdd: (roomTypeId: string, customName?: string) => void }) {
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
+  const [customName, setCustomName] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Add Room</h3>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {roomTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setSelectedRoomTypeId(type.id)}
+                className={`p-3 border-2 rounded-lg text-left transition-all ${
+                  selectedRoomTypeId === type.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <span className="font-medium">{type.name}</span>
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            value={customName}
+            onChange={e => setCustomName(e.target.value)}
+            placeholder="Custom name (optional)"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+          />
+        </div>
+        <div className="p-6 border-t border-gray-200 flex items-center gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => selectedRoomTypeId && onAdd(selectedRoomTypeId, customName || undefined)}
+            disabled={!selectedRoomTypeId}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add Room
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddTargetModal({ targetTypes, onClose, onAdd }: { targetTypes: TargetType[]; onClose: () => void; onAdd: (targetTypeId: string) => void }) {
+  const [selectedTargetTypeId, setSelectedTargetTypeId] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Add Target</h3>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-3">
+            {targetTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setSelectedTargetTypeId(type.id)}
+                className={`p-3 border-2 rounded-lg text-left transition-all ${
+                  selectedTargetTypeId === type.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <span className="font-medium">{type.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-6 border-t border-gray-200 flex items-center gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => selectedTargetTypeId && onAdd(selectedTargetTypeId)}
+            disabled={!selectedTargetTypeId}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add Target
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddActionModal({ actionTypes, onClose, onAdd }: { actionTypes: ActionType[]; onClose: () => void; onAdd: (actionTypeId: string) => void }) {
+  const [selectedActionTypeId, setSelectedActionTypeId] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Add Action</h3>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-3">
+            {actionTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setSelectedActionTypeId(type.id)}
+                className={`p-3 border-2 rounded-lg text-left transition-all ${
+                  selectedActionTypeId === type.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium">{type.name}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {type.estimated_duration_minutes}min
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-6 border-t border-gray-200 flex items-center gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => selectedActionTypeId && onAdd(selectedActionTypeId)}
+            disabled={!selectedActionTypeId}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add Action
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
