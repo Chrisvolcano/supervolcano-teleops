@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   MapPin, 
@@ -52,11 +52,13 @@ export default function AdminLocationsPage() {
     }
   }
   
-  const filteredLocations = locations.filter(loc =>
-    loc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    loc.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    loc.assignedOrganizationName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLocations = useMemo(() => {
+    return locations.filter(loc =>
+      loc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loc.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loc.assignedOrganizationName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [locations, searchTerm]);
   
   return (
     <div className="space-y-6">
@@ -111,71 +113,73 @@ export default function AdminLocationsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredLocations.map((location) => (
-            <div
-              key={location.id}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:border-purple-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-purple-600" />
-                </div>
-                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-              </div>
-              
-              <button
-                onClick={() => router.push(`/admin/locations/${location.id}`)}
-                className="text-left w-full"
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredLocations.map((location) => (
+              <div
+                key={location.id}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:border-purple-300 hover:shadow-md transition-all group"
               >
-                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-purple-600 transition-colors">
-                  {location.name}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">{location.address}</p>
-                
-                {location.assignedOrganizationName && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Building2 className="h-3 w-3" />
-                    <span>{location.assignedOrganizationName}</span>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-purple-600" />
                   </div>
-                )}
-              </button>
-              
-              {/* Assign Cleaners Button */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+                </div>
+                
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedLocationId(location.id);
-                    setSelectedLocationName(location.name);
-                    setAssignModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors w-full"
+                  onClick={() => router.push(`/admin/locations/${location.id}`)}
+                  className="text-left w-full"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Assign Cleaners
+                  <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-purple-600 transition-colors">
+                    {location.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">{location.address}</p>
+                  
+                  {location.assignedOrganizationName && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Building2 className="h-3 w-3" />
+                      <span>{location.assignedOrganizationName}</span>
+                    </div>
+                  )}
                 </button>
+                
+                {/* Assign Cleaners Button */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedLocationId(location.id);
+                      setSelectedLocationName(location.name);
+                      setAssignModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors w-full"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Assign Cleaners
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Assignment Modal */}
-        {assignModalOpen && selectedLocationId && (
-          <AssignCleanersModal
-            locationId={selectedLocationId}
-            locationName={selectedLocationName}
-            onClose={() => {
-              setAssignModalOpen(false);
-              setSelectedLocationId(null);
-              setSelectedLocationName('');
-            }}
-            onSuccess={() => {
-              // Optionally reload locations to show assignment count
-              loadLocations();
-            }}
-          />
-        )}
+            ))}
+          </div>
+          
+          {/* Assignment Modal */}
+          {assignModalOpen && selectedLocationId && (
+            <AssignCleanersModal
+              locationId={selectedLocationId}
+              locationName={selectedLocationName}
+              onClose={() => {
+                setAssignModalOpen(false);
+                setSelectedLocationId(null);
+                setSelectedLocationName('');
+              }}
+              onSuccess={() => {
+                // Optionally reload locations to show assignment count
+                loadLocations();
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );
