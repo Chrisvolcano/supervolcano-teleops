@@ -10,7 +10,8 @@
       "policy": "appVersion"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/88f8aa67-5bcd-49af-8bee-f4502c1d1ff7"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -57,6 +58,9 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "edgeToEdgeEnabled": true,
@@ -73,6 +77,11 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "88f8aa67-5bcd-49af-8bee-f4502c1d1ff7"
+      }
+    }
   }
 }

@@ -387,7 +387,36 @@ export const getValidTargets = (room: string): string[] => {
 
 // Get valid actions for a room+target combo
 export const getValidActions = (room: string, target: string): string[] => {
-  return ACTION_MAP[room]?.[target] || [];
+  if (!room || !target) return [];
+  
+  // Normalize keys - convert to lowercase and replace spaces with underscores
+  const roomKey = room.toLowerCase().trim().replace(/\s+/g, '_');
+  const targetKey = target.toLowerCase().trim().replace(/\s+/g, '_');
+  
+  console.log('getValidActions lookup:', { roomKey, targetKey, room, target });
+  
+  // Try exact match first
+  let actions = ACTION_MAP[roomKey]?.[targetKey];
+  
+  // If no exact match, try matching target name directly (handles "Desk" vs "desk")
+  if (!actions || actions.length === 0) {
+    // Try finding target in any room's targets
+    for (const [rKey, targets] of Object.entries(ACTION_MAP)) {
+      if (rKey === roomKey) {
+        // Check if target matches any key (case-insensitive)
+        const matchingKey = Object.keys(targets).find(
+          key => key.toLowerCase() === targetKey
+        );
+        if (matchingKey) {
+          actions = targets[matchingKey];
+          break;
+        }
+      }
+    }
+  }
+  
+  console.log('Found actions:', actions);
+  return actions || [];
 };
 
 // Get valid tools for a room+target+action combo

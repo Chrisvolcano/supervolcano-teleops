@@ -7,6 +7,8 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Home, Target, Zap } from 'luci
 import { StructureData, Floor, Room, Target as TargetType, Action } from './CreateLocationWizard';
 import { useAuth } from '@/hooks/useAuth';
 import { getValidTargetsForRoom } from '@/constants/roomTargetMap';
+import ActionSelectionModal from './ActionSelectionModal';
+import ToolSelectionModal from './ToolSelectionModal';
 
 interface RoomType {
   id: string;
@@ -43,6 +45,12 @@ export default function LocationWizardStep2_Structure({
   const [showRoomPicker, setShowRoomPicker] = useState<{ floorId: string } | null>(null);
   const [showTargetPicker, setShowTargetPicker] = useState<{ floorId: string; roomId: string } | null>(null);
   const [showActionPicker, setShowActionPicker] = useState<{ floorId: string; roomId: string; targetId: string } | null>(null);
+  const [showToolPicker, setShowToolPicker] = useState<{ floorId: string; roomId: string; targetId: string; actionName: string } | null>(null);
+  
+  // Store current context for action/tool modals
+  const [currentRoomForAction, setCurrentRoomForAction] = useState<any>(null);
+  const [currentTargetForAction, setCurrentTargetForAction] = useState<any>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   useEffect(() => {
     loadLibrary();
@@ -173,14 +181,18 @@ export default function LocationWizardStep2_Structure({
     floorId: string,
     roomId: string,
     targetId: string,
-    actionTypeId: string
+    actionName: string,
+    toolName?: string
   ) {
-    const actionType = actionTypes.find((at) => at.id === actionTypeId);
-    if (!actionType) return;
+    // Find matching action type by name (fallback to creating from name)
+    const actionType = actionTypes.find((at) => 
+      at.name.toLowerCase() === actionName.toLowerCase()
+    );
 
     const newAction: Action = {
-      actionTypeId,
-      actionTypeName: actionType.name,
+      actionTypeId: actionType?.id || `action-${Date.now()}`,
+      actionTypeName: actionName,
+      tool: toolName || undefined,
     };
 
     onChange({
@@ -306,9 +318,23 @@ export default function LocationWizardStep2_Structure({
                 }
                 setExpandedTargets(newSet);
               }}
-              onAddAction={(roomId: string, targetId: string) =>
-                setShowActionPicker({ floorId: floor.tempId, roomId, targetId })
-              }
+              onAddAction={(roomId: string, targetId: string) => {
+                const room = floor.rooms.find(r => r.tempId === roomId);
+                const target = room?.targets.find(t => t.tempId === targetId);
+                const roomType = roomTypes.find(rt => rt.name === room?.roomTypeName);
+                
+                if (room && target) {
+                  setCurrentRoomForAction({ 
+                    name: room.roomTypeName, 
+                    type: roomType?.name || room.roomTypeName 
+                  });
+                  setCurrentTargetForAction({ 
+                    name: target.targetTypeName, 
+                    type: target.targetTypeName 
+                  });
+                  setShowActionPicker({ floorId: floor.tempId, roomId, targetId });
+                }
+              }}
               onRemoveAction={(roomId: string, targetId: string, actionIndex: number) =>
                 removeAction(floor.tempId, roomId, targetId, actionIndex)
               }
@@ -349,20 +375,67 @@ export default function LocationWizardStep2_Structure({
         );
       })()}
 
-      {/* Action Picker Modal */}
+      {/* Action Selection Modal with Filtering */}
       {showActionPicker && (
-        <ActionPickerModal
-          actionTypes={actionTypes}
-          onSelect={(id: string) => {
-            addAction(
-              showActionPicker.floorId,
-              showActionPicker.roomId,
-              showActionPicker.targetId,
-              id
-            );
+        <ActionSelectionModal
+          isOpen={!!showActionPicker}
+          onClose={() => {
             setShowActionPicker(null);
+            setCurrentRoomForAction(null);
+            setCurrentTargetForAction(null);
           }}
-          onClose={() => setShowActionPicker(null)}
+          onSelectAction={(actionName: string) => {
+            setPendingAction(actionName);
+            setShowActionPicker(null);
+            // Open tool modal immediately after action selection
+            setShowToolPicker({
+              floorId: showActionPicker.floorId,
+              roomId: showActionPicker.roomId,
+              targetId: showActionPicker.targetId,
+              actionName: actionName
+            });
+          }}
+          selectedRoom={currentRoomForAction}
+          selectedTarget={currentTargetForAction}
+        />
+      )}
+
+      {/* Tool Selection Modal */}
+      {showToolPicker && (
+        <ToolSelectionModal
+          isOpen={!!showToolPicker}
+          onClose={() => {
+            setShowToolPicker(null);
+            setPendingAction(null);
+          }}
+          onSelectTool={(toolName: string) => {
+            addAction(
+              showToolPicker.floorId,
+              showToolPicker.roomId,
+              showToolPicker.targetId,
+              showToolPicker.actionName,
+              toolName
+            );
+            setShowToolPicker(null);
+            setPendingAction(null);
+            setCurrentRoomForAction(null);
+            setCurrentTargetForAction(null);
+          }}
+          onSkip={() => {
+            addAction(
+              showToolPicker.floorId,
+              showToolPicker.roomId,
+              showToolPicker.targetId,
+              showToolPicker.actionName
+            );
+            setShowToolPicker(null);
+            setPendingAction(null);
+            setCurrentRoomForAction(null);
+            setCurrentTargetForAction(null);
+          }}
+          selectedRoom={currentRoomForAction}
+          selectedTarget={currentTargetForAction}
+          selectedAction={{ name: showToolPicker.actionName, type: showToolPicker.actionName }}
         />
       )}
     </div>

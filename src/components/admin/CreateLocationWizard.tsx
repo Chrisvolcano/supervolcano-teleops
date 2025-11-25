@@ -64,6 +64,7 @@ export interface Target {
 export interface Action {
   actionTypeId: string;
   actionTypeName: string;
+  tool?: string;
 }
 
 export default function CreateLocationWizard({
