@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/postgres';
 import { getUserClaims } from '@/lib/utils/auth';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,10 +28,14 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
     
+    // Get the current user's UID from the token
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const currentUserId = decodedToken.uid;
+    
     const userId = params.userId;
     
     // Users can only see their own assignments (unless admin)
-    if (claims.role !== 'admin' && claims.role !== 'superadmin' && claims.uid !== userId) {
+    if (claims.role !== 'admin' && claims.role !== 'superadmin' && currentUserId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
@@ -68,4 +73,5 @@ export async function GET(
     );
   }
 }
+
 
