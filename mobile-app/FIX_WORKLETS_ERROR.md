@@ -5,56 +5,42 @@
 ERROR [runtime not ready]: WorkletsError: [Worklets] Mismatch between JavaScript part and native part of Worklets (0.6.1 vs 0.5.1).
 ```
 
-## Solution
+## Root Cause
+The error occurs because `react-native-reanimated` requires `react-native-worklets` as a peer dependency, but it wasn't installed. This causes a version mismatch between the JavaScript and native parts.
 
-### Step 1: Stop the Expo Development Server
-Press `Ctrl+C` in the terminal where Expo is running.
+## Solution (FIXED ✅)
 
-### Step 2: Clear Expo Cache and Restart
+### Step 1: Install Missing Peer Dependency
 ```bash
 cd mobile-app
+npx expo install react-native-worklets
+```
+
+This will install the correct version (0.5.1) that matches Expo SDK 54.
+
+### Step 2: Verify Installation
+```bash
+npx expo-doctor
+```
+
+Should show: `17/17 checks passed. No issues detected!`
+
+### Step 3: Clear Cache and Restart
+```bash
 npx expo start --clear
 ```
 
-Or if using npm:
-```bash
-npm start -- --clear
-```
-
-### Step 3: Reload the App in Expo Go
+### Step 4: Reload the App in Expo Go
 - Shake your device (or press `Cmd+D` on iOS simulator / `Cmd+M` on Android emulator)
 - Tap "Reload" or press `r` in the terminal
 
-### Step 4: If Still Not Working - Full Reset
-```bash
-# Clear all caches
-rm -rf node_modules
-rm -rf .expo
-rm -rf ios/build android/build  # if exists
-
-# Reinstall dependencies
-npm install
-
-# Clear Expo cache and restart
-npx expo start --clear
-```
-
-### Step 5: If Using Development Build (Not Expo Go)
-If you're using a development build instead of Expo Go, you need to rebuild:
-```bash
-# For iOS
-npx expo run:ios
-
-# For Android
-npx expo run:android
-```
-
 ## Why This Happens
-- Expo Go has a pre-built version of react-native-reanimated
-- Your JavaScript bundle has a different version
-- Clearing cache forces Expo to rebuild with matching versions
+- `react-native-reanimated` requires `react-native-worklets` as a peer dependency
+- If not installed, there's a version mismatch between JavaScript (0.6.1) and native (0.5.1)
+- Installing via `expo install` ensures the correct SDK-compatible version
 
 ## Prevention
-- Always use `npx expo start --clear` after updating react-native-reanimated
-- Consider using a development build for production apps to avoid version mismatches
+- Always run `npx expo-doctor` after installing new dependencies
+- Use `npx expo install <package>` for Expo SDK packages to get compatible versions
+- The dependency is now in `package.json` so it will be installed automatically in the future
 
