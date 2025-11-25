@@ -329,16 +329,24 @@ export default function LocationWizardStep2_Structure({
       )}
 
       {/* Target Picker Modal */}
-      {showTargetPicker && (
-        <TargetPickerModal
-          targetTypes={targetTypes}
-          onSelect={(id: string) => {
-            addTarget(showTargetPicker.floorId, showTargetPicker.roomId, id);
-            setShowTargetPicker(null);
-          }}
-          onClose={() => setShowTargetPicker(null)}
-        />
-      )}
+      {showTargetPicker && (() => {
+        // Find the room to get its type/name for filtering
+        const floor = data.floors.find(f => f.tempId === showTargetPicker.floorId);
+        const room = floor?.rooms.find(r => r.tempId === showTargetPicker.roomId);
+        const roomType = roomTypes.find(rt => rt.id === room?.roomTypeId);
+        
+        return (
+          <TargetPickerModal
+            targetTypes={targetTypes}
+            selectedRoom={roomType ? { name: roomType.name, type: roomType.name } : null}
+            onSelect={(id: string) => {
+              addTarget(showTargetPicker.floorId, showTargetPicker.roomId, id);
+              setShowTargetPicker(null);
+            }}
+            onClose={() => setShowTargetPicker(null)}
+          />
+        );
+      })()}
 
       {/* Action Picker Modal */}
       {showActionPicker && (
@@ -633,26 +641,66 @@ function RoomPickerModal({ roomTypes, onSelect, onClose }: RoomPickerModalProps)
 
 interface TargetPickerModalProps {
   targetTypes: TargetTypeData[];
+  selectedRoom?: { name: string; type?: string } | null;
   onSelect: (id: string) => void;
   onClose: () => void;
 }
 
-function TargetPickerModal({ targetTypes, onSelect, onClose }: TargetPickerModalProps) {
+function TargetPickerModal({ targetTypes, selectedRoom, onSelect, onClose }: TargetPickerModalProps) {
+  
+  // Filter targets based on selected room
+  const filteredTargetTypes = selectedRoom 
+    ? targetTypes.filter(target => {
+        const validTargets = getValidTargetsForRoom(selectedRoom.name || selectedRoom.type);
+        // Match by name (case-insensitive)
+        return validTargets.some(valid => 
+          valid.toLowerCase() === target.name.toLowerCase()
+        );
+      })
+    : targetTypes; // Show all if no room selected
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-        <h3 className="text-lg font-semibold mb-4">Select Target Type</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {targetTypes.map((type: TargetTypeData) => (
-            <button
-              key={type.id}
-              onClick={() => onSelect(type.id)}
-              className="p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 transition-colors"
-            >
-              {type.name}
-            </button>
-          ))}
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Select Target Type</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+          >
+            ×
+          </button>
         </div>
+
+        {selectedRoom && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              Showing targets for: <span className="font-semibold">
+                {selectedRoom.name || selectedRoom.type}
+              </span>
+            </p>
+          </div>
+        )}
+
+        {filteredTargetTypes.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No targets available for this room type.</p>
+            <p className="text-sm mt-2">Try selecting a different room or add targets manually.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {filteredTargetTypes.map((type: TargetTypeData) => (
+              <button
+                key={type.id}
+                onClick={() => onSelect(type.id)}
+                className="p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center font-medium"
+              >
+                {type.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <button
           onClick={onClose}
           className="mt-4 w-full py-2 border rounded-lg hover:bg-gray-50"
