@@ -11,6 +11,7 @@ import {
   MapPin,
   UserCheck,
   Database,
+  FolderTree,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Locations", href: "/admin/locations", icon: MapPin },
+  { label: "Task Taxonomy", href: "/admin/taxonomy", icon: FolderTree },
   { label: "Robot Intelligence", href: "/admin/robot-intelligence", icon: Database },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
