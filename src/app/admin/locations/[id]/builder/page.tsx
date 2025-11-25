@@ -72,12 +72,6 @@ export default function LocationBuilderPage() {
   const { getIdToken } = useAuth();
   const locationId = params.id as string;
 
-  // Guard: Redirect if locationId is missing
-  if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
-    router.push('/admin/locations');
-    return null;
-  }
-
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [targetTypes, setTargetTypes] = useState<TargetType[]>([]);
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
@@ -331,6 +325,18 @@ export default function LocationBuilderPage() {
     }
     setExpandedTargets(newSet);
   };
+
+  // Guard: Redirect if locationId is missing (after hooks are declared)
+  if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+    router.push('/admin/locations');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
