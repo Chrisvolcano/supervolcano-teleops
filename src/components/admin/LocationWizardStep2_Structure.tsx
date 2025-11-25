@@ -320,7 +320,7 @@ export default function LocationWizardStep2_Structure({
       {showRoomPicker && (
         <RoomPickerModal
           roomTypes={roomTypes}
-          onSelect={(id) => {
+          onSelect={(id: string) => {
             addRoom(showRoomPicker.floorId, id);
             setShowRoomPicker(null);
           }}
@@ -332,7 +332,7 @@ export default function LocationWizardStep2_Structure({
       {showTargetPicker && (
         <TargetPickerModal
           targetTypes={targetTypes}
-          onSelect={(id) => {
+          onSelect={(id: string) => {
             addTarget(showTargetPicker.floorId, showTargetPicker.roomId, id);
             setShowTargetPicker(null);
           }}
@@ -344,7 +344,7 @@ export default function LocationWizardStep2_Structure({
       {showActionPicker && (
         <ActionPickerModal
           actionTypes={actionTypes}
-          onSelect={(id) => {
+          onSelect={(id: string) => {
             addAction(
               showActionPicker.floorId,
               showActionPicker.roomId,
