@@ -138,7 +138,11 @@ export default function AdminLocationDetailPage() {
           <LocationStructureTab locationId={locationId} />
         )}
         {activeTab === 'tasks' && (
-          <LocationTasksTab locationId={locationId} />
+          <LocationTasksTab 
+            locationId={locationId}
+            locationName={location?.name}
+            partnerOrgId={location?.partnerOrgId}
+          />
         )}
         {activeTab === 'settings' && (
           <div className="bg-white rounded-lg border border-gray-200 p-8">

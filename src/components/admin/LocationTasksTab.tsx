@@ -2,13 +2,22 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import TaskCard from './TaskCard';
+import ContextualTaskWizardModal from './ContextualTaskWizardModal';
 
-export default function LocationTasksTab({ locationId }: { locationId: string }) {
+interface LocationTasksTabProps {
+  locationId: string;
+  locationName?: string;
+  partnerOrgId?: string;
+}
+
+export default function LocationTasksTab({ locationId, locationName, partnerOrgId }: LocationTasksTabProps) {
   const { getIdToken } = useAuth();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -44,17 +53,49 @@ export default function LocationTasksTab({ locationId }: { locationId: string })
   }
 
   return (
-    <div className="space-y-4">
-      {tasks.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <p className="text-gray-600">No tasks yet. Build the location structure and generate tasks.</p>
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Create Task
+          </button>
         </div>
-      ) : (
-        tasks.map((task: any) => (
-          <TaskCard key={task.id} task={task} onUpdate={loadTasks} />
-        ))
-      )}
-    </div>
+
+        {tasks.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <p className="text-gray-600 mb-4">No tasks yet.</p>
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Create First Task
+            </button>
+          </div>
+        ) : (
+          tasks.map((task: any) => (
+            <TaskCard key={task.id} task={task} onUpdate={loadTasks} />
+          ))
+        )}
+      </div>
+
+      <ContextualTaskWizardModal
+        isOpen={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSuccess={() => {
+          loadTasks();
+          setWizardOpen(false);
+        }}
+        locationId={locationId}
+        locationName={locationName}
+        partnerOrgId={partnerOrgId}
+      />
+    </>
   );
 }
 
