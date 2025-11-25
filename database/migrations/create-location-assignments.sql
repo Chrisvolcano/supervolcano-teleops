@@ -60,3 +60,4 @@ COMMENT ON COLUMN location_assignments.user_id IS 'Firebase UID of the assigned 
 COMMENT ON COLUMN location_assignments.location_id IS 'UUID of the location from Firestore';
 COMMENT ON COLUMN location_assignments.is_active IS 'Soft delete flag - set to false instead of deleting';
 
+

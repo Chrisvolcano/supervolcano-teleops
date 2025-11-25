@@ -1,15 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, StatusBar, Animated, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+  withTiming,
+  withSpring,
+} from 'react-native-reanimated';
 import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST, fetchAssignedLocationIds } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, Gradients } from '../constants/Design';
 import { useGamification } from '../contexts/GamificationContext';
+import AnimatedBackground from '../components/AnimatedBackground';
+import LocationCard from '../components/LocationCard';
+import ShimmerPlaceholder from '../components/ShimmerPlaceholder';
 
 export default function HomeScreen({ navigation }: any) {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -18,12 +30,12 @@ export default function HomeScreen({ navigation }: any) {
   const [assignedLocationIds, setAssignedLocationIds] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const gamification = useGamification();
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = useSharedValue(0);
   
   // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const progressWidth = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useSharedValue(0);
+  const slideAnim = useSharedValue(50);
+  const progressWidth = useSharedValue(0);
 
   useEffect(() => {
     // TODO: Get user ID from Firebase Auth when auth is implemented
@@ -42,30 +54,14 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     if (!loading && locations.length > 0) {
       // Animate entrance
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 40,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      fadeAnim.value = withTiming(1, { duration: 800 });
+      slideAnim.value = withSpring(0, { damping: 15, stiffness: 100 });
     }
   }, [loading, locations.length]);
 
   useEffect(() => {
     // Animate progress bar
-    Animated.spring(progressWidth, {
-      toValue: gamification.getTodayProgress(),
-      tension: 40,
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
+    progressWidth.value = withSpring(gamification.getTodayProgress(), { damping: 15, stiffness: 100 });
   }, [gamification.todayCompleted]);
 
   async function fetchAssignedLocations() {
@@ -173,26 +169,59 @@ export default function HomeScreen({ navigation }: any) {
     navigation.navigate('JobSelect', { location: item });
   };
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
   });
 
-  const headerScale = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.95],
-    extrapolate: 'clamp',
+  // Animated header opacity
+  const headerStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 100],
+      [1, 0.98],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      opacity,
+    };
   });
+
+  // Header background blur effect
+  const headerBackgroundStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      opacity,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    };
+  });
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
+
+  const slideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideAnim.value }],
+  }));
+
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%`,
+  }));
 
   const renderStatsCard = () => (
     <Animated.View 
       style={[
         styles.statsCardContainer,
-        { 
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }
+        fadeStyle,
+        slideStyle,
       ]}
     >
       <View style={styles.glassCard}>
@@ -236,10 +265,8 @@ export default function HomeScreen({ navigation }: any) {
     <Animated.View 
       style={[
         styles.progressCard,
-        { 
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }
+        fadeStyle,
+        slideStyle,
       ]}
     >
       <View style={styles.progressHeader}>
@@ -259,12 +286,7 @@ export default function HomeScreen({ navigation }: any) {
           <Animated.View
             style={[
               styles.progressBarFill,
-              {
-                width: progressWidth.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
+              progressBarStyle,
             ]}
           >
             <LinearGradient
@@ -279,121 +301,44 @@ export default function HomeScreen({ navigation }: any) {
     </Animated.View>
   );
 
-  const LocationCard = ({ item, index }: { item: Location; index: number }) => {
-    const cardAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.spring(cardAnim, {
-        toValue: 1,
-        delay: index * 80,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
-    return (
-      <Animated.View
-        style={[
-          styles.locationCardContainer,
-          {
-            opacity: cardAnim,
-            transform: [
-              {
-                translateY: cardAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [30, 0],
-                }),
-              },
-              {
-                scale: cardAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.95, 1],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.locationCard}
-          onPress={() => handleLocationPress(item)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.locationContent}>
-            <View style={styles.locationIconContainer}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="location" size={24} color={Colors.primary} />
-              </View>
-            </View>
-            
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {item.address && (
-                <Text style={styles.locationAddress} numberOfLines={1}>
-                  {item.address}
-                </Text>
-              )}
-            </View>
-            
-            <View style={styles.chevronContainer}>
-              <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  const spinValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (loading) {
-      Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      ).start();
-    }
-  }, [loading]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
+        <AnimatedBackground />
         <View style={styles.loadingContainer}>
-          <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sparkles" size={40} color={Colors.primary} />
-          </Animated.View>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <View style={styles.loadingContent}>
+            <ShimmerPlaceholder width={200} height={40} borderRadius={8} />
+            <View style={{ height: 20 }} />
+            <ShimmerPlaceholder width="100%" height={100} borderRadius={16} />
+            <View style={{ height: 16 }} />
+            <ShimmerPlaceholder width="100%" height={100} borderRadius={16} />
+            <View style={{ height: 16 }} />
+            <ShimmerPlaceholder width="100%" height={100} borderRadius={16} />
+          </View>
         </View>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Animated header */}
+      {/* Animated Background */}
+      <AnimatedBackground />
+      
+      {/* Fixed Header Background - Prevents white gap */}
       <Animated.View 
         style={[
-          styles.header,
-          {
-            opacity: headerOpacity,
-            transform: [{ scale: headerScale }],
-          }
+          styles.headerBackground,
+          headerBackgroundStyle
         ]}
-      >
+      />
+
+      {/* Header */}
+      <Animated.View style={[styles.header, headerStyle]}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.greeting}>Welcome back</Text>
@@ -408,13 +353,10 @@ export default function HomeScreen({ navigation }: any) {
 
       {/* Scrollable content */}
       <Animated.ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Stats card */}
         {renderStatsCard()}
@@ -427,10 +369,8 @@ export default function HomeScreen({ navigation }: any) {
           <Animated.View
             style={[
               styles.uploadBannerContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              }
+              fadeStyle,
+              slideStyle,
             ]}
           >
             <TouchableOpacity
@@ -459,8 +399,18 @@ export default function HomeScreen({ navigation }: any) {
         {/* Locations */}
         <View style={styles.locationsSection}>
           <Text style={styles.sectionTitle}>Your Locations</Text>
-          {locations.map((item, index) => (
-            <LocationCard key={item.id} item={item} index={index} />
+          {locations.map((item) => (
+            <LocationCard 
+              key={item.id} 
+              location={{
+                id: item.id,
+                name: item.name,
+                address: item.address || '',
+                tasksCompleted: 0, // TODO: Get from item data
+                tasksTotal: 0, // TODO: Get from item data
+              }}
+              onPress={() => handleLocationPress(item)}
+            />
           ))}
         </View>
       </Animated.ScrollView>
@@ -471,24 +421,34 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
   },
-  loadingText: {
-    ...Typography.body,
-    marginTop: Spacing.md,
-    color: Colors.textSecondary,
+  loadingContent: {
+    gap: Spacing.md,
+  },
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    zIndex: 10,
+    ...Platform.select({
+      ios: {
+        // Blur effect handled by opacity
+      },
+    }),
   },
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 60 : Spacing.xl,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.background,
+    paddingTop: 20,
+    paddingBottom: 16,
+    zIndex: 20,
   },
   headerContent: {
     flexDirection: 'row',
@@ -647,46 +607,5 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.headline,
     marginBottom: Spacing.md,
-  },
-  locationCardContainer: {
-    marginBottom: Spacing.md,
-  },
-  locationCard: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    ...Shadows.sm,
-  },
-  locationContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-  },
-  locationIconContainer: {
-    marginRight: Spacing.md,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  locationInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  locationName: {
-    ...Typography.bodyLarge,
-    fontWeight: '600',
-  },
-  locationAddress: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  chevronContainer: {
-    marginLeft: Spacing.sm,
   },
 });

@@ -9,7 +9,8 @@ import {
   Mail,
   ArrowLeft,
   Settings,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import LocationPreferencesPanel from '@/components/admin/LocationPreferencesPanel';
 import TaskCard from '@/components/admin/TaskCard';
@@ -199,27 +200,36 @@ export default function AdminLocationDetailPage() {
               </h1>
               <p className="text-sm text-gray-600 mb-4">{location.address}</p>
               
-              <div className="flex items-center gap-6 text-sm">
-                {(location.assignedOrganizationName || location.organization_name) && (
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.assignedOrganizationName || location.organization_name}</span>
-                  </div>
-                )}
-                
-                {(location.contactPhone || location.contact_phone) && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.contactPhone || location.contact_phone}</span>
-                  </div>
-                )}
-                
-                {(location.contactEmail || location.contact_email) && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{location.contactEmail || location.contact_email}</span>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 text-sm">
+                  {(location.assignedOrganizationName || location.organization_name) && (
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">{location.assignedOrganizationName || location.organization_name}</span>
+                    </div>
+                  )}
+                  
+                  {(location.contactPhone || location.contact_phone) && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">{location.contactPhone || location.contact_phone}</span>
+                    </div>
+                  )}
+                  
+                  {(location.contactEmail || location.contact_email) && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">{location.contactEmail || location.contact_email}</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => router.push(`/admin/locations/${locationId}/builder`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Location Builder
+                </button>
               </div>
             </div>
           </div>

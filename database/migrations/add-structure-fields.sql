@@ -35,3 +35,4 @@ COMMENT ON COLUMN jobs.structure_target IS 'Structured taxonomy: specific target
 COMMENT ON COLUMN jobs.structure_action IS 'Structured taxonomy: action verb (e.g., clean, wipe)';
 COMMENT ON COLUMN jobs.structure_room_modifier IS 'Structured taxonomy: room qualifier (e.g., primary, guest)';
 
+
