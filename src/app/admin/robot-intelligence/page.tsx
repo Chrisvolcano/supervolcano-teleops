@@ -199,6 +199,41 @@ export default function RobotIntelligencePage() {
     }
   }
 
+  async function handleCleanupTasks() {
+    if (!confirm('Are you sure you want to delete unwanted tasks? This will remove:\n- Drone reconnaissance sweep\n- Unnamed general tasks\n- Thermal sensor calibration')) {
+      return;
+    }
+
+    try {
+      console.log('🧹 Cleaning up unwanted tasks...');
+      const token = await getIdToken();
+      
+      const response = await fetch('/api/admin/cleanup-tasks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      console.log('Cleanup response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Cleanup failed');
+      }
+
+      alert(`✅ Cleanup complete!\n\nDeleted ${data.deletedCount} tasks:\n${data.deletedTasks.join('\n')}`);
+      
+      // Re-sync after cleanup to update SQL
+      await syncData();
+      
+    } catch (error: any) {
+      console.error('❌ Cleanup error:', error);
+      alert(`Cleanup failed: ${error.message}`);
+    }
+  }
+
   async function syncData() {
     setSyncing(true);
     setError(null);
@@ -390,6 +425,12 @@ export default function RobotIntelligencePage() {
           >
             <Database className={`h-4 w-4 ${settingUp ? 'animate-spin' : ''}`} />
             {settingUp ? 'Setting up...' : 'Setup Database'}
+          </button>
+          <button
+            onClick={handleCleanupTasks}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            🧹 Cleanup Tasks
           </button>
           <button
             onClick={syncData}

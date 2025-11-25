@@ -27,17 +27,20 @@ export async function GET(request: Request) {
     // Count locations
     const locationsResult = await sql`SELECT COUNT(*) as count FROM locations`;
     const locationsArray = Array.isArray(locationsResult) ? locationsResult : (locationsResult as any)?.rows || [];
-    const locationsCount = parseInt(locationsArray[0]?.count || '0');
+    const locationsCount = parseInt(String(locationsArray[0]?.count || '0'));
     
     // Count jobs (not tasks - we renamed it)
     const jobsResult = await sql`SELECT COUNT(*) as count FROM jobs`;
     const jobsArray = Array.isArray(jobsResult) ? jobsResult : (jobsResult as any)?.rows || [];
-    const jobsCount = parseInt(jobsArray[0]?.count || '0');
+    const jobsCount = parseInt(String(jobsArray[0]?.count || '0'));
     
-    // Count media
+    // Count media - FIXED to ensure proper count
     const mediaResult = await sql`SELECT COUNT(*) as count FROM media`;
     const mediaArray = Array.isArray(mediaResult) ? mediaResult : (mediaResult as any)?.rows || [];
-    const mediaCount = parseInt(mediaArray[0]?.count || '0');
+    const mediaCount = parseInt(String(mediaArray[0]?.count || '0'));
+    
+    console.log('Media count from DB:', mediaCount);
+    console.log('Media result:', mediaArray);
     
     // Count shifts (sessions) if table exists
     let shiftsCount = 0;
