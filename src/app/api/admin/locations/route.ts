@@ -131,10 +131,22 @@ export async function POST(request: NextRequest) {
     }
     
     // Auto-assign partnerOrgId from user context if not provided
-    const partnerOrgId = body.partnerOrgId || finalPartnerId || body.organizationId;
+    // Handle empty strings by checking for truthy values
+    const providedPartnerOrgId = body.partnerOrgId && body.partnerOrgId.trim() !== '' ? body.partnerOrgId : null;
+    const providedOrgId = body.organizationId && body.organizationId.trim() !== '' ? body.organizationId : null;
     
-    if (!partnerOrgId) {
+    const partnerOrgId = providedPartnerOrgId || finalPartnerId || providedOrgId;
+    
+    // For superadmins, allow creating locations without partnerOrgId (they can assign later)
+    // For other roles, require partnerOrgId
+    const isSuperAdmin = claims.role === 'superadmin';
+    
+    if (!partnerOrgId && !isSuperAdmin) {
       console.error('POST /api/admin/locations - No partnerOrgId available from request or user context');
+      console.error('POST /api/admin/locations - User role:', claims.role);
+      console.error('POST /api/admin/locations - Provided partnerOrgId:', providedPartnerOrgId);
+      console.error('POST /api/admin/locations - Final partnerId:', finalPartnerId);
+      console.error('POST /api/admin/locations - Provided orgId:', providedOrgId);
       return NextResponse.json(
         { 
           success: false, 
@@ -144,15 +156,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('POST /api/admin/locations - Using partnerOrgId:', partnerOrgId);
+    // For superadmins without partnerOrgId, use a placeholder that can be updated later
+    const finalPartnerOrgId = partnerOrgId || 'unassigned';
+    if (!partnerOrgId && isSuperAdmin) {
+      console.warn('POST /api/admin/locations - Superadmin creating location without partnerOrgId, using placeholder');
+    }
+    
+    console.log('POST /api/admin/locations - Using partnerOrgId:', finalPartnerOrgId);
+    console.log('POST /api/admin/locations - Is superadmin:', isSuperAdmin);
     
     // Prepare location data
     const locationData = {
       name: body.name,
       address: body.address || '',
       addressData: body.addressData || null,
-      partnerOrgId: partnerOrgId,
-      assignedOrganizationId: body.organizationId || partnerOrgId, // Use provided orgId or fallback to partnerOrgId
+      partnerOrgId: finalPartnerOrgId,
+      assignedOrganizationId: providedOrgId || finalPartnerOrgId, // Use provided orgId or fallback to partnerOrgId
       status: 'active',
       createdAt: new Date(),
       createdBy: userEmail,
@@ -171,7 +190,7 @@ export async function POST(request: NextRequest) {
     try {
       await sql`
         INSERT INTO locations (id, name, address, partner_org_id, status, created_at, updated_at)
-        VALUES (${locationId}, ${body.name}, ${body.address || ''}, ${body.partnerOrgId}, 'active', NOW(), NOW())
+        VALUES (${locationId}, ${body.name}, ${body.address || ''}, ${finalPartnerOrgId}, 'active', NOW(), NOW())
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           address = EXCLUDED.address,
