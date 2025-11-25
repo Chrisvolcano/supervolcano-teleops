@@ -91,6 +91,16 @@ export async function POST(
     
     requireRole(claims, ['superadmin', 'admin']);
 
+    // Get the current user's email for the assignedBy field
+    let currentUserEmail = 'admin';
+    try {
+      const decodedToken = await adminAuth.verifyIdToken(token);
+      const currentUserRecord = await adminAuth.getUser(decodedToken.uid);
+      currentUserEmail = currentUserRecord.email || 'admin';
+    } catch (err) {
+      console.warn('Could not fetch current user email:', err);
+    }
+
     const locationId = params.id;
     const body = await request.json();
     const { userIds, assignedBy } = body;
@@ -139,7 +149,7 @@ export async function POST(
           ${userName},
           ${locationId},
           ${locationName},
-          ${assignedBy || claims.email || 'admin'},
+          ${assignedBy || currentUserEmail},
           true
         )
         ON CONFLICT (user_id, location_id)
