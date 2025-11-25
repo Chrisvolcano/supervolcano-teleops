@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import AssignCleanersModal from '@/components/admin/AssignCleanersModal';
+import CreateLocationWizard from '@/components/admin/CreateLocationWizard';
 
 export default function AdminLocationsPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function AdminLocationsPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [selectedLocationName, setSelectedLocationName] = useState('');
+  const [showWizard, setShowWizard] = useState(false);
   
   useEffect(() => {
     loadLocations();
@@ -73,7 +75,7 @@ export default function AdminLocationsPage() {
         </div>
         
         <button
-          onClick={() => router.push('/admin/locations/new')}
+          onClick={() => setShowWizard(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -176,6 +178,17 @@ export default function AdminLocationsPage() {
               }}
               onSuccess={() => {
                 // Optionally reload locations to show assignment count
+                loadLocations();
+              }}
+            />
+          )}
+
+          {showWizard && (
+            <CreateLocationWizard
+              organizationId={''} // Will be set when organization selection is implemented
+              onClose={() => setShowWizard(false)}
+              onSuccess={() => {
+                setShowWizard(false);
                 loadLocations();
               }}
             />
