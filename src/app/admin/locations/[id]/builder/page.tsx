@@ -72,6 +72,12 @@ export default function LocationBuilderPage() {
   const { getIdToken } = useAuth();
   const locationId = params.id as string;
 
+  // Guard: Redirect if locationId is missing
+  if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+    router.push('/admin/locations');
+    return null;
+  }
+
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [targetTypes, setTargetTypes] = useState<TargetType[]>([]);
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
