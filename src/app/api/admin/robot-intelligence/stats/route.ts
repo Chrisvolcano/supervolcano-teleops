@@ -35,27 +35,32 @@ export async function GET(request: Request) {
     const jobsCount = parseInt(String(jobsArray[0]?.count || '0'));
     
     // Count media - FIXED to ensure proper count
+    // Vercel Postgres returns { rows: [...] } format
     const mediaResult = await sql`SELECT COUNT(*) as count FROM media`;
-    const mediaArray = Array.isArray(mediaResult) ? mediaResult : (mediaResult as any)?.rows || [];
+    const mediaRows = (mediaResult as any)?.rows || (Array.isArray(mediaResult) ? mediaResult : []);
     
-    console.log('Media query result (raw):', mediaResult);
-    console.log('Media array:', mediaArray);
-    console.log('Media array length:', mediaArray.length);
-    console.log('First element:', mediaArray[0]);
+    console.log('Media query result (raw):', JSON.stringify(mediaResult, null, 2));
+    console.log('Media rows:', mediaRows);
+    console.log('Media rows length:', mediaRows.length);
     
-    // Handle different result formats
+    // Extract count value - handle both BigInt and number types
     let mediaCount = 0;
-    if (mediaArray.length > 0) {
-      const countValue = mediaArray[0]?.count || mediaArray[0]?.COUNT || mediaArray[0];
-      console.log('Count value:', countValue, 'Type:', typeof countValue);
-      mediaCount = typeof countValue === 'number' ? countValue : parseInt(String(countValue || '0'), 10);
+    if (mediaRows.length > 0) {
+      const firstRow = mediaRows[0];
+      const countValue = firstRow?.count ?? firstRow?.COUNT ?? firstRow;
+      console.log('Count value (raw):', countValue, 'Type:', typeof countValue);
+      
+      // Handle BigInt (PostgreSQL COUNT returns BigInt)
+      if (typeof countValue === 'bigint') {
+        mediaCount = Number(countValue);
+      } else if (typeof countValue === 'number') {
+        mediaCount = countValue;
+      } else {
+        mediaCount = parseInt(String(countValue || '0'), 10);
+      }
     }
     
     console.log('Media count from DB (final):', mediaCount);
-    
-    // Also try a direct query to verify
-    const directMediaCheck = await sql`SELECT COUNT(*) FROM media`;
-    console.log('Direct media check:', directMediaCheck);
     
     // Count shifts (sessions) if table exists
     let shiftsCount = 0;
