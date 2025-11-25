@@ -37,10 +37,25 @@ export async function GET(request: Request) {
     // Count media - FIXED to ensure proper count
     const mediaResult = await sql`SELECT COUNT(*) as count FROM media`;
     const mediaArray = Array.isArray(mediaResult) ? mediaResult : (mediaResult as any)?.rows || [];
-    const mediaCount = parseInt(String(mediaArray[0]?.count || '0'));
     
-    console.log('Media count from DB:', mediaCount);
-    console.log('Media result:', mediaArray);
+    console.log('Media query result (raw):', mediaResult);
+    console.log('Media array:', mediaArray);
+    console.log('Media array length:', mediaArray.length);
+    console.log('First element:', mediaArray[0]);
+    
+    // Handle different result formats
+    let mediaCount = 0;
+    if (mediaArray.length > 0) {
+      const countValue = mediaArray[0]?.count || mediaArray[0]?.COUNT || mediaArray[0];
+      console.log('Count value:', countValue, 'Type:', typeof countValue);
+      mediaCount = typeof countValue === 'number' ? countValue : parseInt(String(countValue || '0'), 10);
+    }
+    
+    console.log('Media count from DB (final):', mediaCount);
+    
+    // Also try a direct query to verify
+    const directMediaCheck = await sql`SELECT COUNT(*) FROM media`;
+    console.log('Direct media check:', directMediaCheck);
     
     // Count shifts (sessions) if table exists
     let shiftsCount = 0;

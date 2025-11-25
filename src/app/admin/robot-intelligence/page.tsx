@@ -230,10 +230,14 @@ export default function RobotIntelligencePage() {
         throw new Error(data.error || 'Cleanup failed');
       }
 
-      alert(`✅ Cleanup complete!\n\nDeleted ${data.deletedCount} tasks:\n${data.deletedTasks.join('\n')}`);
+      alert(`✅ Cleanup complete!\n\nDeleted ${data.deletedCount} tasks:\n${data.deletedTasks.join('\n')}\n\nRe-syncing to update SQL database...`);
       
-      // Re-sync after cleanup to update SQL
+      // Re-sync after cleanup to update SQL, then reload UI
       await syncData();
+      
+      // Force reload tasks and stats after sync completes
+      await loadTasks();
+      await loadStats();
       
     } catch (error: any) {
       console.error('❌ Cleanup error:', error);
