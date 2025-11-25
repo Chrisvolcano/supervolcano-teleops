@@ -1,9 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ReactNode, ButtonHTMLAttributes } from 'react';
+import { motion, HTMLMotionProps } from 'framer-motion';
+import { ReactNode } from 'react';
 
-interface AnimatedIconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface AnimatedIconButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children: ReactNode;
   variant?: 'ghost' | 'primary' | 'danger';
   size?: 'sm' | 'md' | 'lg';
