@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GamificationProvider } from './src/contexts/GamificationContext';
+import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import JobSelectScreen from './src/screens/JobSelectScreen';
 import CameraScreen from './src/screens/CameraScreen';
@@ -9,6 +10,12 @@ import CameraScreen from './src/screens/CameraScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
   return (
     <GamificationProvider>
       <NavigationContainer>

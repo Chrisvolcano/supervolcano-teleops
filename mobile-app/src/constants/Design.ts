@@ -22,7 +22,9 @@ export const Colors = {
   glassBorder: 'rgba(15, 23, 42, 0.08)',
   
   // Accent colors - Refined
-  success: '#10B981',        // Refined green
+  success: '#22c55e',        // Gamification green (#22c55e)
+  successDark: '#16a34a',    // Darker green
+  successLight: '#4ade80',  // Lighter green
   warning: '#F59E0B',        // Refined amber
   error: '#EF4444',          // Refined red
   info: '#3B82F6',           // Clean blue
