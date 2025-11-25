@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 import { sql } from '@/lib/db/postgres';
 
@@ -85,6 +85,19 @@ export async function POST(request: NextRequest) {
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
     
+    // Get user email from token (if available)
+    let userEmail = 'system';
+    try {
+      // Decode token again to get email if available
+      const decodedToken = await adminAuth.verifyIdToken(token);
+      const userRecord = await adminAuth.getUser(decodedToken.uid);
+      userEmail = userRecord.email || 'system';
+    } catch (emailError) {
+      console.warn('POST /api/admin/locations - Could not fetch user email:', emailError);
+      // Use fallback
+      userEmail = 'system';
+    }
+    
     // Parse request body
     let body;
     try {
@@ -124,7 +137,7 @@ export async function POST(request: NextRequest) {
       assignedOrganizationId: body.partnerOrgId, // Same as partnerOrgId for now
       status: 'active',
       createdAt: new Date(),
-      createdBy: claims.email || 'unknown',
+      createdBy: userEmail,
       updatedAt: new Date(),
     };
     
