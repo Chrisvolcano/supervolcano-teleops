@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST } from '../services/api';
+import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST, fetchAssignedLocationIds } from '../services/api';
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, Gradients } from '../constants/Design';
@@ -15,6 +15,8 @@ export default function HomeScreen({ navigation }: any) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingUploads, setPendingUploads] = useState(0);
+  const [assignedLocationIds, setAssignedLocationIds] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const gamification = useGamification();
   const scrollY = useRef(new Animated.Value(0)).current;
   
@@ -24,8 +26,18 @@ export default function HomeScreen({ navigation }: any) {
   const progressWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // TODO: Get user ID from Firebase Auth when auth is implemented
+    // For now, this will be empty and all locations will show
+    // Once auth is added, fetch assigned locations here
     loadData();
   }, []);
+
+  // Fetch assigned locations when userId is available
+  useEffect(() => {
+    if (userId) {
+      fetchAssignedLocations();
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (!loading && locations.length > 0) {
@@ -55,6 +67,21 @@ export default function HomeScreen({ navigation }: any) {
       useNativeDriver: false,
     }).start();
   }, [gamification.todayCompleted]);
+
+  async function fetchAssignedLocations() {
+    if (!userId) return;
+    
+    try {
+      console.log(`📍 Fetching assigned locations for user: ${userId}`);
+      const locationIds = await fetchAssignedLocationIds(userId);
+      setAssignedLocationIds(locationIds);
+      console.log(`📍 User assigned to ${locationIds.length} locations`);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch assigned locations:', error);
+      // On error, show all locations (fail open)
+      setAssignedLocationIds([]);
+    }
+  }
 
   async function loadData() {
     try {
@@ -90,7 +117,16 @@ export default function HomeScreen({ navigation }: any) {
         }
       }
       
-      setLocations(locs);
+      // Filter to only assigned locations if assignments exist
+      let filteredLocations = locs;
+      if (assignedLocationIds.length > 0) {
+        filteredLocations = locs.filter(loc => assignedLocationIds.includes(loc.id));
+        console.log(`📍 Filtered to ${filteredLocations.length} assigned locations (from ${locs.length} total)`);
+      } else {
+        console.log('📍 No location assignments found - showing all locations');
+      }
+      
+      setLocations(filteredLocations);
       
       const queue = await getQueue();
       const pending = queue.filter(item => item.status === 'pending' || item.status === 'error').length;
@@ -104,6 +140,13 @@ export default function HomeScreen({ navigation }: any) {
       setLoading(false);
     }
   }
+
+  // Reload locations when assignments change
+  useEffect(() => {
+    if (!loading && assignedLocationIds.length >= 0) {
+      loadData();
+    }
+  }, [assignedLocationIds]);
 
   async function handleProcessUploads() {
     try {

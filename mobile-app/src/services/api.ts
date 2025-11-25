@@ -5,6 +5,31 @@ import { Location, Job } from '../types';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
+ * Fetch assigned location IDs for a user
+ * Used to filter locations in mobile app
+ */
+export async function fetchAssignedLocationIds(userId: string): Promise<string[]> {
+  try {
+    console.log(`📍 Fetching assigned locations for user: ${userId}`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/assigned-locations`);
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.warn('⚠️ Failed to fetch assigned locations:', data.error);
+      return []; // Return empty array if API fails - will show all locations
+    }
+    
+    console.log(`📍 User assigned to ${data.count} locations:`, data.locationIds);
+    return data.locationIds || [];
+    
+  } catch (error: any) {
+    console.error('❌ Failed to fetch assigned locations:', error);
+    return []; // Return empty array on error - will show all locations
+  }
+}
+
+/**
  * Fetch all locations from Firestore with deep debugging
  */
 export async function fetchLocations(): Promise<Location[]> {
