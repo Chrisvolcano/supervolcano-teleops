@@ -60,8 +60,8 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
   
   return (
     <div 
-      onClick={onClick}
-      className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+      onClick={onClick || undefined}
+      className={`p-6 transition-colors ${onClick ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -172,7 +172,9 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onEdit();
+              if (onEdit) {
+                onEdit();
+              }
             }}
             className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             aria-label="Edit task"
@@ -182,7 +184,9 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDelete();
+              if (onDelete) {
+                onDelete();
+              }
             }}
             className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             aria-label="Delete task"
