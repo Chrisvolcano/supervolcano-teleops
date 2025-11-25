@@ -116,10 +116,14 @@ export default function RobotIntelligencePage() {
       console.log('📋 Loading tasks from SQL database...');
       const token = await getIdToken();
       
-      const response = await fetch('/api/admin/jobs', {
+      // Add cache-busting query param
+      const cacheBuster = Date.now();
+      const response = await fetch(`/api/admin/jobs?_=${cacheBuster}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
         },
+        cache: 'no-store', // Add this to prevent Next.js caching
       });
       
       if (!response.ok) {
@@ -133,6 +137,7 @@ export default function RobotIntelligencePage() {
       }
       
       console.log('✅ Tasks loaded:', data.jobs.length);
+      console.log('API timestamp:', data.timestamp);
       
       // Transform SQL jobs to match the UI format
       const transformedTasks = data.jobs.map((job: any) => ({
@@ -168,6 +173,7 @@ export default function RobotIntelligencePage() {
         filtered = filtered.filter((t: any) => t.human_verified === filters.humanVerified);
       }
       
+      console.log(`Filtered to ${filtered.length} tasks`);
       setTasks(filtered);
     } catch (error: any) {
       console.error('❌ Failed to load tasks:', error);

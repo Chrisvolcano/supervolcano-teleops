@@ -62,12 +62,22 @@ export async function GET(request: Request) {
 
     console.log(`✅ Fetched ${jobs.length} jobs`);
 
-    return NextResponse.json({
-      success: true,
-      jobs,
-      count: jobs.length,
-      timestamp: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        jobs,
+        count: jobs.length,
+        timestamp: new Date().toISOString(), // Add timestamp for debugging
+      },
+      {
+        // Add cache-busting headers
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
 
   } catch (error: any) {
     console.error('❌ Failed to fetch jobs:', error);
