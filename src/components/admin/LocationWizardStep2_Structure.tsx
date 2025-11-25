@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronRight, Home, Target, Zap } from 'lucide-react';
 import { StructureData, Floor, Room, Target as TargetType, Action } from './CreateLocationWizard';
 import { useAuth } from '@/hooks/useAuth';
+import { getValidTargetsForRoom } from '@/constants/roomTargetMap';
 
 interface RoomType {
   id: string;
