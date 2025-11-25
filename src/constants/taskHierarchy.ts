@@ -393,24 +393,30 @@ export const getValidActions = (room: string, target: string): string[] => {
   const roomKey = room.toLowerCase().trim().replace(/\s+/g, '_');
   const targetKey = target.toLowerCase().trim().replace(/\s+/g, '_');
   
-  console.log('getValidActions lookup:', { roomKey, targetKey, room, target });
+  console.log('getValidActions lookup:', { roomKey, targetKey, originalRoom: room, originalTarget: target });
   
   // Try exact match first
   let actions = ACTION_MAP[roomKey]?.[targetKey];
   
-  // If no exact match, try matching target name directly (handles "Desk" vs "desk")
+  // If no exact match, try case-insensitive matching
   if (!actions || actions.length === 0) {
-    // Try finding target in any room's targets
-    for (const [rKey, targets] of Object.entries(ACTION_MAP)) {
-      if (rKey === roomKey) {
-        // Check if target matches any key (case-insensitive)
-        const matchingKey = Object.keys(targets).find(
-          key => key.toLowerCase() === targetKey
-        );
-        if (matchingKey) {
-          actions = targets[matchingKey];
-          break;
+    // Find matching room key (case-insensitive)
+    const matchingRoomKey = Object.keys(ACTION_MAP).find(
+      key => key.toLowerCase() === roomKey
+    );
+    
+    if (matchingRoomKey) {
+      const roomTargets = ACTION_MAP[matchingRoomKey];
+      // Find matching target key (case-insensitive, handle spaces/underscores)
+      const matchingTargetKey = Object.keys(roomTargets).find(
+        key => {
+          const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+          return normalizedKey === targetKey || key.toLowerCase() === targetKey;
         }
+      );
+      
+      if (matchingTargetKey) {
+        actions = roomTargets[matchingTargetKey];
       }
     }
   }
