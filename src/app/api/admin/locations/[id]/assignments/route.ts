@@ -6,13 +6,13 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/admin/locations/[locationId]/assignments
+ * GET /api/admin/locations/[id]/assignments
  * 
  * Get all cleaners assigned to a location
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -29,7 +29,7 @@ export async function GET(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     
     const assignmentsResult = await sql`
       SELECT 
@@ -67,14 +67,14 @@ export async function GET(
 }
 
 /**
- * POST /api/admin/locations/[locationId]/assignments
+ * POST /api/admin/locations/[id]/assignments
  * 
  * Assign cleaners to a location
  * Body: { userIds: string[], assignedBy: string }
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -91,7 +91,7 @@ export async function POST(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     const body = await request.json();
     const { userIds, assignedBy } = body;
     
@@ -181,14 +181,14 @@ export async function POST(
 }
 
 /**
- * DELETE /api/admin/locations/[locationId]/assignments
+ * DELETE /api/admin/locations/[id]/assignments
  * 
  * Unassign cleaners from a location
  * Body: { userIds: string[] }
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -205,7 +205,7 @@ export async function DELETE(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     const body = await request.json();
     const { userIds } = body;
     
