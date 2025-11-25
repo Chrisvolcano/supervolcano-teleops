@@ -91,8 +91,15 @@ export default function RobotIntelligencePage() {
       
       const data = await response.json();
       console.log('✅ Stats loaded:', data);
+      console.log('Media count:', data.media);
       
-      setStats(data);
+      setStats({
+        locations: data.locations || 0,
+        shifts: data.shifts || 0,
+        tasks: data.tasks || 0,
+        executions: data.executions || 0,
+        media: data.media || 0, // Make sure this is set!
+      });
     } catch (error: any) {
       console.error('❌ Failed to load stats:', error);
       setError(`Failed to load stats: ${error.message}`);
