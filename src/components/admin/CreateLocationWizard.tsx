@@ -16,9 +16,23 @@ interface CreateLocationWizardProps {
   onSuccess: () => void;
 }
 
+export interface AddressData {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  fullAddress: string;
+  placeId?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
 export interface LocationData {
   name: string;
   address: string;
+  addressData?: AddressData;
   organizationId: string;
 }
 

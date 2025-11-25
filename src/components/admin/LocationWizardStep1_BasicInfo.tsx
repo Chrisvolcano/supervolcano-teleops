@@ -1,7 +1,7 @@
 'use client';
 
-import { LocationData } from './CreateLocationWizard';
-import AddressAutocomplete, { AddressData } from './AddressAutocomplete';
+import { LocationData, AddressData } from './CreateLocationWizard';
+import AddressAutocomplete from './AddressAutocomplete';
 
 interface LocationWizardStep1_BasicInfoProps {
   data: LocationData;
@@ -13,12 +13,11 @@ export default function LocationWizardStep1_BasicInfo({
   onChange,
 }: LocationWizardStep1_BasicInfoProps) {
   const handleAddressChange = (addressData: AddressData) => {
-    // Store the full address string
+    // Store the full address string and structured address data
     onChange({ 
       ...data, 
       address: addressData.fullAddress,
-      // Optionally store structured address data if LocationData supports it
-      addressData: addressData as any
+      addressData: addressData
     });
   };
 

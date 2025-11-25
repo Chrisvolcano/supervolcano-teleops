@@ -64,11 +64,14 @@ export default function ContextualTaskWizard({
       setAvailableTargets(targets);
 
       // Clear dependent fields if target is no longer valid
-      if (formData.target && !targets.includes(formData.target)) {
-        setFormData(prev => ({ ...prev, target: '', action: '', tool: '' }));
-        setAvailableActions([]);
-        setAvailableTools([]);
-      }
+      setFormData(prev => {
+        if (prev.target && !targets.includes(prev.target)) {
+          return { ...prev, target: '', action: '', tool: '' };
+        }
+        return prev;
+      });
+      setAvailableActions([]);
+      setAvailableTools([]);
     } else {
       setAvailableTargets([]);
       setFormData(prev => ({ ...prev, target: '', action: '', tool: '' }));
@@ -84,10 +87,13 @@ export default function ContextualTaskWizard({
       setAvailableActions(actions);
 
       // Clear dependent fields if action is no longer valid
-      if (formData.action && !actions.includes(formData.action)) {
-        setFormData(prev => ({ ...prev, action: '', tool: '' }));
-        setAvailableTools([]);
-      }
+      setFormData(prev => {
+        if (prev.action && !actions.includes(prev.action)) {
+          return { ...prev, action: '', tool: '' };
+        }
+        return prev;
+      });
+      setAvailableTools([]);
     } else {
       setAvailableActions([]);
       setFormData(prev => ({ ...prev, action: '', tool: '' }));
@@ -102,9 +108,12 @@ export default function ContextualTaskWizard({
       setAvailableTools(tools);
 
       // Clear tool if it's no longer valid
-      if (formData.tool && !tools.includes(formData.tool)) {
-        setFormData(prev => ({ ...prev, tool: '' }));
-      }
+      setFormData(prev => {
+        if (prev.tool && !tools.includes(prev.tool)) {
+          return { ...prev, tool: '' };
+        }
+        return prev;
+      });
     } else {
       setAvailableTools([]);
       setFormData(prev => ({ ...prev, tool: '' }));
@@ -119,9 +128,12 @@ export default function ContextualTaskWizard({
       const actionText = formatDisplayText(formData.action);
       const autoTitle = `${actionText} ${targetText} in ${roomText}`;
       
-      if (!formData.title || formData.title === autoTitle || formData.title.startsWith(actionText)) {
-        setFormData(prev => ({ ...prev, title: autoTitle }));
-      }
+      setFormData(prev => {
+        if (!prev.title || prev.title === autoTitle || prev.title.startsWith(actionText)) {
+          return { ...prev, title: autoTitle };
+        }
+        return prev;
+      });
     }
   }, [formData.room, formData.target, formData.action]);
 
