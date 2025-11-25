@@ -24,43 +24,36 @@ export async function GET(request: Request) {
     // Get stats from SQL database
     console.log('📊 Fetching stats from SQL database...');
     
-    // Count locations
-    const locationsResult = await sql`SELECT COUNT(*) as count FROM locations`;
-    const locationsArray = Array.isArray(locationsResult) ? locationsResult : (locationsResult as any)?.rows || [];
-    const locationsCount = parseInt(String(locationsArray[0]?.count || '0'));
+    // Count locations - Vercel Postgres returns array directly
+    const locationsResult = await sql`SELECT COUNT(*)::int as count FROM locations`;
+    const locationsCount = Array.isArray(locationsResult) 
+      ? Number(locationsResult[0]?.count || 0)
+      : Number((locationsResult as any)?.rows?.[0]?.count || 0);
     
     // Count jobs (not tasks - we renamed it)
-    const jobsResult = await sql`SELECT COUNT(*) as count FROM jobs`;
-    const jobsArray = Array.isArray(jobsResult) ? jobsResult : (jobsResult as any)?.rows || [];
-    const jobsCount = parseInt(String(jobsArray[0]?.count || '0'));
+    const jobsResult = await sql`SELECT COUNT(*)::int as count FROM jobs`;
+    const jobsCount = Array.isArray(jobsResult)
+      ? Number(jobsResult[0]?.count || 0)
+      : Number((jobsResult as any)?.rows?.[0]?.count || 0);
     
-    // Count media - FIXED to ensure proper count
-    // Vercel Postgres returns { rows: [...] } format
-    const mediaResult = await sql`SELECT COUNT(*) as count FROM media`;
-    const mediaRows = (mediaResult as any)?.rows || (Array.isArray(mediaResult) ? mediaResult : []);
+    // Count media - Use ::int to convert BigInt to int
+    const mediaResult = await sql`SELECT COUNT(*)::int as count FROM media`;
     
-    console.log('Media query result (raw):', JSON.stringify(mediaResult, null, 2));
-    console.log('Media rows:', mediaRows);
-    console.log('Media rows length:', mediaRows.length);
-    
-    // Extract count value - handle both BigInt and number types
+    // Vercel Postgres can return either array or { rows: [...] }
     let mediaCount = 0;
-    if (mediaRows.length > 0) {
-      const firstRow = mediaRows[0];
-      const countValue = firstRow?.count ?? firstRow?.COUNT ?? firstRow;
-      console.log('Count value (raw):', countValue, 'Type:', typeof countValue);
-      
-      // Handle BigInt (PostgreSQL COUNT returns BigInt)
-      if (typeof countValue === 'bigint') {
-        mediaCount = Number(countValue);
-      } else if (typeof countValue === 'number') {
-        mediaCount = countValue;
-      } else {
-        mediaCount = parseInt(String(countValue || '0'), 10);
-      }
+    if (Array.isArray(mediaResult)) {
+      mediaCount = Number(mediaResult[0]?.count || 0);
+    } else {
+      const rows = (mediaResult as any)?.rows || [];
+      mediaCount = Number(rows[0]?.count || 0);
     }
     
-    console.log('Media count from DB (final):', mediaCount);
+    console.log('📊 Media count query result:', {
+      isArray: Array.isArray(mediaResult),
+      hasRows: !!(mediaResult as any)?.rows,
+      firstElement: Array.isArray(mediaResult) ? mediaResult[0] : (mediaResult as any)?.rows?.[0],
+      finalCount: mediaCount,
+    });
     
     // Count shifts (sessions) if table exists
     let shiftsCount = 0;
