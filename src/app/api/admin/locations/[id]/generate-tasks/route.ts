@@ -6,12 +6,12 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/admin/locations/[locationId]/generate-tasks
+ * POST /api/admin/locations/[id]/generate-tasks
  * Auto-generate tasks from the location structure
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -28,7 +28,7 @@ export async function POST(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     
     // Get complete structure
     const roomsResult = await sql`

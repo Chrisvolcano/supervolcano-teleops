@@ -5,12 +5,12 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/admin/locations/[locationId]/rooms
+ * POST /api/admin/locations/[id]/rooms
  * Create a new room
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -27,7 +27,7 @@ export async function POST(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     const body = await request.json();
     const { floor_id, room_type_id, custom_name, notes, sort_order } = body;
     

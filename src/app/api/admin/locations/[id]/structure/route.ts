@@ -5,12 +5,12 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/admin/locations/[locationId]/structure
+ * GET /api/admin/locations/[id]/structure
  * Get the complete structure of a location (floors, rooms, targets, actions)
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { locationId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Admin auth check
@@ -27,7 +27,7 @@ export async function GET(
     
     requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.locationId;
+    const locationId = params.id;
     
     // Get floors
     const floorsResult = await sql`
