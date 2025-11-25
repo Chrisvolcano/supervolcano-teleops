@@ -3,6 +3,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import LocationWizardStep1_BasicInfo from './LocationWizardStep1_BasicInfo';
@@ -56,6 +57,7 @@ export default function CreateLocationWizard({
   onClose,
   onSuccess,
 }: CreateLocationWizardProps) {
+  const router = useRouter();
   const { getIdToken } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [locationData, setLocationData] = useState<LocationData>({
@@ -201,8 +203,9 @@ export default function CreateLocationWizard({
         // Don't fail the whole operation if task generation fails
       }
 
-      // Success!
+      // Success! Redirect to location detail page with structure tab
       onSuccess();
+      router.push(`/admin/locations/${locationId}`);
     } catch (error: any) {
       console.error('Failed to create location:', error);
       alert('Failed to create location: ' + (error.message || error));
