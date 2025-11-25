@@ -94,6 +94,35 @@ body {
   }
 }
 
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply rounded-lg bg-primary-500 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-600 active:bg-primary-700;
+  }
+
+  .btn-success {
+    @apply rounded-lg bg-success-500 px-4 py-2 font-medium text-white transition-colors hover:bg-success-600 active:bg-success-700;
+  }
+
+  .btn-secondary {
+    @apply rounded-lg border border-neutral-200 bg-white px-4 py-2 font-medium text-neutral-700 transition-colors hover:bg-neutral-50 active:bg-neutral-100;
+  }
+
+  /* Card styles */
+  .card {
+    @apply rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm;
+  }
+
+  .card-hover {
+    @apply card transition-all hover:border-primary-300 hover:shadow-md;
+  }
+
+  /* Success badge */
+  .badge-success {
+    @apply inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-1 text-xs font-medium text-success-700;
+  }
+}
+
 @layer utilities {
   /* Custom animation utilities */
   .animate-in {
@@ -124,6 +153,19 @@ body {
       opacity: 0;
       transform: translateY(-10px);
     }
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-neutral-300 hover:bg-neutral-400;
   }
   
   /* Respect reduced motion preference */
