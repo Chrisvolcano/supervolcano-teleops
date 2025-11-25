@@ -227,11 +227,13 @@ export async function DELETE(
     }
     
     // Soft delete by setting is_active = false
+    // @vercel/postgres supports arrays in ANY() clause
+    // Type assertion needed because TypeScript doesn't recognize array support in template tag
     await sql`
       UPDATE location_assignments
       SET is_active = false, updated_at = NOW()
       WHERE location_id = ${locationId}
-        AND user_id = ANY(${userIds})
+        AND user_id = ANY(${userIds as any})
     `;
     
     console.log(`✅ Unassigned ${userIds.length} users from location ${locationId}`);
