@@ -254,6 +254,68 @@ export default function RobotIntelligencePage() {
     }
   }
 
+  async function handleCleanupOrphans() {
+    try {
+      // First, preview what will be deleted
+      console.log('Checking for orphaned tasks...');
+      const token = await getIdToken();
+      
+      const previewResponse = await fetch('/api/admin/cleanup-sql-orphans', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const previewData = await previewResponse.json();
+      
+      if (!previewData.success) {
+        throw new Error(previewData.error);
+      }
+      
+      console.log('Preview:', previewData);
+      
+      if (previewData.orphanedCount === 0) {
+        alert('✅ No orphaned tasks found!\n\nSQL and Firestore are in sync.');
+        return;
+      }
+      
+      const orphanedList = previewData.orphanedTasks
+        .map((t: any) => `- ${t.title || t.id}`)
+        .join('\n');
+      
+      if (!confirm(
+        `Found ${previewData.orphanedCount} orphaned tasks in SQL:\n\n${orphanedList}\n\nDelete these?`
+      )) {
+        return;
+      }
+      
+      // Execute cleanup
+      console.log('Cleaning up orphaned tasks...');
+      const response = await fetch('/api/admin/cleanup-sql-orphans', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+      
+      alert(`✅ Cleanup complete!\n\nDeleted ${data.deleted} orphaned tasks from SQL.`);
+      
+      // Reload the page data
+      await loadStats();
+      await loadTasks();
+      
+    } catch (error: any) {
+      console.error('❌ Cleanup failed:', error);
+      alert(`Cleanup failed: ${error.message}`);
+    }
+  }
+
   async function syncData() {
     setSyncing(true);
     setError(null);
@@ -482,6 +544,12 @@ export default function RobotIntelligencePage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             🧹 Cleanup Tasks
+          </button>
+          <button
+            onClick={handleCleanupOrphans}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            🔄 Clean SQL Orphans
           </button>
           <button
             onClick={syncData}
