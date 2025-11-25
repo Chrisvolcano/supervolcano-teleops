@@ -5,9 +5,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withRepeat,
   withSequence,
-  interpolate,
 } from 'react-native-reanimated';
 
 interface SplashScreenProps {
@@ -15,56 +13,57 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(20);
-  const gradientOpacity = useSharedValue(0.3);
+  const opacity = useSharedValue(1);
+  const clipPath = useSharedValue(100); // Start fully clipped (100% hidden from left)
   const loadingBarX = useSharedValue(-100);
 
   useEffect(() => {
-    // Fade in animation
-    opacity.value = withTiming(1, { duration: 800 });
-    translateY.value = withTiming(0, { duration: 800 });
-
-    // Animated gradient overlay
-    gradientOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.6, { duration: 1500 }),
-        withTiming(0.3, { duration: 1500 })
-      ),
-      -1,
-      false
-    );
+    console.log('SplashScreen mounted');
+    
+    // Start left-to-right reveal animation
+    clipPath.value = withTiming(0, { duration: 1500 }, () => {
+      console.log('SplashScreen: Reveal animation complete');
+    });
 
     // Loading bar animation
-    loadingBarX.value = withRepeat(
-      withSequence(
-        withTiming(100, { duration: 1500 }),
-        withTiming(-100, { duration: 0 })
-      ),
-      -1,
-      false
+    loadingBarX.value = withSequence(
+      withTiming(100, { duration: 1200 }),
+      withTiming(-100, { duration: 0 }),
+      withTiming(100, { duration: 1200 })
     );
 
-    // Complete after 2.5 seconds
-    const timer = setTimeout(() => {
+    // Start exit after 3 seconds
+    const exitTimer = setTimeout(() => {
+      console.log('SplashScreen: Starting exit animation');
       opacity.value = withTiming(0, { duration: 500 }, () => {
-        onComplete();
+        console.log('SplashScreen: Exit animation complete');
       });
-    }, 2500);
+    }, 3000);
 
-    return () => clearTimeout(timer);
+    // Call onComplete after fade out
+    const completeTimer = setTimeout(() => {
+      console.log('SplashScreen: Calling onComplete');
+      onComplete();
+    }, 3500); // 3s display + 0.5s fade out
+
+    return () => {
+      console.log('SplashScreen: Cleaning up timers');
+      clearTimeout(exitTimer);
+      clearTimeout(completeTimer);
+    };
   }, []);
 
-  const textAnimatedStyle = useAnimatedStyle(() => {
+  const containerStyle = useAnimatedStyle(() => {
     return {
       opacity: opacity.value,
-      transform: [{ translateY: translateY.value }],
     };
   });
 
-  const gradientAnimatedStyle = useAnimatedStyle(() => {
+  const textRevealStyle = useAnimatedStyle(() => {
+    // Simulate clipPath with translateX and opacity
+    // We'll use a mask approach instead
     return {
-      opacity: gradientOpacity.value,
+      transform: [{ translateX: clipPath.value * -1 }],
     };
   });
 
@@ -75,53 +74,44 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   });
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <Animated.View style={[styles.container, containerStyle]}>
+      <StatusBar barStyle="dark-content" />
       
-      {/* Base gradient background */}
-      <LinearGradient
-        colors={['#111827', '#1f2937', '#1e3a8a']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* White background */}
+      <View style={styles.background} />
 
-      {/* Animated gradient overlay */}
-      <Animated.View style={[styles.gradientOverlay, gradientAnimatedStyle]}>
-        <LinearGradient
-          colors={['rgba(37, 99, 235, 0.2)', 'transparent', 'rgba(96, 165, 250, 0.2)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
-
-      {/* VOLCANO text with gradient effect */}
-      <Animated.View style={[styles.textContainer, textAnimatedStyle]}>
-        <LinearGradient
-          colors={['#60a5fa', '#ffffff', '#3b82f6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.textGradientWrapper}
-        >
-          <Text style={styles.volcanoText}>VOLCANO</Text>
-        </LinearGradient>
+      {/* VOLCANO text */}
+      <View style={styles.textContainer}>
+        {/* Background text (grey) */}
+        <Text style={styles.backgroundText}>VOLCANO</Text>
         
-        {/* Loading indicator */}
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingBarTrack}>
-            <Animated.View style={[styles.loadingBar, loadingBarStyle]}>
-              <LinearGradient
-                colors={['#3b82f6', '#60a5fa']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loadingBarGradient}
-              />
-            </Animated.View>
-          </View>
+        {/* Foreground text (black) with reveal */}
+        <Animated.View style={[styles.foregroundTextContainer, textRevealStyle]}>
+          <LinearGradient
+            colors={['#000000', '#171717', '#262626']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientText}
+          >
+            <Text style={styles.foregroundText}>VOLCANO</Text>
+          </LinearGradient>
+        </Animated.View>
+      </View>
+
+      {/* Loading indicator */}
+      <View style={styles.loadingContainer}>
+        <View style={styles.loadingBarTrack}>
+          <Animated.View style={[styles.loadingBar, loadingBarStyle]}>
+            <LinearGradient
+              colors={['#262626', '#000000']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.loadingBarGradient}
+            />
+          </Animated.View>
         </View>
-      </Animated.View>
-    </View>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -131,35 +121,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  gradientOverlay: {
+  background: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
   },
   textContainer: {
     alignItems: 'center',
-    zIndex: 10,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  textGradientWrapper: {
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  volcanoText: {
-    fontSize: 56,
+  backgroundText: {
+    fontSize: 72,
     fontWeight: '900',
     letterSpacing: -2,
-    color: '#ffffff',
-    textShadowColor: 'rgba(59, 130, 246, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    color: '#D4D4D4', // neutral-300
+    opacity: 0.5,
+  },
+  foregroundTextContainer: {
+    position: 'absolute',
+    overflow: 'hidden',
+  },
+  gradientText: {
+    width: '100%',
+    height: '100%',
+  },
+  foregroundText: {
+    fontSize: 72,
+    fontWeight: '900',
+    letterSpacing: -2,
+    color: '#000000',
   },
   loadingContainer: {
     marginTop: 32,
     alignItems: 'center',
   },
   loadingBarTrack: {
-    width: 128,
-    height: 4,
-    backgroundColor: '#374151',
-    borderRadius: 2,
+    width: 192,
+    height: 2,
+    backgroundColor: '#E5E5E5', // neutral-200
+    borderRadius: 1,
     overflow: 'hidden',
   },
   loadingBar: {
@@ -171,4 +171,3 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 });
-
