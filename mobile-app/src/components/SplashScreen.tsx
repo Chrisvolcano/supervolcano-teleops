@@ -14,14 +14,14 @@ interface SplashScreenProps {
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const opacity = useSharedValue(1);
-  const clipPath = useSharedValue(100); // Start fully clipped (100% hidden from left)
+  const revealWidth = useSharedValue(0); // Start at 0 (fully hidden)
   const loadingBarX = useSharedValue(-100);
 
   useEffect(() => {
     console.log('SplashScreen mounted');
     
     // Start left-to-right reveal animation
-    clipPath.value = withTiming(0, { duration: 1500 }, () => {
+    revealWidth.value = withTiming(100, { duration: 1500 }, () => {
       console.log('SplashScreen: Reveal animation complete');
     });
 
@@ -59,11 +59,10 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     };
   });
 
-  const textRevealStyle = useAnimatedStyle(() => {
-    // Simulate clipPath with translateX and opacity
-    // We'll use a mask approach instead
+  // Reveal mask that moves from left to right
+  const revealMaskStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: clipPath.value * -1 }],
+      width: `${revealWidth.value}%`,
     };
   });
 
@@ -80,22 +79,24 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       {/* White background */}
       <View style={styles.background} />
 
-      {/* VOLCANO text */}
+      {/* VOLCANO text container */}
       <View style={styles.textContainer}>
-        {/* Background text (grey) */}
+        {/* Background text (grey) - always visible */}
         <Text style={styles.backgroundText}>VOLCANO</Text>
         
-        {/* Foreground text (black) with reveal */}
-        <Animated.View style={[styles.foregroundTextContainer, textRevealStyle]}>
-          <LinearGradient
-            colors={['#000000', '#171717', '#262626']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientText}
-          >
-            <Text style={styles.foregroundText}>VOLCANO</Text>
-          </LinearGradient>
-        </Animated.View>
+        {/* Foreground text (black) with left-to-right reveal */}
+        <View style={styles.foregroundContainer}>
+          <Animated.View style={[styles.revealMask, revealMaskStyle]}>
+            <LinearGradient
+              colors={['#000000', '#171717', '#262626']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientText}
+            >
+              <Text style={styles.foregroundText}>VOLCANO</Text>
+            </LinearGradient>
+          </Animated.View>
+        </View>
       </View>
 
       {/* Loading indicator */}
@@ -135,15 +136,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -2,
     color: '#D4D4D4', // neutral-300
-    opacity: 0.5,
   },
-  foregroundTextContainer: {
+  foregroundContainer: {
     position: 'absolute',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  revealMask: {
+    height: '100%',
     overflow: 'hidden',
   },
   gradientText: {
     width: '100%',
     height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   foregroundText: {
     fontSize: 72,
