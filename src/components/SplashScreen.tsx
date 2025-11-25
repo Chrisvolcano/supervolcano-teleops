@@ -8,79 +8,80 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const [show, setShow] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShow(false);
-      setTimeout(onComplete, 500); // Wait for fade out
-    }, 2500); // Show for 2.5 seconds
+    console.log('SplashScreen mounted');
+    
+    // Wait for animation to complete before starting exit
+    const exitTimer = setTimeout(() => {
+      console.log('SplashScreen: Starting exit animation');
+      setIsExiting(true);
+    }, 3000); // Show for 3 seconds
 
-    return () => clearTimeout(timer);
+    // Call onComplete after fade out animation
+    const completeTimer = setTimeout(() => {
+      console.log('SplashScreen: Calling onComplete');
+      onComplete();
+    }, 3500); // 3s display + 0.5s fade out
+
+    return () => {
+      console.log('SplashScreen: Cleaning up timers');
+      clearTimeout(exitTimer);
+      clearTimeout(completeTimer);
+    };
   }, [onComplete]);
-
-  if (!show) return null;
 
   return (
     <motion.div
       initial={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      animate={{ opacity: isExiting ? 0 : 1 }}
       transition={{ duration: 0.5 }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-white"
     >
-      {/* Animated gradient background overlay */}
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-transparent to-blue-400/20"
-        animate={{
-          opacity: [0.3, 0.6, 0.3],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
-
-      {/* VOLCANO text with fade-in and gradient reveal */}
-      <div className="relative z-10">
+      {/* VOLCANO text with left-to-right gradient reveal */}
+      <div className="relative overflow-hidden">
         <motion.h1
-          className="text-7xl font-black tracking-tight"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          className="relative text-8xl font-black tracking-tight md:text-9xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
         >
+          {/* Background text (grey) */}
+          <span className="absolute inset-0 bg-gradient-to-r from-neutral-300 to-neutral-400 bg-clip-text text-transparent">
+            VOLCANO
+          </span>
+          
+          {/* Foreground text (black) with left-to-right reveal */}
           <motion.span
-            className="bg-gradient-to-r from-blue-400 via-white to-blue-500 bg-clip-text text-transparent"
-            animate={{
-              backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-            }}
+            className="relative bg-gradient-to-r from-black via-neutral-800 to-neutral-900 bg-clip-text text-transparent"
+            initial={{ clipPath: 'inset(0 100% 0 0)' }}
+            animate={{ clipPath: 'inset(0 0% 0 0)' }}
             transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "linear"
+              duration: 1.5,
+              delay: 0.5,
+              ease: [0.22, 1, 0.36, 1] // Custom easing for smooth reveal
             }}
-            style={{ backgroundSize: '200% 200%' }}
           >
             VOLCANO
           </motion.span>
         </motion.h1>
-        
+
         {/* Subtle loading indicator */}
         <motion.div
           className="mt-8 flex justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
+          transition={{ delay: 2 }}
         >
-          <div className="h-1 w-32 overflow-hidden rounded-full bg-gray-700">
+          <div className="h-0.5 w-48 overflow-hidden rounded-full bg-neutral-200">
             <motion.div
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-400"
-              animate={{
-                x: ['-100%', '100%'],
-              }}
+              className="h-full bg-gradient-to-r from-neutral-800 to-black"
+              initial={{ x: '-100%' }}
+              animate={{ x: '100%' }}
               transition={{
-                duration: 1.5,
-                repeat: Infinity,
+                duration: 1.2,
+                repeat: 1,
                 ease: "easeInOut"
               }}
             />
@@ -90,4 +91,3 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     </motion.div>
   );
 }
-
