@@ -5,71 +5,88 @@
  */
 
 import React from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { MapPin, Home } from 'lucide-react';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 
 interface Step1BasicInfoProps {
   name: string;
+  setName: (name: string) => void;
   address: string;
-  onNameChange: (name: string) => void;
-  onAddressChange: (address: string) => void;
-  errors: string[];
+  setAddress: (address: string) => void;
 }
 
 export default function Step1BasicInfo({
   name,
+  setName,
   address,
-  onNameChange,
-  onAddressChange,
-  errors,
+  setAddress,
 }: Step1BasicInfoProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2">Basic Information</h2>
+    <div className="p-6 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+          <Home size={28} className="text-blue-600" />
+        </div>
+        <h3 className="text-2xl font-bold mb-2">Location Details</h3>
         <p className="text-gray-600">
-          Enter the location name and address to get started.
+          Enter the basic information for this location. You'll build the structure in the next step.
         </p>
       </div>
 
-      {errors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <ul className="list-disc list-inside space-y-1">
-            {errors.map((error, index) => (
-              <li key={index} className="text-red-800 text-sm">{error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="space-y-4">
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Location Name */}
         <div>
-          <Label htmlFor="location-name">Location Name</Label>
-          <Input
+          <label htmlFor="location-name" className="block text-sm font-semibold mb-2 text-gray-900">
+            Location Name <span className="text-red-500">*</span>
+          </label>
+          <input
             id="location-name"
+            type="text"
             value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g., Main Office, Test House, etc."
-            className="mt-1"
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Isaac's House, Downtown Office"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            maxLength={100}
+            required
+            aria-required="true"
+            aria-describedby="name-hint"
           />
-          <p className="text-sm text-gray-500 mt-1">
-            A descriptive name for this location
+          <p id="name-hint" className="mt-1.5 text-sm text-gray-500">
+            Give this location a memorable name
           </p>
         </div>
 
+        {/* Address */}
         <div>
-          <Label htmlFor="location-address">Address</Label>
-          <AddressAutocomplete
-            onAddressSelect={(addressData) => {
-              onAddressChange(addressData.fullAddress);
-            }}
-            initialValue={address}
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            Full street address for this location
+          <label htmlFor="location-address" className="block text-sm font-semibold mb-2 text-gray-900">
+            Address <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute left-3 top-3.5 text-gray-400">
+              <MapPin size={20} />
+            </div>
+            <div className="pl-11">
+              <AddressAutocomplete
+                onAddressSelect={(addressData) => {
+                  setAddress(addressData.fullAddress);
+                }}
+                initialValue={address}
+              />
+            </div>
+          </div>
+          <p id="address-hint" className="mt-1.5 text-sm text-gray-500">
+            Full street address including city, state, and ZIP
           </p>
         </div>
+      </div>
+
+      {/* Info Box */}
+      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-900">
+          <strong className="font-semibold">Next step:</strong> You'll add floors, rooms, and targets to create the complete location structure.
+        </p>
       </div>
     </div>
   );
