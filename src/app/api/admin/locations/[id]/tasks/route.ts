@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
-import { sql } from '@/lib/db/postgres';
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Get all tasks for a specific location from Firestore
+ * TASKS API - Get all tasks for a location (ADMIN PORTAL)
+ * 
+ * This endpoint serves the admin web portal.
+ * Queries Firestore (source of truth), NOT PostgreSQL.
+ * 
+ * PostgreSQL is only for Robot Intelligence API (/api/robot/v1/*)
+ * 
+ * Last updated: 2025-01-26
  */
 export async function GET(
   request: NextRequest,
@@ -84,6 +90,8 @@ export async function GET(
     console.log('🔍 GET TASKS API: Total tasks found:', tasksSnap.size);
     
     // Fetch floor information for tasks that have floor_id
+    // NOTE: This endpoint uses Firestore (source of truth), NOT PostgreSQL
+    // PostgreSQL is only for robot-facing endpoints (/api/robot/v1/*)
     const floorIds = new Set<string>();
     tasksSnap.docs.forEach((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
@@ -92,20 +100,29 @@ export async function GET(
       }
     });
 
-    // Fetch floor names from PostgreSQL
+    // Fetch floor names from Firestore (source of truth for admin portal)
     const floorMap = new Map<string, string>();
     if (floorIds.size > 0) {
       try {
-        const floorIdsArray = Array.from(floorIds);
-        const floorsResult = await sql`
-          SELECT id, name FROM location_floors
-          WHERE id = ANY(${floorIdsArray}::uuid[])
-        `;
-        const floors = Array.isArray(floorsResult) ? floorsResult : (floorsResult as any)?.rows || [];
-        floors.forEach((floor: any) => {
+        const floorPromises = Array.from(floorIds).map(async (floorId) => {
+          try {
+            const floorDoc = await adminDb.collection('floors').doc(floorId).get();
+            if (floorDoc.exists()) {
+              const floorData = floorDoc.data();
+              return { id: floorId, name: floorData?.name || 'Unknown Floor' };
+            }
+            return { id: floorId, name: 'Unknown Floor' };
+          } catch (error) {
+            console.error(`[GET Tasks] Error fetching floor ${floorId}:`, error);
+            return { id: floorId, name: 'Unknown Floor' };
+          }
+        });
+        
+        const floors = await Promise.all(floorPromises);
+        floors.forEach((floor) => {
           floorMap.set(floor.id, floor.name);
         });
-        console.log('[GET Tasks] Fetched floor names:', floorMap);
+        console.log('[GET Tasks] Fetched floor names from Firestore:', floorMap);
       } catch (error) {
         console.error('[GET Tasks] Error fetching floor names:', error);
       }
