@@ -1,7 +1,12 @@
 # SuperVolcano Architecture Documentation
 
 **Last Updated:** 2025-01-26  
-**Version:** 1.0
+**Version:** 1.1
+
+**Recent Updates:**
+- Added Database Architecture section (Firestore vs PostgreSQL)
+- Clarified which endpoints use which database
+- Added implementation guidelines and common mistakes
 
 This document explains the core architecture of the SuperVolcano platform for engineers who are new to the codebase.
 
@@ -12,11 +17,12 @@ This document explains the core architecture of the SuperVolcano platform for en
 1. [Business Model Overview](#business-model-overview)
 2. [Role-Based Access Control](#role-based-access-control)
 3. [Data Model](#data-model)
-4. [Permission System](#permission-system)
-5. [API Architecture](#api-architecture)
-6. [Mobile App Structure](#mobile-app-structure)
-7. [Common Workflows](#common-workflows)
-8. [Code Organization](#code-organization)
+4. [Database Architecture: Firestore vs PostgreSQL](#database-architecture-firestore-vs-postgresql)
+5. [Permission System](#permission-system)
+6. [API Architecture](#api-architecture)
+7. [Mobile App Structure](#mobile-app-structure)
+8. [Common Workflows](#common-workflows)
+9. [Code Organization](#code-organization)
 
 ---
 
@@ -194,6 +200,180 @@ location_assignments
   └─ location_id: property_id
   └─ (Auto-created)
 ```
+
+---
+
+## Database Architecture: Firestore vs PostgreSQL
+
+SuperVolcano uses a **dual-database architecture** to serve different use cases:
+
+### Firestore (Source of Truth)
+
+**Purpose:** Human-facing applications (web and mobile)  
+**Access:** Admin portal, organization portal, mobile apps  
+**Characteristics:**
+
+- Real-time updates for web/mobile apps
+- Flexible schema for rapid development
+- Firebase Auth integration
+- Great for user-facing applications
+- Document-based NoSQL database
+
+**Endpoints that use Firestore:**
+
+```
+/api/locations/*              → Firestore
+/api/admin/locations/*        → Firestore
+/api/tasks/*                  → Firestore
+/api/floors/*                 → Firestore
+/api/rooms/*                  → Firestore
+/api/targets/*                → Firestore
+/api/actions/*                → Firestore
+(All admin portal endpoints)  → Firestore
+(All organization endpoints)  → Firestore
+```
+
+**Key Collections:**
+
+- `locations` - All location data
+- `tasks` - Task definitions and status
+- `floors`, `rooms`, `targets`, `actions` - Location hierarchy
+- `users` - User accounts
+- `organizations` - Organization data
+- `sessions` - Teleoperation sessions
+- `videos` - Video uploads and metadata
+
+### PostgreSQL (Read-Only Replica for Robots)
+
+**Purpose:** Robot-facing API endpoints  
+**Access:** Robot Intelligence API only  
+**Characteristics:**
+
+- Structured SQL queries for robot brains
+- Optimized for complex analytical queries
+- Robots can query without hitting Firestore rate limits
+- Historical data analysis
+- Better for time-series queries
+- Relational database with ACID guarantees
+
+**Endpoints that use PostgreSQL:**
+
+```
+/api/robot/v1/query           → PostgreSQL
+/api/robot/v1/feedback        → PostgreSQL
+/api/robot/v1/tasks           → PostgreSQL
+(Only Robot Intelligence API) → PostgreSQL
+```
+
+**Key Tables:**
+
+- `location_floors` - Floor definitions
+- `location_rooms` - Room definitions
+- `location_targets` - Target definitions
+- `location_actions` - Action definitions
+- `task_executions` - Execution history
+- `robot_feedback` - Robot feedback data
+
+### One-Way Sync Service
+
+**Purpose:** Keep PostgreSQL in sync with Firestore  
+**Direction:** Firestore → PostgreSQL (one-way only)  
+**When it runs:**
+
+- Periodically (scheduled background job)
+- Triggered manually (admin action)
+- Event-driven (on significant data changes)
+
+**Important Rules:**
+
+1. **Never write back to Firestore** - PostgreSQL is read-only for robots
+2. **Eventually consistent** - PostgreSQL may be slightly behind Firestore
+3. **Idempotent** - Sync can be run multiple times safely
+4. **Selective sync** - Only syncs data needed for robot queries
+
+### Why This Architecture?
+
+**Separation of Concerns:**
+
+- **Firestore** handles all human interactions (fast, flexible, real-time)
+- **PostgreSQL** handles robot queries (structured, analytical, optimized)
+
+**Performance Benefits:**
+
+- Robots don't impact Firestore rate limits
+- Complex SQL queries are faster in PostgreSQL
+- Historical analysis is better in PostgreSQL
+- Real-time updates stay in Firestore
+
+**Development Benefits:**
+
+- Rapid iteration on Firestore schema
+- Structured queries for robots in PostgreSQL
+- Clear separation between human and robot APIs
+- Easy to scale each database independently
+
+### Implementation Guidelines
+
+**When creating a new API endpoint:**
+
+1. **Ask: Who is the consumer?**
+   - **Human (admin/manager/operator)** → Use Firestore
+   - **Robot** → Use PostgreSQL
+
+2. **Admin Portal Endpoints:**
+   ```typescript
+   // ✅ CORRECT - Use Firestore
+   import { adminDb } from '@/lib/firebaseAdmin';
+   const doc = await adminDb.collection('locations').doc(id).get();
+   ```
+
+3. **Robot API Endpoints:**
+   ```typescript
+   // ✅ CORRECT - Use PostgreSQL
+   import { sql } from '@/lib/db/postgres';
+   const result = await sql`SELECT * FROM location_floors WHERE location_id = ${id}`;
+   ```
+
+4. **Never mix databases in one endpoint:**
+   ```typescript
+   // ❌ WRONG - Don't query PostgreSQL in admin endpoints
+   // Admin endpoints should ONLY use Firestore
+   ```
+
+### Common Mistakes to Avoid
+
+1. **Querying PostgreSQL in admin portal endpoints**
+   - ❌ Wrong: `/api/admin/locations/[id]/tasks` querying PostgreSQL
+   - ✅ Correct: Query Firestore for admin endpoints
+
+2. **Querying Firestore in robot API endpoints**
+   - ❌ Wrong: `/api/robot/v1/query` querying Firestore
+   - ✅ Correct: Query PostgreSQL for robot endpoints
+
+3. **Writing to PostgreSQL from admin endpoints**
+   - ❌ Wrong: Creating locations in PostgreSQL from admin portal
+   - ✅ Correct: Create in Firestore, sync service handles PostgreSQL
+
+4. **Assuming real-time sync**
+   - ⚠️ Warning: PostgreSQL may be seconds/minutes behind Firestore
+   - ✅ Solution: Robots should use PostgreSQL, humans use Firestore
+
+### Migration Notes
+
+If you see code that mixes databases:
+
+1. **Identify the endpoint's purpose:**
+   - Admin/Organization portal → Should use Firestore
+   - Robot API → Should use PostgreSQL
+
+2. **Refactor accordingly:**
+   - Remove PostgreSQL queries from admin endpoints
+   - Remove Firestore queries from robot endpoints
+   - Ensure sync service handles the data flow
+
+3. **Update documentation:**
+   - Add comments explaining which database is used
+   - Document why that database was chosen
 
 ---
 
@@ -536,6 +716,16 @@ When making changes, verify:
 ### 4. "Can a field operator work for multiple organizations?"
 
 **Answer:** Not currently. A user can only belong to one organization at a time. If needed in the future, this could be refactored to many-to-many.
+
+### 5. "Which database should I use for my endpoint?"
+
+**Answer:** 
+- **Human-facing endpoints** (admin portal, organization portal, mobile apps) → Use **Firestore**
+- **Robot-facing endpoints** (`/api/robot/v1/*`) → Use **PostgreSQL**
+
+**Rule of thumb:** If the endpoint serves humans (web/mobile), use Firestore. If it serves robots, use PostgreSQL.
+
+**Common mistake:** Querying PostgreSQL in admin endpoints. Admin endpoints should ONLY use Firestore.
 
 ---
 

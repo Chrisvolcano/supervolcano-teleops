@@ -2,6 +2,17 @@
 
 Base URL: `https://supervolcano-teleops.vercel.app/api/robot`
 
+## Important: Database Architecture
+
+**This API uses PostgreSQL (NOT Firestore).**
+
+- **Robot API endpoints** (`/api/robot/v1/*`) → PostgreSQL (read-only replica)
+- **Admin/Organization endpoints** (`/api/admin/*`, `/api/locations/*`) → Firestore (source of truth)
+
+PostgreSQL is kept in sync with Firestore via a one-way sync service. This allows robots to query structured data without impacting Firestore rate limits.
+
+---
+
 ## Authentication
 
 All requests require an API key in the header:
