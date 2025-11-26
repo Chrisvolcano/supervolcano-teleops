@@ -155,7 +155,7 @@ export async function GET(
     );
 
     // Sort floors by floor_number client-side
-    floors.sort((a, b) => (a.floor_number || 0) - (b.floor_number || 0));
+    floors.sort((a: any, b: any) => (a.floor_number || 0) - (b.floor_number || 0));
 
     console.log('[GET Structure] Successfully built structure with', floors.length, 'floors');
     

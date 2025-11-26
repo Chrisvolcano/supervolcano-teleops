@@ -102,6 +102,7 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
 
   useEffect(() => {
     loadStructure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId]);
 
   // Floor handler
