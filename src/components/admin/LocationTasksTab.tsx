@@ -135,7 +135,7 @@ export default function LocationTasksTab({ locationId, locationName, partnerOrgI
             <CheckCircle size={48} className="mx-auto mb-4 text-gray-400" />
             <h3 className="text-lg font-semibold mb-2">No Tasks Yet</h3>
             <p className="text-gray-600 mb-6">
-              Create tasks from the Structure tab or use "Generate Tasks" button
+              Create tasks from the Structure tab or use &quot;Generate Tasks&quot; button
             </p>
             <button
               onClick={() => setWizardOpen(true)}
