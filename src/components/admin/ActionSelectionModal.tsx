@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getValidActions, formatDisplayText } from '@/constants/taskHierarchy';
+import { formatDisplayText } from '@/constants/taskHierarchy';
+import { getValidActions } from '@/lib/constants/actionMap';
 
 interface ActionSelectionModalProps {
   isOpen: boolean;
@@ -28,13 +29,13 @@ export default function ActionSelectionModal({
     
     if (selectedRoom && selectedTarget) {
       // Extract room name - handle different data structures
-      const roomName = selectedRoom.name || selectedRoom.type || selectedRoom;
+      const roomName = selectedRoom.name || selectedRoom.type || selectedRoom.room_type_name || selectedRoom;
       const roomKey = typeof roomName === 'string' 
         ? roomName.toLowerCase().replace(/\s+/g, '_')
         : '';
       
       // Extract target name - handle different data structures
-      const targetName = selectedTarget.name || selectedTarget.type || selectedTarget;
+      const targetName = selectedTarget.name || selectedTarget.type || selectedTarget.target_type_name || selectedTarget;
       const targetKey = typeof targetName === 'string'
         ? targetName.toLowerCase().replace(/\s+/g, '_')
         : '';
@@ -45,7 +46,9 @@ export default function ActionSelectionModal({
       const validActions = getValidActions(roomKey, targetKey);
       console.log('Valid actions returned:', validActions);
       
-      setFilteredActions(validActions);
+      // Extract action names from ActionDefinition objects
+      const actionNames = validActions.map(action => action.name);
+      setFilteredActions(actionNames);
     } else {
       setFilteredActions([]);
     }

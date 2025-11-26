@@ -40,13 +40,15 @@ export async function GET(
     }
     
     // Get floors
+    console.log('[Structure API] Fetching floors for location:', locationId);
     const floorsResult = await sql`
       SELECT * FROM location_floors
       WHERE location_id = ${locationId}
-      ORDER BY sort_order ASC
+      ORDER BY sort_order ASC, name ASC
     `;
     
     const floors = Array.isArray(floorsResult) ? floorsResult : (floorsResult as any)?.rows || [];
+    console.log('[Structure API] Found floors:', floors.length, floors);
     
     // Get rooms with room type info
     const roomsResult = await sql`
@@ -63,11 +65,18 @@ export async function GET(
     
     const rooms = Array.isArray(roomsResult) ? roomsResult : (roomsResult as any)?.rows || [];
     
+    // Always return floors, even if no rooms exist
     if (rooms.length === 0) {
+      console.log('[Structure API] No rooms found, returning floors only');
+      const structure = floors.map((floor: any) => ({
+        ...floor,
+        rooms: [],
+      }));
+      
       return NextResponse.json({
         success: true,
         structure: {
-          floors: [],
+          floors: structure,
           roomsWithoutFloors: [],
         },
         stats: {

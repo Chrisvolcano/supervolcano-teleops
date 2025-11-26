@@ -29,7 +29,10 @@ export async function GET(
 
     const locationId = params.id;
     
+    console.log('[GET Floors] Fetching floors for location:', locationId);
+    
     if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+      console.error('[GET Floors] Invalid locationId:', locationId);
       return NextResponse.json(
         { success: false, error: 'Invalid location ID' },
         { status: 400 }
@@ -44,9 +47,12 @@ export async function GET(
     
     const floors = Array.isArray(result) ? result : (result as any)?.rows || [];
     
+    console.log('[GET Floors] Found floors:', floors.length, floors);
+    
     return NextResponse.json({
       success: true,
       floors,
+      count: floors.length,
     });
   } catch (error: any) {
     console.error('Failed to fetch floors:', error);

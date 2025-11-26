@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getValidTools, formatDisplayText } from '@/constants/taskHierarchy';
+import { formatDisplayText } from '@/constants/taskHierarchy';
+import { getToolsForActionContext } from '@/lib/constants/actionMap';
+import { getToolsForAction } from '@/lib/constants/toolPresets';
 
 interface ToolSelectionModalProps {
   isOpen: boolean;
@@ -33,24 +35,31 @@ export default function ToolSelectionModal({
     
     if (selectedRoom && selectedTarget && selectedAction) {
       // Extract names and convert to keys
-      const roomName = selectedRoom.name || selectedRoom.type || selectedRoom;
+      const roomName = selectedRoom.name || selectedRoom.type || selectedRoom.room_type_name || selectedRoom;
       const roomKey = typeof roomName === 'string'
         ? roomName.toLowerCase().replace(/\s+/g, '_')
         : '';
       
-      const targetName = selectedTarget.name || selectedTarget.type || selectedTarget;
+      const targetName = selectedTarget.name || selectedTarget.type || selectedTarget.target_type_name || selectedTarget;
       const targetKey = typeof targetName === 'string'
         ? targetName.toLowerCase().replace(/\s+/g, '_')
         : '';
       
-      const actionName = selectedAction.name || selectedAction.type || selectedAction;
+      const actionName = selectedAction.name || selectedAction.type || selectedAction.action_type_name || selectedAction;
       const actionKey = typeof actionName === 'string'
         ? actionName.toLowerCase().replace(/\s+/g, '_')
         : '';
       
       console.log('Tool lookup:', { roomKey, targetKey, actionKey });
       
-      const validTools = getValidTools(roomKey, targetKey, actionKey);
+      // Try to get tools from action map first (context-aware)
+      let validTools = getToolsForActionContext(roomKey, targetKey, actionName);
+      
+      // Fallback to action-based presets if no context tools found
+      if (validTools.length === 0) {
+        validTools = getToolsForAction(actionName);
+      }
+      
       console.log('Valid tools returned:', validTools);
       
       setAvailableTools(validTools);

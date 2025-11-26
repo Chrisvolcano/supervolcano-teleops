@@ -121,30 +121,53 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
 
   const loadStructure = useCallback(async () => {
     try {
+      setLoading(true);
       const token = await getIdToken();
-      if (!token) return;
+      if (!token) {
+        console.error('[LocationStructureTab] No auth token');
+        return;
+      }
 
+      console.log('[LocationStructureTab] Loading structure for location:', locationId);
       const response = await fetch(`/api/admin/locations/${locationId}/structure`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[LocationStructureTab] API error:', response.status, errorData);
+        throw new Error(errorData.error || `Failed to load structure: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('[LocationStructureTab] Structure data received:', {
+        success: data.success,
+        floorCount: data.structure?.floors?.length || 0,
+        floors: data.structure?.floors,
+      });
 
       if (data.success) {
-        setFloors(data.structure.floors);
-        setRoomsWithoutFloors(data.structure.roomsWithoutFloors);
+        const floors = data.structure.floors || [];
+        const roomsWithoutFloors = data.structure.roomsWithoutFloors || [];
+        
+        console.log('[LocationStructureTab] Setting floors:', floors.length);
+        setFloors(floors);
+        setRoomsWithoutFloors(roomsWithoutFloors);
         
         // Auto-expand first floor and first room
-        if (data.structure.floors.length > 0) {
-          const firstFloor = data.structure.floors[0];
+        if (floors.length > 0) {
+          const firstFloor = floors[0];
           setExpandedFloors(new Set([firstFloor.id]));
           
-          if (firstFloor.rooms.length > 0) {
+          if (firstFloor.rooms && firstFloor.rooms.length > 0) {
             setExpandedRooms(new Set([firstFloor.rooms[0].id]));
           }
         }
+      } else {
+        console.error('[LocationStructureTab] API returned success=false:', data);
       }
     } catch (error) {
-      console.error('Failed to load structure:', error);
+      console.error('[LocationStructureTab] Failed to load structure:', error);
     } finally {
       setLoading(false);
     }
@@ -385,6 +408,13 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         </div>
       </div>
 
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+          <strong>Debug:</strong> Floors: {floors.length}, Rooms without floors: {roomsWithoutFloors.length}
+        </div>
+      )}
+
       {/* Structure Display */}
       {floors.length === 0 && roomsWithoutFloors.length === 0 ? (
         <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
@@ -405,7 +435,8 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         </div>
       ) : (
         <div className="space-y-4">
-          {floors.map(floor => (
+          {/* Display floors */}
+          {floors.length > 0 && floors.map(floor => (
             <div key={floor.id} className="bg-white rounded-lg border border-gray-200">
               {/* Floor Header */}
               <button
@@ -504,6 +535,25 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
               )}
             </div>
           ))}
+          
+          {/* Display rooms without floors */}
+          {roomsWithoutFloors.length > 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="font-semibold text-gray-900 mb-3">Rooms Without Floors</h4>
+              <div className="space-y-2">
+                {roomsWithoutFloors.map(room => (
+                  <div key={room.id} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-4 w-4" style={{ color: room.room_type_color }} />
+                      <span className="font-medium text-gray-900">
+                        {room.custom_name || room.room_type_name}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
