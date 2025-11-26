@@ -101,27 +101,26 @@ export async function GET(
     });
 
     // Fetch floor names from Firestore (source of truth for admin portal)
+    // NOTE: This endpoint uses Firestore (source of truth), NOT PostgreSQL
+    // PostgreSQL is only for robot-facing endpoints (/api/robot/v1/*)
     const floorMap = new Map<string, string>();
     if (floorIds.size > 0) {
       try {
-        const floorPromises = Array.from(floorIds).map(async (floorId) => {
+        for (const floorId of Array.from(floorIds)) {
           try {
             const floorDoc = await adminDb.collection('floors').doc(floorId).get();
-            if (floorDoc.exists()) {
+            // FIXED: .exists is a property, not a method (Firebase Admin SDK)
+            if (floorDoc.exists) {
               const floorData = floorDoc.data();
-              return { id: floorId, name: floorData?.name || 'Unknown Floor' };
+              floorMap.set(floorId, floorData?.name || 'Unknown Floor');
+            } else {
+              floorMap.set(floorId, 'Unknown Floor');
             }
-            return { id: floorId, name: 'Unknown Floor' };
           } catch (error) {
             console.error(`[GET Tasks] Error fetching floor ${floorId}:`, error);
-            return { id: floorId, name: 'Unknown Floor' };
+            floorMap.set(floorId, 'Unknown Floor');
           }
-        });
-        
-        const floors = await Promise.all(floorPromises);
-        floors.forEach((floor) => {
-          floorMap.set(floor.id, floor.name);
-        });
+        }
         console.log('[GET Tasks] Fetched floor names from Firestore:', floorMap);
       } catch (error) {
         console.error('[GET Tasks] Error fetching floor names:', error);
