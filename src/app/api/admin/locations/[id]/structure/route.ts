@@ -1,122 +1,108 @@
 /**
  * LOCATION STRUCTURE API
- * 
  * Returns complete hierarchy: Floor → Room → Target → Action → Tool
- * Uses Firestore (source of truth for admin portal).
- * 
+ * Uses Firebase Auth (no NextAuth)
  * Last updated: 2025-11-26
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
-import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
-export const dynamic = 'force-dynamic';
-
-/**
- * GET /api/admin/locations/[id]/structure
- * Get the complete structure of a location (floors, rooms, targets, actions, tools)
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     // -----------------------------------------------------------------------
-    // 1. AUTHENTICATION
+    // 1. AUTHENTICATION - Firebase Auth Token
     // -----------------------------------------------------------------------
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
-
-    const { id: locationId } = params;
-    
-    console.log('[GET Structure] Fetching structure for location:', locationId);
-    
-    if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
-      console.error('[GET Structure] Invalid locationId:', locationId);
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('[GET Structure] No authorization header found');
       return NextResponse.json(
-        { success: false, error: 'Invalid location ID' },
-        { status: 400 }
+        { error: 'Unauthorized', hint: 'No authorization token provided' },
+        { status: 401 }
       );
     }
+
+    const token = authHeader.split('Bearer ')[1];
+
+    // Verify Firebase ID token
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+      console.log('[GET Structure] Authenticated user:', decodedToken.uid);
+    } catch (error: any) {
+      console.error('[GET Structure] Token verification failed:', error.message);
+      return NextResponse.json(
+        { error: 'Unauthorized', hint: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+
+    const { id: locationId } = params;
+
+    console.log('[GET Structure] Fetching structure for location:', locationId);
+
+    // -----------------------------------------------------------------------
+    // 2. FETCH COMPLETE HIERARCHY
+    // -----------------------------------------------------------------------
     
-    // -----------------------------------------------------------------------
-    // 2. FETCH FLOORS
-    // -----------------------------------------------------------------------
-    console.log('[GET Structure] Fetching floors for location:', locationId);
+    // Fetch floors
     const floorsSnapshot = await adminDb
       .collection('floors')
       .where('location_id', '==', locationId)
       .orderBy('floor_number', 'asc')
       .get();
-    
+
+    console.log('[GET Structure] Found floors:', floorsSnapshot.docs.length);
+
     const floors = await Promise.all(
       floorsSnapshot.docs.map(async (floorDoc) => {
         const floorData = floorDoc.data();
-        
-        // -----------------------------------------------------------------------
-        // 3. FETCH ROOMS FOR THIS FLOOR
-        // -----------------------------------------------------------------------
+
+        // Fetch rooms for this floor
         const roomsSnapshot = await adminDb
           .collection('rooms')
           .where('floor_id', '==', floorDoc.id)
-          .orderBy('created_at', 'asc')
           .get();
-        
+
         const rooms = await Promise.all(
           roomsSnapshot.docs.map(async (roomDoc) => {
             const roomData = roomDoc.data();
-            
-            // -----------------------------------------------------------------------
-            // 4. FETCH TARGETS FOR THIS ROOM
-            // -----------------------------------------------------------------------
+
+            // Fetch targets for this room
             const targetsSnapshot = await adminDb
               .collection('targets')
               .where('room_id', '==', roomDoc.id)
-              .orderBy('created_at', 'asc')
               .get();
-            
+
             const targets = await Promise.all(
               targetsSnapshot.docs.map(async (targetDoc) => {
                 const targetData = targetDoc.data();
-                
-                // -----------------------------------------------------------------------
-                // 5. FETCH ACTIONS FOR THIS TARGET
-                // -----------------------------------------------------------------------
+
+                // Fetch actions for this target
                 const actionsSnapshot = await adminDb
                   .collection('actions')
                   .where('target_id', '==', targetDoc.id)
-                  .orderBy('created_at', 'asc')
                   .get();
-                
+
                 const actions = await Promise.all(
                   actionsSnapshot.docs.map(async (actionDoc) => {
                     const actionData = actionDoc.data();
-                    
-                    // -----------------------------------------------------------------------
-                    // 6. FETCH TOOLS FOR THIS ACTION
-                    // -----------------------------------------------------------------------
+
+                    // Fetch tools for this action
                     const toolsSnapshot = await adminDb
                       .collection('tools')
                       .where('action_id', '==', actionDoc.id)
-                      .orderBy('created_at', 'asc')
                       .get();
-                    
+
                     const tools = toolsSnapshot.docs.map(toolDoc => ({
                       id: toolDoc.id,
                       ...toolDoc.data(),
                     }));
-                    
+
                     return {
                       id: actionDoc.id,
                       ...actionData,
@@ -124,7 +110,7 @@ export async function GET(
                     };
                   })
                 );
-                
+
                 return {
                   id: targetDoc.id,
                   ...targetData,
@@ -132,7 +118,7 @@ export async function GET(
                 };
               })
             );
-            
+
             return {
               id: roomDoc.id,
               ...roomData,
@@ -140,7 +126,7 @@ export async function GET(
             };
           })
         );
-        
+
         return {
           id: floorDoc.id,
           ...floorData,
@@ -148,46 +134,25 @@ export async function GET(
         };
       })
     );
-    
+
+    console.log('[GET Structure] Returning structure with', floors.length, 'floors');
+
     // -----------------------------------------------------------------------
-    // 7. CALCULATE STATS
+    // 3. RETURN SUCCESS
     // -----------------------------------------------------------------------
-    const stats = {
-      floorCount: floors.length,
-      roomCount: floors.reduce((sum: number, f: any) => sum + (f.rooms?.length || 0), 0),
-      targetCount: floors.reduce((sum: number, f: any) => 
-        sum + (f.rooms?.reduce((s: number, r: any) => s + (r.targets?.length || 0), 0) || 0), 0),
-      actionCount: floors.reduce((sum: number, f: any) => 
-        sum + (f.rooms?.reduce((s: number, r: any) => 
-          s + (r.targets?.reduce((t: number, tgt: any) => t + (tgt.actions?.length || 0), 0) || 0), 0) || 0), 0),
-      toolCount: floors.reduce((sum: number, f: any) => 
-        sum + (f.rooms?.reduce((s: number, r: any) => 
-          s + (r.targets?.reduce((t: number, tgt: any) => 
-            t + (tgt.actions?.reduce((a: number, act: any) => a + (act.tools?.length || 0), 0) || 0), 0) || 0), 0) || 0), 0),
-    };
-    
-    console.log('[GET Structure] Final structure stats:', stats);
-    
     return NextResponse.json({
       success: true,
-      structure: {
-        floors,
-      },
-      stats,
+      structure: { floors },
     });
-    
+
   } catch (error: any) {
-    console.error('[GET Structure] Error:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      locationId: params.id,
-    });
+    console.error('[GET Structure] Error:', error);
+    console.error('[GET Structure] Error stack:', error.stack);
+    
     return NextResponse.json(
       { 
-        success: false, 
         error: 'Failed to fetch structure',
-        details: error.message || 'Unknown error',
+        details: error.message,
       },
       { status: 500 }
     );

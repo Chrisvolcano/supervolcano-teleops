@@ -8,6 +8,8 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { getAuth } from 'firebase/auth';
+import { useAuth } from '@/hooks/useAuth';
 import {
   AddFloorModal,
   AddRoomModal,
@@ -25,6 +27,7 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState<any>(null);
+  const { getIdToken } = useAuth();
   
   // Modal states
   const [showAddFloorModal, setShowAddFloorModal] = useState(false);
@@ -39,11 +42,27 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
 
+  // Helper to get auth token
+  async function getAuthToken(): Promise<string> {
+    const token = await getIdToken();
+    if (!token) {
+      throw new Error('Not authenticated - please log in');
+    }
+    return token;
+  }
+
   // Load structure
   async function loadStructure() {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/locations/${locationId}/structure`);
+      const token = await getAuthToken();
+      
+      const response = await fetch(`/api/admin/locations/${locationId}/structure`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to load structure');
@@ -66,9 +85,14 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
     try {
       setLoading(true);
       setError(null);
+      const token = await getAuthToken();
+      
       const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ name }),
       });
       const data = await response.json();
@@ -95,11 +119,16 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedFloorId) {
         throw new Error('No floor selected');
       }
+      const token = await getAuthToken();
+      
       const response = await fetch(
         `/api/admin/locations/${locationId}/floors/${selectedFloorId}/rooms`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ name, room_type: roomType }),
         }
       );
@@ -128,11 +157,16 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedRoomId) {
         throw new Error('No room selected');
       }
+      const token = await getAuthToken();
+      
       const response = await fetch(
         `/api/admin/locations/${locationId}/rooms/${selectedRoomId}/targets`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ name, target_type: targetType }),
         }
       );
@@ -161,11 +195,16 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedTargetId) {
         throw new Error('No target selected');
       }
+      const token = await getAuthToken();
+      
       const response = await fetch(
         `/api/admin/locations/${locationId}/targets/${selectedTargetId}/actions`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ name, description }),
         }
       );
@@ -194,11 +233,16 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedActionId) {
         throw new Error('No action selected');
       }
+      const token = await getAuthToken();
+      
       const response = await fetch(
         `/api/admin/locations/${locationId}/actions/${selectedActionId}/tools`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ tool_name: toolName }),
         }
       );
