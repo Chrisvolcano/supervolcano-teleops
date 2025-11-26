@@ -182,8 +182,8 @@ export async function GET(
     
     console.log('[Structure API] Final structure:', {
       floorCount: structure.length,
-      totalRooms: structure.reduce((sum, f) => sum + f.rooms.length, 0),
-      totalTargets: structure.reduce((sum, f) => sum + f.rooms.reduce((s: number, r: any) => s + r.targets.length, 0), 0),
+      totalRooms: structure.reduce((sum: number, f: any) => sum + f.rooms.length, 0),
+      totalTargets: structure.reduce((sum: number, f: any) => sum + f.rooms.reduce((s: number, r: any) => s + r.targets.length, 0), 0),
     });
     
     // Rooms without floors
