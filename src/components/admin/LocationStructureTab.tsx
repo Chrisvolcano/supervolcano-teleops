@@ -885,8 +885,26 @@ function AddRoomModal({ roomTypes, onClose, onAdd }: { roomTypes: RoomType[]; on
   );
 }
 
-function AddTargetModal({ targetTypes, onClose, onAdd }: { targetTypes: TargetType[]; onClose: () => void; onAdd: (targetTypeId: string) => void }) {
+function AddTargetModal({ targetTypes, onClose, onAdd }: { targetTypes: TargetType[]; onClose: () => void; onAdd: (name: string, targetType: string) => Promise<void> }) {
   const [selectedTargetTypeId, setSelectedTargetTypeId] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAdd = async () => {
+    if (!selectedTargetTypeId) return;
+    
+    const targetType = targetTypes.find(t => t.id === selectedTargetTypeId);
+    if (!targetType) return;
+    
+    const name = customName.trim() || targetType.name;
+    
+    setIsLoading(true);
+    try {
+      await onAdd(name, targetType.name.toLowerCase());
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -894,36 +912,54 @@ function AddTargetModal({ targetTypes, onClose, onAdd }: { targetTypes: TargetTy
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Add Target</h3>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 gap-3">
-            {targetTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedTargetTypeId(type.id)}
-                className={`p-3 border-2 rounded-lg text-left transition-all ${
-                  selectedTargetTypeId === type.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <span className="font-medium">{type.name}</span>
-              </button>
-            ))}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Name (optional - defaults to type name)
+            </label>
+            <input
+              type="text"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="Enter custom name or leave blank to use type name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Type
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {targetTypes.map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => setSelectedTargetTypeId(type.id)}
+                  className={`p-3 border-2 rounded-lg text-left transition-all ${
+                    selectedTargetTypeId === type.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="font-medium">{type.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="p-6 border-t border-gray-200 flex items-center gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            disabled={isLoading}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={() => selectedTargetTypeId && onAdd(selectedTargetTypeId)}
-            disabled={!selectedTargetTypeId}
+            onClick={handleAdd}
+            disabled={!selectedTargetTypeId || isLoading}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            Add Target
+            {isLoading ? 'Adding...' : 'Add Target'}
           </button>
         </div>
       </div>
@@ -931,8 +967,27 @@ function AddTargetModal({ targetTypes, onClose, onAdd }: { targetTypes: TargetTy
   );
 }
 
-function AddActionModal({ actionTypes, onClose, onAdd }: { actionTypes: ActionType[]; onClose: () => void; onAdd: (actionTypeId: string) => void }) {
+function AddActionModal({ actionTypes, onClose, onAdd }: { actionTypes: ActionType[]; onClose: () => void; onAdd: (name: string, description?: string) => Promise<void> }) {
   const [selectedActionTypeId, setSelectedActionTypeId] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAdd = async () => {
+    if (!selectedActionTypeId) return;
+    
+    const actionType = actionTypes.find(a => a.id === selectedActionTypeId);
+    if (!actionType) return;
+    
+    const name = customName.trim() || actionType.name;
+    
+    setIsLoading(true);
+    try {
+      await onAdd(name, description.trim() || undefined);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -940,39 +995,69 @@ function AddActionModal({ actionTypes, onClose, onAdd }: { actionTypes: ActionTy
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Add Action</h3>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 gap-3">
-            {actionTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedActionTypeId(type.id)}
-                className={`p-3 border-2 rounded-lg text-left transition-all ${
-                  selectedActionTypeId === type.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-medium">{type.name}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {type.estimated_duration_minutes}min
-                </div>
-              </button>
-            ))}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Action Name (optional - defaults to type name)
+            </label>
+            <input
+              type="text"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="Enter custom name or leave blank to use type name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description (optional)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter action description"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Action Type
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {actionTypes.map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => setSelectedActionTypeId(type.id)}
+                  className={`p-3 border-2 rounded-lg text-left transition-all ${
+                    selectedActionTypeId === type.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">{type.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {type.estimated_duration_minutes}min
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="p-6 border-t border-gray-200 flex items-center gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            disabled={isLoading}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={() => selectedActionTypeId && onAdd(selectedActionTypeId)}
-            disabled={!selectedActionTypeId}
+            onClick={handleAdd}
+            disabled={!selectedActionTypeId || isLoading}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            Add Action
+            {isLoading ? 'Adding...' : 'Add Action'}
           </button>
         </div>
       </div>
