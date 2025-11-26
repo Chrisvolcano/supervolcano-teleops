@@ -250,19 +250,19 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
         <FloorCard
           key={floor.id}
           floor={floor}
-          onAddRoom={(floorId) => {
+          onAddRoom={(floorId: string) => {
             setSelectedFloorId(floorId);
             setShowAddRoomModal(true);
           }}
-          onAddTarget={(roomId) => {
+          onAddTarget={(roomId: string) => {
             setSelectedRoomId(roomId);
             setShowAddTargetModal(true);
           }}
-          onAddAction={(targetId) => {
+          onAddAction={(targetId: string) => {
             setSelectedTargetId(targetId);
             setShowAddActionModal(true);
           }}
-          onAddTool={(actionId) => {
+          onAddTool={(actionId: string) => {
             setSelectedActionId(actionId);
             setShowAddToolModal(true);
           }}
