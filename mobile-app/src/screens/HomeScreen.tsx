@@ -18,7 +18,6 @@ import { fetchLocations, testFetchSpecificLocation, fetchLocationsViaREST, fetch
 import { getQueue, processQueue } from '../services/queue';
 import { Location } from '../types';
 import { Colors, Typography, Spacing, BorderRadius, Shadows, Gradients } from '../constants/Design';
-import { useGamification } from '../contexts/GamificationContext';
 import AnimatedBackground from '../components/AnimatedBackground';
 import LocationCard from '../components/LocationCard';
 import ShimmerPlaceholder from '../components/ShimmerPlaceholder';
@@ -29,13 +28,16 @@ export default function HomeScreen({ navigation }: any) {
   const [pendingUploads, setPendingUploads] = useState(0);
   const [assignedLocationIds, setAssignedLocationIds] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const gamification = useGamification();
+  const [stats, setStats] = useState({
+    homesCleaned: 0,
+    tasksCompleted: 0,
+    hoursLogged: 0,
+  });
   const scrollY = useSharedValue(0);
   
   // Animation values
   const fadeAnim = useSharedValue(0);
   const slideAnim = useSharedValue(50);
-  const progressWidth = useSharedValue(0);
 
   useEffect(() => {
     // TODO: Get user ID from Firebase Auth when auth is implemented
@@ -60,9 +62,14 @@ export default function HomeScreen({ navigation }: any) {
   }, [loading, locations.length]);
 
   useEffect(() => {
-    // Animate progress bar
-    progressWidth.value = withSpring(gamification.getTodayProgress(), { damping: 15, stiffness: 100 });
-  }, [gamification.todayCompleted]);
+    // TODO: Fetch real stats from API
+    // For now, using placeholder values
+    setStats({
+      homesCleaned: locations.length,
+      tasksCompleted: 0, // TODO: Get from API
+      hoursLogged: 0, // TODO: Get from API
+    });
+  }, [locations.length]);
 
   async function fetchAssignedLocations() {
     if (!userId) return;
@@ -212,10 +219,6 @@ export default function HomeScreen({ navigation }: any) {
     transform: [{ translateY: slideAnim.value }],
   }));
 
-  const progressBarStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
-  }));
-
   const renderStatsCard = () => (
     <Animated.View 
       style={[
@@ -231,72 +234,35 @@ export default function HomeScreen({ navigation }: any) {
             style={styles.glassGradient}
           >
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                  <Ionicons name="flame" size={22} color={Colors.streak} />
-                </View>
-                <Text style={styles.statValue}>{gamification.streak}</Text>
-                <Text style={styles.statLabel}>day streak</Text>
-              </View>
-              <View style={styles.statDivider} />
+              {/* 1. Homes Cleaned */}
               <View style={styles.statItem}>
                 <View style={[styles.statIconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                  <Ionicons name="flash" size={22} color={Colors.xp} />
+                  <Ionicons name="home" size={22} color="#3B82F6" />
                 </View>
-                <Text style={styles.statValue}>{gamification.xp}</Text>
-                <Text style={styles.statLabel}>XP earned</Text>
+                <Text style={styles.statValue}>{stats.homesCleaned}</Text>
+                <Text style={styles.statLabel}>Homes Cleaned</Text>
               </View>
               <View style={styles.statDivider} />
+              {/* 2. Tasks Completed */}
+              <View style={styles.statItem}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                </View>
+                <Text style={styles.statValue}>{stats.tasksCompleted}</Text>
+                <Text style={styles.statLabel}>Tasks Completed</Text>
+              </View>
+              <View style={styles.statDivider} />
+              {/* 3. Hours Logged */}
               <View style={styles.statItem}>
                 <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                  <Ionicons name="trophy" size={22} color={Colors.gold} />
+                  <Ionicons name="time" size={22} color="#F59E0B" />
                 </View>
-                <Text style={styles.statValue}>L{gamification.level}</Text>
-                <Text style={styles.statLabel}>level</Text>
+                <Text style={styles.statValue}>{stats.hoursLogged}</Text>
+                <Text style={styles.statLabel}>Hours Logged</Text>
               </View>
             </View>
           </LinearGradient>
         </BlurView>
-      </View>
-    </Animated.View>
-  );
-
-  const renderProgressCard = () => (
-    <Animated.View 
-      style={[
-        styles.progressCard,
-        fadeStyle,
-        slideStyle,
-      ]}
-    >
-      <View style={styles.progressHeader}>
-        <View>
-          <Text style={styles.progressTitle}>Today's Progress</Text>
-          <Text style={styles.progressSubtitle}>
-            {gamification.todayCompleted >= 5 
-              ? 'Goal achieved!' 
-              : `${5 - gamification.todayCompleted} more to reach your goal`}
-          </Text>
-        </View>
-        <Text style={styles.progressCount}>{gamification.todayCompleted}/5</Text>
-      </View>
-      
-      <View style={styles.progressBarContainer}>
-        <View style={styles.progressBarBg}>
-          <Animated.View
-            style={[
-              styles.progressBarFill,
-              progressBarStyle,
-            ]}
-          >
-            <LinearGradient
-              colors={Gradients.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.progressGradient}
-            />
-          </Animated.View>
-        </View>
       </View>
     </Animated.View>
   );
@@ -360,9 +326,6 @@ export default function HomeScreen({ navigation }: any) {
       >
         {/* Stats card */}
         {renderStatsCard()}
-        
-        {/* Progress card */}
-        {renderProgressCard()}
 
         {/* Pending Uploads Banner */}
         {pendingUploads > 0 && (
@@ -376,7 +339,7 @@ export default function HomeScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.uploadBanner}
               onPress={handleProcessUploads}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
               <LinearGradient
                 colors={Gradients.primary}
@@ -528,51 +491,6 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: Colors.glassBorder,
     marginHorizontal: Spacing.sm,
-  },
-  progressCard: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    ...Shadows.sm,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.md,
-  },
-  progressTitle: {
-    ...Typography.headline,
-    marginBottom: 2,
-  },
-  progressSubtitle: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  progressCount: {
-    ...Typography.headline,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  progressBarContainer: {
-    marginTop: Spacing.sm,
-  },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.sm,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: BorderRadius.sm,
-    overflow: 'hidden',
-  },
-  progressGradient: {
-    flex: 1,
   },
   uploadBannerContainer: {
     marginBottom: Spacing.lg,

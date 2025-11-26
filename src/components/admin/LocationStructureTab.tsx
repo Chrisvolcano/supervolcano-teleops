@@ -158,7 +158,10 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
   async function handleAddFloor(name: string) {
     try {
       const token = await getIdToken();
-      if (!token) return;
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
 
       const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
         method: 'POST',
@@ -175,11 +178,24 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         await loadStructure();
         setShowAddFloorModal(false);
       } else {
-        alert('Failed to add floor: ' + (data.error || 'Unknown error'));
+        // Handle specific error cases
+        if (response.status === 409) {
+          alert('A floor with this name already exists. Please use a different name like "Floor 2" or "Second Floor".');
+        } else if (response.status === 401) {
+          alert('Your session has expired. Please log in again.');
+        } else if (response.status === 403) {
+          alert('You do not have permission to add floors to this location.');
+        } else {
+          alert('Failed to add floor: ' + (data.error || 'Unknown error'));
+        }
       }
     } catch (error: any) {
       console.error('Failed to add floor:', error);
-      alert('Failed to add floor: ' + (error.message || 'Unknown error'));
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        alert('Network error. Please check your connection and try again.');
+      } else {
+        alert('Failed to add floor: ' + (error.message || 'Unknown error'));
+      }
     }
   }
 
@@ -529,6 +545,36 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
 // Modal Components
 function AddFloorModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: string) => void }) {
   const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleAdd = async () => {
+    // Clear previous errors
+    setError('');
+    
+    // Validate input
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Floor name cannot be empty');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await onAdd(trimmedName);
+    } catch (err: any) {
+      // Error handling is done in parent component
+      console.error('Error in AddFloorModal:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setName('');
+    setError('');
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -537,25 +583,41 @@ function AddFloorModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: 
         <input
           type="text"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={e => {
+            setName(e.target.value);
+            setError(''); // Clear error when user types
+          }}
           placeholder="e.g., 1st Floor, 2nd Floor, Basement"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+          className={`w-full px-4 py-2 border rounded-lg mb-4 ${
+            error ? 'border-red-300' : 'border-gray-300'
+          }`}
           autoFocus
-          onKeyDown={e => e.key === 'Enter' && name && onAdd(name)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !isLoading && name.trim()) {
+              handleAdd();
+            }
+          }}
+          disabled={isLoading}
         />
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
         <div className="flex items-center gap-3 justify-end">
           <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            onClick={handleClose}
+            disabled={isLoading}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={() => name && onAdd(name)}
-            disabled={!name}
+            onClick={handleAdd}
+            disabled={isLoading || !name.trim()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            Add Floor
+            {isLoading ? 'Adding...' : 'Add Floor'}
           </button>
         </div>
       </div>

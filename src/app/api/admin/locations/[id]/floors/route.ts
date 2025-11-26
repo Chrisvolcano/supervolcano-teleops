@@ -5,6 +5,63 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 export const dynamic = 'force-dynamic';
 
 /**
+ * GET /api/admin/locations/[id]/floors
+ * Get all floors for a location
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Admin auth check
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    requireRole(claims, ['superadmin', 'admin']);
+
+    const locationId = params.id;
+    
+    if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid location ID' },
+        { status: 400 }
+      );
+    }
+    
+    const result = await sql`
+      SELECT * FROM location_floors
+      WHERE location_id = ${locationId}
+      ORDER BY sort_order ASC, name ASC
+    `;
+    
+    const floors = Array.isArray(result) ? result : (result as any)?.rows || [];
+    
+    return NextResponse.json({
+      success: true,
+      floors,
+    });
+  } catch (error: any) {
+    console.error('Failed to fetch floors:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to fetch floors',
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/admin/locations/[id]/floors
  * Create a new floor
  */
@@ -33,9 +90,10 @@ export async function POST(
     
     console.log('Creating floor:', { locationId, name, sort_order });
     
-    if (!name) {
+    // Validate input
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { success: false, error: 'Name is required' },
+        { success: false, error: 'Floor name is required' },
         { status: 400 }
       );
     }
@@ -48,9 +106,40 @@ export async function POST(
       );
     }
     
+    // Normalize floor name - trim whitespace
+    const trimmedName = name.trim();
+    
+    // Check for duplicate floor name (case-insensitive comparison)
+    const existingFloors = await sql`
+      SELECT id, name FROM location_floors
+      WHERE location_id = ${locationId}
+    `;
+    
+    const floors = Array.isArray(existingFloors) ? existingFloors : (existingFloors as any)?.rows || [];
+    
+    // Check if normalized name already exists (case-insensitive)
+    const isDuplicate = floors.some((floor: any) => 
+      floor.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'A floor with this name already exists in this location',
+          details: 'Floor names must be unique within each location (case-insensitive)'
+        },
+        { status: 409 } // Conflict
+      );
+    }
+    
+    // Auto-calculate sort_order if not provided
+    const floorNum = sort_order !== undefined ? sort_order : floors.length;
+    
+    // Create the floor
     const result = await sql`
       INSERT INTO location_floors (location_id, name, sort_order)
-      VALUES (${locationId}, ${name}, ${sort_order || 0})
+      VALUES (${locationId}, ${trimmedName}, ${floorNum})
       RETURNING *
     `;
     
@@ -69,11 +158,32 @@ export async function POST(
       code: error.code,
       locationId: params.id,
     });
+    
+    // Handle specific PostgreSQL constraint violation
+    if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'A floor with this name already exists in this location',
+          details: 'Floor names must be unique within each location'
+        },
+        { status: 409 } // Conflict
+      );
+    }
+    
+    // Handle permission errors
+    if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+      return NextResponse.json(
+        { success: false, error: 'Permission denied' },
+        { status: 403 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message,
-        details: error.code || 'Unknown error',
+        error: 'Failed to create floor',
+        details: error.message || 'Unknown error',
       },
       { status: 500 }
     );

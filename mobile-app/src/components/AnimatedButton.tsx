@@ -1,11 +1,5 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, Platform, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -26,28 +20,6 @@ export default function AnimatedButton({
   icon,
   iconPosition = 'left',
 }: AnimatedButtonProps) {
-  const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
-  const handlePressIn = () => {
-    if (disabled) return;
-    scale.value = withSpring(0.95, { damping: 15 });
-    glowOpacity.value = withTiming(1, { duration: 150 });
-  };
-
-  const handlePressOut = () => {
-    if (disabled) return;
-    scale.value = withSpring(1, { damping: 15 });
-    glowOpacity.value = withTiming(0, { duration: 300 });
-  };
 
   const getColors = () => {
     switch (variant) {
@@ -67,22 +39,13 @@ export default function AnimatedButton({
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       disabled={disabled}
-      style={styles.container}
+      style={({ pressed }) => [
+        styles.container,
+        { opacity: pressed ? 0.7 : 1 }
+      ]}
     >
-      <Animated.View style={[styles.buttonContainer, animatedStyle]}>
-        {/* Glow effect */}
-        <Animated.View style={[styles.glow, glowStyle]}>
-          <LinearGradient
-            colors={[...colors, colors[0]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.glowGradient}
-          />
-        </Animated.View>
-
+      <View style={styles.buttonContainer}>
         {/* Button */}
         <LinearGradient
           colors={colors}
@@ -106,7 +69,7 @@ export default function AnimatedButton({
             <Ionicons name={icon as any} size={20} color="#FFFFFF" style={styles.icon} />
           )}
         </LinearGradient>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
@@ -117,19 +80,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'relative',
-  },
-  glow: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  glowGradient: {
-    flex: 1,
-    opacity: 0.6,
   },
   button: {
     flexDirection: 'row',

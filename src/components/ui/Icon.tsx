@@ -97,3 +97,5 @@ export default function Icon({ name, className = '', size = 'md' }: IconProps) {
   return <IconComponent className={`${sizeClasses[size]} ${className}`} />;
 }
 
+
+

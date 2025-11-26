@@ -1,11 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -21,53 +15,21 @@ interface LocationCardProps {
 }
 
 export default function LocationCard({ location, onPress }: LocationCardProps) {
-  const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0);
-
   const tasksCompleted = location.tasksCompleted || 0;
   const tasksTotal = location.tasksTotal || 0;
   const progress = tasksTotal > 0 
     ? (tasksCompleted / tasksTotal) * 100 
     : 0;
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15 });
-    glowOpacity.value = withTiming(1, { duration: 150 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
-    glowOpacity.value = withTiming(0, { duration: 300 });
-  };
-
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      style={({ pressed }) => [
+        styles.cardContainer,
+        { opacity: pressed ? 0.7 : 1 }
+      ]}
     >
-      <Animated.View style={[styles.cardContainer, animatedStyle]}>
-        {/* Glow effect */}
-        <Animated.View style={[styles.glow, glowStyle]}>
-          <LinearGradient
-            colors={[
-              'rgba(59, 130, 246, 0.3)',
-              'rgba(147, 51, 234, 0.3)',
-              'rgba(236, 72, 153, 0.3)',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.glowGradient}
-          />
-        </Animated.View>
+      <View style={styles.cardContainer}>
 
         {/* Card content */}
         <View style={styles.card}>
@@ -104,10 +66,10 @@ export default function LocationCard({ location, onPress }: LocationCardProps) {
                 </View>
               </View>
 
-              {/* Animated Progress Bar */}
+              {/* Progress Bar */}
               <View style={styles.progressBarContainer}>
                 <View style={styles.progressBarBackground}>
-                  <Animated.View 
+                  <View 
                     style={[
                       styles.progressBarFill,
                       { width: `${progress}%` }
@@ -119,7 +81,7 @@ export default function LocationCard({ location, onPress }: LocationCardProps) {
                       end={{ x: 1, y: 0 }}
                       style={styles.progressGradient}
                     />
-                  </Animated.View>
+                  </View>
                 </View>
                 <Text style={styles.progressText}>
                   {Math.round(progress)}%
@@ -128,7 +90,7 @@ export default function LocationCard({ location, onPress }: LocationCardProps) {
             </View>
           )}
         </View>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
@@ -136,19 +98,6 @@ export default function LocationCard({ location, onPress }: LocationCardProps) {
 const styles = StyleSheet.create({
   cardContainer: {
     marginBottom: 16,
-  },
-  glow: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  glowGradient: {
-    flex: 1,
-    borderRadius: 20,
   },
   card: {
     backgroundColor: '#FFFFFF',

@@ -14,16 +14,10 @@ interface SplashScreenProps {
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const opacity = useSharedValue(1);
-  const revealWidth = useSharedValue(0); // Start at 0 (fully hidden)
   const loadingBarX = useSharedValue(-100);
 
   useEffect(() => {
     console.log('SplashScreen mounted');
-    
-    // Start left-to-right reveal animation
-    revealWidth.value = withTiming(100, { duration: 1500 }, () => {
-      console.log('SplashScreen: Reveal animation complete');
-    });
 
     // Loading bar animation
     loadingBarX.value = withSequence(
@@ -59,13 +53,6 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     };
   });
 
-  // Reveal mask that moves from left to right
-  const revealMaskStyle = useAnimatedStyle(() => {
-    return {
-      width: `${revealWidth.value}%`,
-    };
-  });
-
   const loadingBarStyle = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: loadingBarX.value }],
@@ -81,22 +68,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
 
       {/* VOLCANO text container */}
       <View style={styles.textContainer}>
-        {/* Background text (grey) - always visible */}
-        <Text style={styles.backgroundText}>VOLCANO</Text>
-        
-        {/* Foreground text (black) with left-to-right reveal */}
-        <View style={styles.foregroundContainer}>
-          <Animated.View style={[styles.revealMask, revealMaskStyle]}>
-            <LinearGradient
-              colors={['#000000', '#171717', '#262626']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientText}
-            >
-              <Text style={styles.foregroundText}>VOLCANO</Text>
-            </LinearGradient>
-          </Animated.View>
-        </View>
+        {/* Black text - no animation */}
+        <Text style={styles.foregroundText}>VOLCANO</Text>
       </View>
 
       {/* Loading indicator */}
@@ -130,28 +103,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  backgroundText: {
-    fontSize: 72,
-    fontWeight: '900',
-    letterSpacing: -2,
-    color: '#D4D4D4', // neutral-300
-  },
-  foregroundContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-  },
-  revealMask: {
-    height: '100%',
-    overflow: 'hidden',
-  },
-  gradientText: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   foregroundText: {
     fontSize: 72,

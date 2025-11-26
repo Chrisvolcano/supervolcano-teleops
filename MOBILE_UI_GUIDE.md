@@ -191,3 +191,5 @@ import MobileNav from '@/components/MobileNav';
 - Screen reader compatibility maintained
 - Reduced motion preferences are respected
 
+
+

@@ -175,3 +175,5 @@ success: '#your-color', // Change gamification green
 
 All components are ready to use! 🎉
 
+
+

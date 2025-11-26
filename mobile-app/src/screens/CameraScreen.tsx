@@ -1,45 +1,21 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, Animated } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Location, Job } from '../types';
-import { addToQueue } from '../services/queue';
+import { addToQueue, processQueue } from '../services/queue';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/Design';
-import { CelebrationAnimation } from '../components/CelebrationAnimation';
-import { useGamification } from '../contexts/GamificationContext';
 
 export default function CameraScreen({ route, navigation }: any) {
   const { location, job } = route.params as { location: Location; job: Job };
   const [permission, requestPermission] = useCameraPermissions();
   const [recording, setRecording] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const cameraRef = useRef<CameraView>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const gamification = useGamification();
-
-  useEffect(() => {
-    if (recording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [recording]);
 
   if (!permission) {
     return <View />;
@@ -60,7 +36,7 @@ export default function CameraScreen({ route, navigation }: any) {
           <TouchableOpacity 
             style={styles.permissionButton} 
             onPress={requestPermission}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
@@ -82,10 +58,26 @@ export default function CameraScreen({ route, navigation }: any) {
       });
 
       console.log('Recording saved to:', video.uri);
+      setRecording(false);
 
-      // Add to upload queue
+      // Immediately start uploading
+      await uploadVideo(video.uri);
+    } catch (error: any) {
+      console.error('Recording failed:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setRecording(false);
+      Alert.alert('Error', 'Failed to record video: ' + error.message);
+    }
+  }
+
+  async function uploadVideo(videoUri: string) {
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      
+      // Add to queue first
       await addToQueue({
-        videoUri: video.uri,
+        videoUri: videoUri,
         locationId: location.id,
         locationName: location.name,
         jobId: job.id,
@@ -93,28 +85,32 @@ export default function CameraScreen({ route, navigation }: any) {
         timestamp: new Date(),
       });
 
-      // Increment gamification
-      await gamification.incrementVideoCount();
-      
-      // Show celebration
-      setShowCelebration(true);
+      // Process queue immediately
+      await processQueue((item, progress) => {
+        setUploadProgress(progress);
+        console.log(`Uploading ${item.jobTitle}: ${progress.toFixed(0)}%`);
+      });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      // Wait for celebration animation
-      setTimeout(() => {
-        setShowCelebration(false);
-        Alert.alert(
-          '🎉 Amazing!',
-          `Video saved!\n+50 XP earned!\nTotal: ${gamification.xp + 50} XP`,
-          [{ text: 'Continue', onPress: () => navigation.navigate('Home') }]
-        );
-      }, 2000);
+      Alert.alert(
+        'Success',
+        'Video uploaded successfully!',
+        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+      );
     } catch (error: any) {
-      console.error('Recording failed:', error);
+      console.error('Upload failed:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to record video: ' + error.message);
+      Alert.alert(
+        'Upload Failed',
+        'Would you like to retry?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => navigation.navigate('Home') },
+          { text: 'Retry', onPress: () => uploadVideo(videoUri) }
+        ]
+      );
     } finally {
-      setRecording(false);
+      setUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -149,6 +145,7 @@ export default function CameraScreen({ route, navigation }: any) {
             onPress={() => navigation.goBack()} 
             style={styles.headerButton}
             activeOpacity={0.7}
+            disabled={uploading}
           >
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
@@ -160,6 +157,7 @@ export default function CameraScreen({ route, navigation }: any) {
             onPress={toggleCameraFacing} 
             style={styles.headerButton}
             activeOpacity={0.7}
+            disabled={uploading || recording}
           >
             <Ionicons name="camera-reverse" size={28} color="#fff" />
           </TouchableOpacity>
@@ -170,6 +168,19 @@ export default function CameraScreen({ route, navigation }: any) {
           <View style={styles.recordingIndicator}>
             <View style={styles.recordingDot} />
             <Text style={styles.recordingText}>Recording</Text>
+          </View>
+        )}
+
+        {/* Uploading Indicator */}
+        {uploading && (
+          <View style={styles.uploadingOverlay}>
+            <View style={styles.uploadingContent}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.uploadingText}>Uploading video...</Text>
+              {uploadProgress > 0 && (
+                <Text style={styles.uploadProgressText}>{Math.round(uploadProgress)}%</Text>
+              )}
+            </View>
           </View>
         )}
 
@@ -196,13 +207,13 @@ export default function CameraScreen({ route, navigation }: any) {
             <TouchableOpacity
               style={styles.recordButtonContainer}
               onPress={recording ? stopRecording : startRecording}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
+              disabled={uploading}
             >
-              <Animated.View 
+              <View 
                 style={[
                   styles.recordButton,
                   recording && styles.recordButtonActive,
-                  { transform: [{ scale: recording ? pulseAnim : 1 }] }
                 ]}
               >
                 {recording ? (
@@ -210,18 +221,12 @@ export default function CameraScreen({ route, navigation }: any) {
                 ) : (
                   <View style={styles.recordIcon} />
                 )}
-              </Animated.View>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
       </CameraView>
 
-      {/* Celebration Animation */}
-      {showCelebration && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <CelebrationAnimation />
-        </View>
-      )}
     </View>
   );
 }
@@ -375,6 +380,29 @@ const styles = StyleSheet.create({
   permissionButtonText: {
     ...Typography.labelLarge,
     color: 'white',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingContent: {
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  uploadingText: {
+    ...Typography.titleMedium,
+    color: '#fff',
+    marginTop: Spacing.md,
+  },
+  uploadProgressText: {
+    ...Typography.bodyLarge,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
 });
 
