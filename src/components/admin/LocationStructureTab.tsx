@@ -14,6 +14,13 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AddFloorModal,
+  AddRoomModal,
+  AddTargetModal,
+  AddActionModal,
+  AddToolModal,
+} from './modals/LocationBuilderModals';
 
 interface RoomType {
   id: string;
@@ -239,7 +246,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
     }
   }
 
-  async function handleAddRoom(roomTypeId: string, customName?: string) {
+  async function handleAddRoom(roomType: string, name: string) {
     try {
       setLoading(true);
 
@@ -254,7 +261,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         return;
       }
 
-      console.log('[AddRoom] Submitting:', { roomTypeId, customName, floorId: selectedFloorId, locationId });
+      console.log('[AddRoom] Submitting:', { roomType, name, floorId: selectedFloorId, locationId });
 
       // Use the nested endpoint: /api/admin/locations/[id]/floors/[floorId]/rooms
       const response = await fetch(
@@ -266,10 +273,8 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            room_type_id: roomTypeId,
-            room_type: roomTypeId, // Support both formats
-            name: customName,
-            custom_name: customName,
+            name: name,
+            room_type: roomType,
           }),
         }
       );
@@ -713,43 +718,62 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         </div>
       )}
 
-      {/* Modals - Simplified versions */}
+      {/* Modals */}
       {showAddFloorModal && (
         <AddFloorModal
+          onSubmit={handleAddFloor}
           onClose={() => setShowAddFloorModal(false)}
-          onAdd={handleAddFloor}
         />
       )}
 
-      {showAddRoomModal && (
+      {showAddRoomModal && selectedFloorId && (
         <AddRoomModal
-          roomTypes={roomTypes}
-          onClose={() => setShowAddRoomModal(false)}
-          onAdd={handleAddRoom}
+          floorId={selectedFloorId}
+          onSubmit={(name, roomType) => handleAddRoom(roomType, name)}
+          onClose={() => {
+            setShowAddRoomModal(false);
+            setSelectedFloorId(null);
+          }}
         />
       )}
 
-      {showAddTargetModal && (
+      {showAddTargetModal && selectedRoomId && (
         <AddTargetModal
-          targetTypes={targetTypes}
-          onClose={() => setShowAddTargetModal(false)}
-          onAdd={handleAddTarget}
+          roomId={selectedRoomId}
+          onSubmit={handleAddTarget}
+          onClose={() => {
+            setShowAddTargetModal(false);
+            setSelectedRoomId(null);
+          }}
         />
       )}
 
-      {showAddActionModal && (
+      {showAddActionModal && selectedTargetId && (
         <AddActionModal
-          actionTypes={actionTypes}
-          onClose={() => setShowAddActionModal(false)}
-          onAdd={handleAddAction}
+          targetId={selectedTargetId}
+          onSubmit={handleAddAction}
+          onClose={() => {
+            setShowAddActionModal(false);
+            setSelectedTargetId(null);
+          }}
+        />
+      )}
+
+      {showAddToolModal && selectedActionId && (
+        <AddToolModal
+          actionId={selectedActionId}
+          onSubmit={handleAddTool}
+          onClose={() => {
+            setShowAddToolModal(false);
+            setSelectedActionId(null);
+          }}
         />
       )}
     </div>
   );
 }
 
-// Modal Components
-function AddFloorModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: string) => void }) {
+// Old modal components removed - now using modals from ./modals/LocationBuilderModals.tsx
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
