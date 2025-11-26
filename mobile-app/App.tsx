@@ -1,9 +1,14 @@
+/**
+ * SIMPLIFIED CLEANER APP
+ * Simple flow: Home → Record → Auto-upload
+ * Last updated: 2025-11-26
+ */
+
 import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import JobSelectScreen from './src/screens/JobSelectScreen';
 import CameraScreen from './src/screens/CameraScreen';
 
 const Stack = createNativeStackNavigator();
@@ -19,30 +24,17 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
-          headerShown: false, // Explicit boolean false
+          headerShown: false,
           animation: 'slide_from_right',
         }}
       >
         <Stack.Screen 
           name="Home" 
           component={HomeScreen}
-          options={{
-            headerShown: false, // Explicit boolean
-          }}
-        />
-        <Stack.Screen 
-          name="JobSelect" 
-          component={JobSelectScreen}
-          options={{
-            headerShown: false, // Explicit boolean
-          }}
         />
         <Stack.Screen 
           name="Camera" 
           component={CameraScreen}
-          options={{
-            headerShown: false, // Explicit boolean
-          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
