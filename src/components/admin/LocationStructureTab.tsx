@@ -180,11 +180,16 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
 
   async function handleAddFloor(name: string) {
     try {
+      setIsLoading(true);
+      setError(null);
+
       const token = await getIdToken();
       if (!token) {
         alert('Authentication required. Please log in again.');
         return;
       }
+
+      console.log('[AddFloor] Submitting:', { name, locationId });
 
       const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
         method: 'POST',
@@ -195,35 +200,48 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         body: JSON.stringify({ name }),
       });
 
-      const data = await response.json();
+      console.log('[AddFloor] Response status:', response.status);
 
-      if (data.success) {
-        await loadStructure();
-        setShowAddFloorModal(false);
-      } else {
-        // Handle specific error cases
-        if (response.status === 409) {
-          alert('A floor with this name already exists. Please use a different name like "Floor 2" or "Second Floor".');
-        } else if (response.status === 401) {
-          alert('Your session has expired. Please log in again.');
-        } else if (response.status === 403) {
-          alert('You do not have permission to add floors to this location.');
-        } else {
-          alert('Failed to add floor: ' + (data.error || 'Unknown error'));
-        }
+      const data = await response.json();
+      console.log('[AddFloor] Response data:', data);
+
+      if (!response.ok) {
+        // Show error to user
+        throw new Error(data.error || `Failed to create floor: ${response.status}`);
       }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create floor');
+      }
+
+      // SUCCESS - Show success message
+      console.log('[AddFloor] Success! Created floor:', data.floor);
+      
+      // CRITICAL: Refetch the structure to update UI
+      await loadStructure();
+      
+      // Close modal
+      setShowAddFloorModal(false);
+      
+      // Optional: Show success message (you can replace with toast if you have one)
+      console.log(`Floor "${name}" created successfully`);
+
     } catch (error: any) {
-      console.error('Failed to add floor:', error);
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        alert('Network error. Please check your connection and try again.');
-      } else {
-        alert('Failed to add floor: ' + (error.message || 'Unknown error'));
-      }
+      console.error('[AddFloor] Error:', error);
+      
+      // Show error to user (don't just fail silently!)
+      setError(error.message);
+      alert(`Failed to create floor: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   }
 
   async function handleAddRoom(roomTypeId: string, customName?: string) {
     try {
+      setIsLoading(true);
+      setError(null);
+
       const token = await getIdToken();
       if (!token) {
         alert('Authentication required. Please log in again.');
@@ -235,48 +253,58 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
         return;
       }
 
-      console.log('[LocationStructureTab] Adding room:', { roomTypeId, customName, floorId: selectedFloorId });
+      console.log('[AddRoom] Submitting:', { roomTypeId, customName, floorId: selectedFloorId, locationId });
 
-      const response = await fetch(`/api/admin/locations/${locationId}/rooms`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          room_type_id: roomTypeId,
-          floor_id: selectedFloorId,
-          custom_name: customName,
-        }),
-      });
+      // Use the nested endpoint: /api/admin/locations/[id]/floors/[floorId]/rooms
+      const response = await fetch(
+        `/api/admin/locations/${locationId}/floors/${selectedFloorId}/rooms`,
+        {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            room_type_id: roomTypeId,
+            room_type: roomTypeId, // Support both formats
+            name: customName,
+            custom_name: customName,
+          }),
+        }
+      );
+
+      console.log('[AddRoom] Response status:', response.status);
 
       const data = await response.json();
-      console.log('[LocationStructureTab] Add room response:', data);
+      console.log('[AddRoom] Response data:', data);
 
-      if (data.success) {
-        // Refresh the entire structure to show the new room
-        await loadStructure();
-        setShowAddRoomModal(false);
-        setSelectedFloorId(null);
-      } else {
-        // Handle specific error cases
-        if (response.status === 409) {
-          alert('A room with this name already exists on this floor. Please use a different name.');
-        } else if (response.status === 401) {
-          alert('Your session has expired. Please log in again.');
-        } else if (response.status === 403) {
-          alert('You do not have permission to add rooms to this location.');
-        } else {
-          alert('Failed to add room: ' + (data.error || 'Unknown error'));
-        }
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to create room: ${response.status}`);
       }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create room');
+      }
+
+      // SUCCESS
+      console.log('[AddRoom] Success! Created room:', data.room);
+      
+      // CRITICAL: Refetch the structure
+      await loadStructure();
+      
+      // Close modal
+      setShowAddRoomModal(false);
+      setSelectedFloorId(null);
+      
+      // Optional: Show success message
+      console.log(`Room "${customName || roomTypeId}" created successfully`);
+
     } catch (error: any) {
-      console.error('[LocationStructureTab] Failed to add room:', error);
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        alert('Network error. Please check your connection and try again.');
-      } else {
-        alert('Failed to add room: ' + (error.message || 'Unknown error'));
-      }
+      console.error('[AddRoom] Error:', error);
+      setError(error.message);
+      alert(`Failed to create room: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   }
 

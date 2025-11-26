@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
+import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * FLOORS API ENDPOINT
+ * 
+ * Handles floor creation and listing for location builder.
+ * Uses Firestore (source of truth for admin portal).
+ * Updated to work with RBAC architecture from PROMPT #11.
+ * 
+ * Last updated: 2025-01-26
+ */
 
 /**
  * GET /api/admin/locations/[id]/floors
@@ -25,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
     
-    requireRole(claims, ['superadmin', 'admin']);
+    requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
 
     const locationId = params.id;
     
@@ -39,15 +50,19 @@ export async function GET(
       );
     }
     
-    const result = await sql`
-      SELECT * FROM location_floors
-      WHERE location_id = ${locationId}
-      ORDER BY sort_order ASC, name ASC
-    `;
+    // Query Firestore for floors
+    const floorsSnapshot = await adminDb
+      .collection('floors')
+      .where('location_id', '==', locationId)
+      .orderBy('floor_number', 'asc')
+      .get();
     
-    const floors = Array.isArray(result) ? result : (result as any)?.rows || [];
+    const floors = floorsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
     
-    console.log('[GET Floors] Found floors:', floors.length, floors);
+    console.log('[GET Floors] Found floors:', floors.length);
     
     return NextResponse.json({
       success: true,
@@ -76,7 +91,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Admin auth check
+    // -----------------------------------------------------------------------
+    // 1. AUTHENTICATION
+    // -----------------------------------------------------------------------
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!token) {
@@ -88,15 +105,17 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
     
-    requireRole(claims, ['superadmin', 'admin']);
+    requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
 
     const locationId = params.id;
     const body = await request.json();
-    const { name, sort_order } = body;
+    const { name, floor_number, sort_order } = body;
     
-    console.log('Creating floor:', { locationId, name, sort_order });
+    console.log('[POST Floor] Creating floor:', { locationId, name, floor_number, sort_order });
     
-    // Validate input
+    // -----------------------------------------------------------------------
+    // 2. VALIDATE INPUT
+    // -----------------------------------------------------------------------
     if (!name || !name.trim()) {
       return NextResponse.json(
         { success: false, error: 'Floor name is required' },
@@ -105,82 +124,91 @@ export async function POST(
     }
     
     if (!locationId || locationId === 'undefined' || locationId.includes('undefined')) {
-      console.error('Invalid locationId:', locationId);
+      console.error('[POST Floor] Invalid locationId:', locationId);
       return NextResponse.json(
         { success: false, error: 'Invalid location ID' },
         { status: 400 }
       );
     }
     
-    // Normalize floor name - trim whitespace
     const trimmedName = name.trim();
     
-    // Check for duplicate floor name (case-insensitive comparison)
-    const existingFloors = await sql`
-      SELECT id, name FROM location_floors
-      WHERE location_id = ${locationId}
-    `;
+    // -----------------------------------------------------------------------
+    // 3. CHECK FOR DUPLICATE FLOOR NAME (case-insensitive)
+    // -----------------------------------------------------------------------
+    const existingFloorsSnapshot = await adminDb
+      .collection('floors')
+      .where('location_id', '==', locationId)
+      .get();
     
-    const floors = Array.isArray(existingFloors) ? existingFloors : (existingFloors as any)?.rows || [];
+    const normalizedName = trimmedName.toLowerCase();
+    const duplicateFloor = existingFloorsSnapshot.docs.find(doc => {
+      const floorData = doc.data();
+      return floorData.name?.toLowerCase() === normalizedName;
+    });
     
-    // Check if normalized name already exists (case-insensitive)
-    const isDuplicate = floors.some((floor: any) => 
-      floor.name.trim().toLowerCase() === trimmedName.toLowerCase()
-    );
-    
-    if (isDuplicate) {
+    if (duplicateFloor) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'A floor with this name already exists in this location',
-          details: 'Floor names must be unique within each location (case-insensitive)'
+          error: 'A floor with this name already exists',
+          hint: 'Floor names must be unique within a location'
         },
-        { status: 409 } // Conflict
+        { status: 400 }
       );
     }
     
-    // Auto-calculate sort_order if not provided
-    const floorNum = sort_order !== undefined ? sort_order : floors.length;
+    // -----------------------------------------------------------------------
+    // 4. DETERMINE FLOOR NUMBER (auto-increment if not provided)
+    // -----------------------------------------------------------------------
+    let floorNum = floor_number || sort_order;
     
-    // Create the floor
-    const result = await sql`
-      INSERT INTO location_floors (location_id, name, sort_order)
-      VALUES (${locationId}, ${trimmedName}, ${floorNum})
-      RETURNING *
-    `;
+    if (!floorNum) {
+      // Auto-assign next floor number
+      const maxFloor = existingFloorsSnapshot.docs.reduce((max, doc) => {
+        const data = doc.data();
+        return Math.max(max, data.floor_number || 0);
+      }, 0);
+      floorNum = maxFloor + 1;
+    }
     
-    const floor = Array.isArray(result) ? result[0] : (result as any)?.rows?.[0];
+    // -----------------------------------------------------------------------
+    // 5. CREATE FLOOR DOCUMENT IN FIRESTORE
+    // -----------------------------------------------------------------------
+    const newFloor = {
+      name: trimmedName,
+      location_id: locationId,
+      floor_number: floorNum,
+      sort_order: floorNum, // For backward compatibility
+      created_by: claims.uid || claims.user_id,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    };
     
-    console.log('Floor created successfully:', floor);
+    const floorRef = await adminDb.collection('floors').add(newFloor);
     
+    console.log('[POST Floor] Created floor:', floorRef.id);
+    
+    // -----------------------------------------------------------------------
+    // 6. RETURN SUCCESS WITH CREATED FLOOR
+    // -----------------------------------------------------------------------
     return NextResponse.json({
       success: true,
-      floor,
-    });
-  } catch (error: any) {
-    console.error('Failed to create floor - DETAILED ERROR:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      locationId: params.id,
-    });
+      floor: {
+        id: floorRef.id,
+        ...newFloor,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    }, { status: 201 });
     
-    // Handle specific PostgreSQL constraint violation
-    if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'A floor with this name already exists in this location',
-          details: 'Floor names must be unique within each location'
-        },
-        { status: 409 } // Conflict
-      );
-    }
+  } catch (error: any) {
+    console.error('[POST Floor] Error:', error);
     
     // Handle permission errors
-    if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+    if (error.message?.includes('Forbidden') || error.message?.includes('Unauthorized')) {
       return NextResponse.json(
-        { success: false, error: 'Permission denied' },
+        { success: false, error: error.message },
         { status: 403 }
       );
     }
