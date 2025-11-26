@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -100,11 +100,16 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Verify token and get user ID
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const userId = decodedToken.uid;
+    
     const claims = await getUserClaims(token);
     if (!claims) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
     
+    // Permission check - use existing requireRole for now (RBAC migration in progress)
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
 
     const locationId = params.id;
@@ -180,7 +185,7 @@ export async function POST(
       location_id: locationId,
       floor_number: floorNum,
       sort_order: floorNum, // For backward compatibility
-      created_by: claims.uid || claims.user_id,
+      created_by: userId, // FIXED: Use userId from decoded token
       created_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
     };
