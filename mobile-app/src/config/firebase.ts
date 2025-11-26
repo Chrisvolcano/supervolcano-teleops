@@ -1,19 +1,22 @@
 import { initializeApp } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
 import { getFirestore, enableNetwork } from 'firebase/firestore';
+import Constants from 'expo-constants';
 
 console.log('🔥 Initializing Firebase...');
-console.log('🔥 Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
-console.log('🔥 Storage Bucket:', process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET);
 
+// Get config from app.json extra field (production) or .env (development)
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  apiKey: Constants.expoConfig?.extra?.firebaseApiKey || process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: Constants.expoConfig?.extra?.firebaseAuthDomain || process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: Constants.expoConfig?.extra?.firebaseProjectId || process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: Constants.expoConfig?.extra?.firebaseStorageBucket || process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: Constants.expoConfig?.extra?.firebaseMessagingSenderId || process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: Constants.expoConfig?.extra?.firebaseAppId || process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
+
+console.log('🔥 Project ID:', firebaseConfig.projectId);
+console.log('🔥 Storage Bucket:', firebaseConfig.storageBucket);
 
 // Validate config
 const missingKeys = Object.entries(firebaseConfig)
@@ -53,7 +56,7 @@ console.log('Storage bucket:', firebaseConfig.storageBucket);
 
 // Initialize Firestore with correct database ID (no parentheses!)
 // Use 'default' not '(default)'
-const databaseId = process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
+const databaseId = Constants.expoConfig?.extra?.firebaseDatabaseId || process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
 export const firestore = getFirestore(app, databaseId);
 console.log('✅ Firestore initialized');
 console.log('Database ID:', databaseId);

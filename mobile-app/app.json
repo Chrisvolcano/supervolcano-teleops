@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.supervolcano.camera",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
@@ -81,6 +81,14 @@
       "expo-font"
     ],
     "extra": {
+      "firebaseApiKey": "AIzaSyBJd8_A8tH6e2S5WhgwHqoeXIB58WQWDvw",
+      "firebaseAuthDomain": "super-volcano-oem-portal.firebaseapp.com",
+      "firebaseProjectId": "super-volcano-oem-portal",
+      "firebaseStorageBucket": "super-volcano-oem-portal.firebasestorage.app",
+      "firebaseMessagingSenderId": "243745387315",
+      "firebaseAppId": "1:243745387315:web:88448a0ee710a8fcc2c446",
+      "firebaseDatabaseId": "default",
+      "apiBaseUrl": "https://supervolcano-teleops.vercel.app",
       "eas": {
         "projectId": "88f8aa67-5bcd-49af-8bee-f4502c1d1ff7"
       }
