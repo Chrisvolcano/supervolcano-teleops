@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { getAuth } from 'firebase/auth';
 import {
   AddFloorModal,
   AddRoomModal,
@@ -26,7 +26,6 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState<any>(null);
-  const { getIdToken } = useAuth();
   
   // Modal states
   const [showAddFloorModal, setShowAddFloorModal] = useState(false);
@@ -43,10 +42,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
 
   // Helper to get auth token
   async function getAuthToken(): Promise<string> {
-    const token = await getIdToken();
-    if (!token) {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
       throw new Error('Not authenticated - please log in');
     }
+
+    const token = await user.getIdToken();
+    console.log('[GetAuthToken] Got auth token');
     return token;
   }
 
@@ -54,19 +58,40 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
   async function loadStructure() {
     try {
       setLoading(true);
-      const token = await getAuthToken();
+      setError(null);
       
+      console.log('[LoadStructure] Fetching structure for location:', locationId);
+
+      // Get Firebase Auth token
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('Not authenticated - please log in');
+      }
+
+      const token = await user.getIdToken();
+      console.log('[LoadStructure] Got auth token');
+
       const response = await fetch(`/api/admin/locations/${locationId}/structure`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
-      
+
+      console.log('[LoadStructure] Response status:', response.status);
+
       const data = await response.json();
+      console.log('[LoadStructure] Response data:', data);
+
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to load structure');
+        throw new Error(data.error || data.hint || 'Failed to load structure');
       }
+
       setStructure(data.structure);
+      console.log('[LoadStructure] Loaded structure successfully');
+
     } catch (error: any) {
       console.error('[LoadStructure] Error:', error);
       setError(error.message);
@@ -84,6 +109,8 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('[AddFloor] Creating floor:', name);
       const token = await getAuthToken();
       
       const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
@@ -94,10 +121,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
         },
         body: JSON.stringify({ name }),
       });
+      
+      console.log('[AddFloor] Response status:', response.status);
       const data = await response.json();
+      console.log('[AddFloor] Response data:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to create floor');
       }
+      
       await loadStructure();
       setShowAddFloorModal(false);
       alert(`Floor "${name}" created successfully`);
@@ -118,6 +150,8 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedFloorId) {
         throw new Error('No floor selected');
       }
+      
+      console.log('[AddRoom] Creating room:', name, 'on floor:', selectedFloorId);
       const token = await getAuthToken();
       
       const response = await fetch(
@@ -131,10 +165,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
           body: JSON.stringify({ name, room_type: roomType }),
         }
       );
+      
+      console.log('[AddRoom] Response status:', response.status);
       const data = await response.json();
+      console.log('[AddRoom] Response data:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to create room');
       }
+      
       await loadStructure();
       setShowAddRoomModal(false);
       setSelectedFloorId(null);
@@ -156,6 +195,8 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedRoomId) {
         throw new Error('No room selected');
       }
+      
+      console.log('[AddTarget] Creating target:', name, 'in room:', selectedRoomId);
       const token = await getAuthToken();
       
       const response = await fetch(
@@ -169,10 +210,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
           body: JSON.stringify({ name, target_type: targetType }),
         }
       );
+      
+      console.log('[AddTarget] Response status:', response.status);
       const data = await response.json();
+      console.log('[AddTarget] Response data:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to create target');
       }
+      
       await loadStructure();
       setShowAddTargetModal(false);
       setSelectedRoomId(null);
@@ -194,6 +240,8 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedTargetId) {
         throw new Error('No target selected');
       }
+      
+      console.log('[AddAction] Creating action:', name, 'for target:', selectedTargetId);
       const token = await getAuthToken();
       
       const response = await fetch(
@@ -207,10 +255,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
           body: JSON.stringify({ name, description }),
         }
       );
+      
+      console.log('[AddAction] Response status:', response.status);
       const data = await response.json();
+      console.log('[AddAction] Response data:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to create action');
       }
+      
       await loadStructure();
       setShowAddActionModal(false);
       setSelectedTargetId(null);
@@ -232,6 +285,8 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
       if (!selectedActionId) {
         throw new Error('No action selected');
       }
+      
+      console.log('[AddTool] Adding tool:', toolName, 'to action:', selectedActionId);
       const token = await getAuthToken();
       
       const response = await fetch(
@@ -245,10 +300,15 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
           body: JSON.stringify({ tool_name: toolName }),
         }
       );
+      
+      console.log('[AddTool] Response status:', response.status);
       const data = await response.json();
+      console.log('[AddTool] Response data:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to add tool');
       }
+      
       await loadStructure();
       setShowAddToolModal(false);
       setSelectedActionId(null);
