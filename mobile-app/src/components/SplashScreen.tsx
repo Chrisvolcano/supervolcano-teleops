@@ -69,7 +69,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       {/* VOLCANO text container */}
       <View style={styles.textContainer}>
         {/* Black text - no animation */}
-        <Text style={styles.foregroundText}>VOLCANO</Text>
+              <Text style={styles.foregroundText}>VOLCANO</Text>
       </View>
 
       {/* Loading indicator */}
