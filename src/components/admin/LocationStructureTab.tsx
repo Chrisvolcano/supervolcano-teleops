@@ -184,7 +184,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
 
   async function handleAddFloor(name: string) {
     try {
-      setIsLoading(true);
+      setLoading(true);
 
       const token = await getIdToken();
       if (!token) {
@@ -235,13 +235,13 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       // Show error to user (don't just fail silently!)
       alert(`Failed to create floor: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
   async function handleAddRoom(roomTypeId: string, customName?: string) {
     try {
-      setIsLoading(true);
+      setLoading(true);
 
       const token = await getIdToken();
       if (!token) {
@@ -304,7 +304,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       console.error('[AddRoom] Error:', error);
       alert(`Failed to create room: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
@@ -312,7 +312,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
     if (!selectedRoomId) return;
 
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
 
       const token = await getIdToken();
@@ -358,7 +358,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       setError(error.message);
       alert(`Failed to create target: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
@@ -366,7 +366,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
     if (!selectedTargetId) return;
 
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
 
       const token = await getIdToken();
@@ -412,7 +412,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       setError(error.message);
       alert(`Failed to create action: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
@@ -420,7 +420,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
     if (!selectedActionId) return;
 
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
 
       const token = await getIdToken();
@@ -466,7 +466,7 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       setError(error.message);
       alert(`Failed to add tool: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
@@ -772,7 +772,7 @@ function AddFloorModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: 
       // Error handling is done in parent component
       console.error('Error in AddFloorModal:', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
