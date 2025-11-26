@@ -59,7 +59,7 @@ export default function Step2BuildStructure(props: Step2BuildStructureProps) {
       {props.floors.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <p className="text-gray-500 mb-2">No floors yet</p>
-          <p className="text-sm text-gray-400">Click "Add Floor" to get started</p>
+          <p className="text-sm text-gray-400">Click &quot;Add Floor&quot; to get started</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -175,7 +175,7 @@ function FloorBuilder({
           </button>
 
           {floor.rooms.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4">No rooms yet. Click "Add Room" to start.</p>
+            <p className="text-sm text-gray-500 py-4">No rooms yet. Click &quot;Add Room&quot; to start.</p>
           ) : (
             <div className="space-y-3">
               {floor.rooms.map((room) => (

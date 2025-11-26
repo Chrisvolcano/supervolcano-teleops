@@ -30,7 +30,7 @@ export default function Step1BasicInfo({
         </div>
         <h3 className="text-2xl font-bold mb-2">Location Details</h3>
         <p className="text-gray-600">
-          Enter the basic information for this location. You'll build the structure in the next step.
+          Enter the basic information for this location. You&apos;ll build the structure in the next step.
         </p>
       </div>
 
@@ -46,7 +46,7 @@ export default function Step1BasicInfo({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Isaac's House, Downtown Office"
+            placeholder="e.g., Isaac&apos;s House, Downtown Office"
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             maxLength={100}
             required
@@ -85,7 +85,7 @@ export default function Step1BasicInfo({
       {/* Info Box */}
       <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-900">
-          <strong className="font-semibold">Next step:</strong> You'll add floors, rooms, and targets to create the complete location structure.
+          <strong className="font-semibold">Next step:</strong> You&apos;ll add floors, rooms, and targets to create the complete location structure.
         </p>
       </div>
     </div>
