@@ -181,7 +181,6 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
   async function handleAddFloor(name: string) {
     try {
       setIsLoading(true);
-      setError(null);
 
       const token = await getIdToken();
       if (!token) {
@@ -230,7 +229,6 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       console.error('[AddFloor] Error:', error);
       
       // Show error to user (don't just fail silently!)
-      setError(error.message);
       alert(`Failed to create floor: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -240,7 +238,6 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
   async function handleAddRoom(roomTypeId: string, customName?: string) {
     try {
       setIsLoading(true);
-      setError(null);
 
       const token = await getIdToken();
       if (!token) {
@@ -301,7 +298,6 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
 
     } catch (error: any) {
       console.error('[AddRoom] Error:', error);
-      setError(error.message);
       alert(`Failed to create room: ${error.message}`);
     } finally {
       setIsLoading(false);
