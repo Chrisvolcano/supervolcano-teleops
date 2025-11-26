@@ -43,9 +43,13 @@
             }
           }
         },
-        "NSCameraUsageDescription": "This app needs camera access to record cleaning tasks for robot learning.",
-        "NSMicrophoneUsageDescription": "This app needs microphone access to record audio with videos.",
-        "NSPhotoLibraryUsageDescription": "This app does NOT save to your photo library.",
+        "NSCameraUsageDescription": "This app needs camera access to record cleaning task videos.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access to record audio with cleaning task videos.",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to save and upload cleaning task videos.",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },

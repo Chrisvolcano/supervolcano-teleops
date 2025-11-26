@@ -36,6 +36,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "YOUR_APPLE_ID_EMAIL@example.com",
+        "ascAppId": "PLACEHOLDER",
+        "appleTeamId": "YOUR_TEAM_ID"
+      }
+    }
   }
 }
