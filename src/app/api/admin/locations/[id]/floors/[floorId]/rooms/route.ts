@@ -106,7 +106,8 @@ export async function POST(
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
 
-    const { locationId, floorId } = params;
+    // FIXED: Destructure 'id' and rename to locationId (Next.js uses folder name as param name)
+    const { id: locationId, floorId } = params;
     
     // -----------------------------------------------------------------------
     // 2. PARSE REQUEST BODY
