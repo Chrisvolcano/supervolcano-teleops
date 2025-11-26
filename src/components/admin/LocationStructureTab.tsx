@@ -85,10 +85,14 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [showAddTargetModal, setShowAddTargetModal] = useState(false);
   const [showAddActionModal, setShowAddActionModal] = useState(false);
+  const [showAddToolModal, setShowAddToolModal] = useState(false);
   
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
+  
+  const [error, setError] = useState<string | null>(null);
 
   const loadLibrary = useCallback(async () => {
     try {
@@ -304,63 +308,165 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
     }
   }
 
-  async function handleAddTarget(targetTypeId: string) {
+  async function handleAddTarget(name: string, targetType: string) {
     if (!selectedRoomId) return;
 
     try {
-      const token = await getIdToken();
-      if (!token) return;
+      setIsLoading(true);
+      setError(null);
 
-      const response = await fetch(`/api/admin/rooms/${selectedRoomId}/targets`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ target_type_id: targetTypeId }),
-      });
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      console.log('[AddTarget] Creating target:', { name, targetType, roomId: selectedRoomId });
+
+      const response = await fetch(
+        `/api/admin/locations/${locationId}/rooms/${selectedRoomId}/targets`,
+        {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name, target_type: targetType }),
+        }
+      );
 
       const data = await response.json();
+      console.log('[AddTarget] Response:', data);
 
-      if (data.success) {
-        await loadStructure();
-        setShowAddTargetModal(false);
-      } else {
-        alert('Failed to add target: ' + (data.error || 'Unknown error'));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create target');
       }
+
+      console.log('[AddTarget] Success! Created target:', data.target.id);
+
+      // Refetch structure
+      await loadStructure();
+
+      // Close modal
+      setShowAddTargetModal(false);
+      setSelectedRoomId(null);
+
+      // Show success message
+      console.log(`Target "${name}" created successfully`);
+
     } catch (error: any) {
-      console.error('Failed to add target:', error);
-      alert('Failed to add target: ' + (error.message || 'Unknown error'));
+      console.error('[AddTarget] Error:', error);
+      setError(error.message);
+      alert(`Failed to create target: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   }
 
-  async function handleAddAction(actionTypeId: string) {
+  async function handleAddAction(name: string, description?: string) {
     if (!selectedTargetId) return;
 
     try {
-      const token = await getIdToken();
-      if (!token) return;
+      setIsLoading(true);
+      setError(null);
 
-      const response = await fetch(`/api/admin/targets/${selectedTargetId}/actions`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action_type_id: actionTypeId }),
-      });
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      console.log('[AddAction] Creating action:', { name, description, targetId: selectedTargetId });
+
+      const response = await fetch(
+        `/api/admin/locations/${locationId}/targets/${selectedTargetId}/actions`,
+        {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name, description }),
+        }
+      );
 
       const data = await response.json();
+      console.log('[AddAction] Response:', data);
 
-      if (data.success) {
-        await loadStructure();
-        setShowAddActionModal(false);
-      } else {
-        alert('Failed to add action: ' + (data.error || 'Unknown error'));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create action');
       }
+
+      console.log('[AddAction] Success! Created action:', data.action.id);
+
+      // Refetch structure
+      await loadStructure();
+
+      // Close modal
+      setShowAddActionModal(false);
+      setSelectedTargetId(null);
+
+      // Show success message
+      console.log(`Action "${name}" created successfully`);
+
     } catch (error: any) {
-      console.error('Failed to add action:', error);
-      alert('Failed to add action: ' + (error.message || 'Unknown error'));
+      console.error('[AddAction] Error:', error);
+      setError(error.message);
+      alert(`Failed to create action: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleAddTool(toolName: string) {
+    if (!selectedActionId) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      console.log('[AddTool] Adding tool:', { toolName, actionId: selectedActionId });
+
+      const response = await fetch(
+        `/api/admin/locations/${locationId}/actions/${selectedActionId}/tools`,
+        {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ tool_name: toolName }),
+        }
+      );
+
+      const data = await response.json();
+      console.log('[AddTool] Response:', data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to add tool');
+      }
+
+      console.log('[AddTool] Success! Added tool:', data.tool.id);
+
+      // Refetch structure
+      await loadStructure();
+
+      // Close modal
+      setShowAddToolModal(false);
+      setSelectedActionId(null);
+
+      // Show success message
+      console.log(`Tool "${toolName}" added successfully`);
+
+    } catch (error: any) {
+      console.error('[AddTool] Error:', error);
+      setError(error.message);
+      alert(`Failed to add tool: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   }
 
