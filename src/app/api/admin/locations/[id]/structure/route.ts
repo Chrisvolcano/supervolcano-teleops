@@ -51,6 +51,7 @@ export async function GET(
     console.log('[Structure API] Found floors:', floors.length, floors);
     
     // Get rooms with room type info
+    console.log('[Structure API] Fetching rooms for location:', locationId);
     const roomsResult = await sql`
       SELECT 
         lr.*,
@@ -60,10 +61,11 @@ export async function GET(
       FROM location_rooms lr
       LEFT JOIN room_types rt ON lr.room_type_id = rt.id
       WHERE lr.location_id = ${locationId}
-      ORDER BY lr.sort_order ASC
+      ORDER BY lr.sort_order ASC, lr.custom_name ASC, rt.name ASC
     `;
     
     const rooms = Array.isArray(roomsResult) ? roomsResult : (roomsResult as any)?.rows || [];
+    console.log('[Structure API] Found rooms:', rooms.length, rooms.map((r: any) => ({ id: r.id, name: r.custom_name || r.room_type_name, floor_id: r.floor_id })));
     
     // Always return floors, even if no rooms exist
     if (rooms.length === 0) {
@@ -153,20 +155,36 @@ export async function GET(
     const actions = Array.isArray(actionsResult) ? actionsResult : (actionsResult as any)?.rows || [];
     
     // Build hierarchical structure
-    const structure = floors.map((floor: any) => ({
-      ...floor,
-      rooms: rooms
-        .filter((r: any) => r.floor_id === floor.id)
-        .map((room: any) => ({
-          ...room,
-          targets: targets
-            .filter((t: any) => t.room_id === room.id)
-            .map((target: any) => ({
-              ...target,
-              actions: actions.filter((a: any) => a.target_id === target.id),
-            })),
-        })),
-    }));
+    console.log('[Structure API] Building structure hierarchy...');
+    const structure = floors.map((floor: any) => {
+      const floorRooms = rooms.filter((r: any) => r.floor_id === floor.id);
+      console.log(`[Structure API] Floor "${floor.name}" (${floor.id}) has ${floorRooms.length} rooms`);
+      
+      return {
+        ...floor,
+        rooms: floorRooms.map((room: any) => {
+          const roomTargets = targets.filter((t: any) => t.room_id === room.id);
+          console.log(`[Structure API] Room "${room.custom_name || room.room_type_name}" (${room.id}) has ${roomTargets.length} targets`);
+          
+          return {
+            ...room,
+            targets: roomTargets.map((target: any) => {
+              const targetActions = actions.filter((a: any) => a.target_id === target.id);
+              return {
+                ...target,
+                actions: targetActions,
+              };
+            }),
+          };
+        }),
+      };
+    });
+    
+    console.log('[Structure API] Final structure:', {
+      floorCount: structure.length,
+      totalRooms: structure.reduce((sum, f) => sum + f.rooms.length, 0),
+      totalTargets: structure.reduce((sum, f) => sum + f.rooms.reduce((s: number, r: any) => s + r.targets.length, 0), 0),
+    });
     
     // Rooms without floors
     const roomsWithoutFloors = rooms

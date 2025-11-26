@@ -225,7 +225,17 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
   async function handleAddRoom(roomTypeId: string, customName?: string) {
     try {
       const token = await getIdToken();
-      if (!token) return;
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      if (!selectedFloorId) {
+        alert('Please select a floor first');
+        return;
+      }
+
+      console.log('[LocationStructureTab] Adding room:', { roomTypeId, customName, floorId: selectedFloorId });
 
       const response = await fetch(`/api/admin/locations/${locationId}/rooms`, {
         method: 'POST',
@@ -241,16 +251,32 @@ export default function LocationStructureTab({ locationId }: { locationId: strin
       });
 
       const data = await response.json();
+      console.log('[LocationStructureTab] Add room response:', data);
 
       if (data.success) {
+        // Refresh the entire structure to show the new room
         await loadStructure();
         setShowAddRoomModal(false);
+        setSelectedFloorId(null);
       } else {
-        alert('Failed to add room: ' + (data.error || 'Unknown error'));
+        // Handle specific error cases
+        if (response.status === 409) {
+          alert('A room with this name already exists on this floor. Please use a different name.');
+        } else if (response.status === 401) {
+          alert('Your session has expired. Please log in again.');
+        } else if (response.status === 403) {
+          alert('You do not have permission to add rooms to this location.');
+        } else {
+          alert('Failed to add room: ' + (data.error || 'Unknown error'));
+        }
       }
     } catch (error: any) {
-      console.error('Failed to add room:', error);
-      alert('Failed to add room: ' + (error.message || 'Unknown error'));
+      console.error('[LocationStructureTab] Failed to add room:', error);
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        alert('Network error. Please check your connection and try again.');
+      } else {
+        alert('Failed to add room: ' + (error.message || 'Unknown error'));
+      }
     }
   }
 

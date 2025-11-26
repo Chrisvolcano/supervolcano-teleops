@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles, ExternalLink, Loader2, Play } from 'lucide-react';
+import { Edit2, Trash2, Video, Image as ImageIcon, Sparkles, ExternalLink, Loader2, Play, MapPin } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoPlayerModal from './VideoPlayerModal';
 
@@ -85,6 +85,36 @@ export default function TaskCard({ task, onEdit, onDelete, onViewMoments, onClic
           
           {task.description && (
             <p className="text-sm text-gray-600 mb-3">{task.description}</p>
+          )}
+          
+          {/* Floor Assignment & Context Path */}
+          {(task.floor_name || task.room || task.target || task.action) && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-3 flex-wrap">
+              {task.floor_name && (
+                <>
+                  <div className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    <span className="font-medium">{task.floor_name}</span>
+                  </div>
+                  {(task.room || task.target || task.action) && <span>→</span>}
+                </>
+              )}
+              {task.room && (
+                <>
+                  <span>{task.room}</span>
+                  {(task.target || task.action) && <span>→</span>}
+                </>
+              )}
+              {task.target && (
+                <>
+                  <span>{task.target}</span>
+                  {task.action && <span>→</span>}
+                </>
+              )}
+              {task.action && (
+                <span className="font-medium">{task.action}</span>
+              )}
+            </div>
           )}
           
           {/* Media Display */}

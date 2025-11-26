@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import { sql } from '@/lib/db/postgres';
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
@@ -82,17 +83,51 @@ export async function GET(
     
     console.log('🔍 GET TASKS API: Total tasks found:', tasksSnap.size);
     
+    // Fetch floor information for tasks that have floor_id
+    const floorIds = new Set<string>();
+    tasksSnap.docs.forEach((doc: QueryDocumentSnapshot) => {
+      const data = doc.data();
+      if (data.floor_id) {
+        floorIds.add(data.floor_id);
+      }
+    });
+
+    // Fetch floor names from PostgreSQL
+    const floorMap = new Map<string, string>();
+    if (floorIds.size > 0) {
+      try {
+        const floorIdsArray = Array.from(floorIds);
+        const floorsResult = await sql`
+          SELECT id, name FROM location_floors
+          WHERE id = ANY(${floorIdsArray}::uuid[])
+        `;
+        const floors = Array.isArray(floorsResult) ? floorsResult : (floorsResult as any)?.rows || [];
+        floors.forEach((floor: any) => {
+          floorMap.set(floor.id, floor.name);
+        });
+        console.log('[GET Tasks] Fetched floor names:', floorMap);
+      } catch (error) {
+        console.error('[GET Tasks] Error fetching floor names:', error);
+      }
+    }
+
     const tasks = tasksSnap.docs.map((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       
       // Use locationId or propertyId (for backward compatibility)
       const taskLocationId = data.locationId || data.propertyId || locationId;
       
+      // Get floor name if floor_id exists
+      const floorId = data.floor_id;
+      const floorName = floorId ? floorMap.get(floorId) || 'Unknown Floor' : null;
+      
       console.log('🔍 GET TASKS API: Processing task:', {
         id: doc.id,
         title: data.title,
         locationId: data.locationId,
         propertyId: data.propertyId,
+        floorId: floorId,
+        floorName: floorName,
         finalLocationId: taskLocationId,
         matches: taskLocationId === locationId,
       });
@@ -115,6 +150,11 @@ export async function GET(
         status: data.status || data.state || 'available',
         locationId: taskLocationId,
         locationName: data.locationName || '',
+        floor_id: floorId || null,
+        floor_name: floorName || null,
+        room: data.room || data.room_name || null,
+        target: data.target || data.target_name || null,
+        action: data.action || data.action_name || null,
         createdAt,
         updatedAt,
         ...data
