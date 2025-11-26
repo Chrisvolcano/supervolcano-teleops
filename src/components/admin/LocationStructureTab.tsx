@@ -8,7 +8,6 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { getAuth } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import {
   AddFloorModal,
