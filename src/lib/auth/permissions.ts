@@ -47,25 +47,25 @@ export const Permissions = {
    * Create personal properties.
    * These locations are owned by the creator.
    * 
-   * Who has it: property_owner only (+ admin for testing)
+   * Who has it: location_owner only (+ admin for testing)
    */
-  CREATE_OWN_LOCATIONS: ['admin', 'property_owner'] as UserRole[],
+  CREATE_OWN_LOCATIONS: ['admin', 'location_owner'] as UserRole[],
   
   /**
    * Edit any location's details.
    * 
-   * Who has it: admin (all locations), property_owner (own locations only)
-   * Note: Additional check required to verify ownership for property_owner
+   * Who has it: admin (all locations), location_owner (own locations only)
+   * Note: Additional check required to verify ownership for location_owner
    */
-  EDIT_LOCATIONS: ['admin', 'property_owner'] as UserRole[],
+  EDIT_LOCATIONS: ['admin', 'location_owner'] as UserRole[],
   
   /**
    * Delete locations.
    * 
-   * Who has it: admin (all locations), property_owner (own locations only)
-   * Note: Additional check required to verify ownership for property_owner
+   * Who has it: admin (all locations), location_owner (own locations only)
+   * Note: Additional check required to verify ownership for location_owner
    */
-  DELETE_LOCATIONS: ['admin', 'property_owner'] as UserRole[],
+  DELETE_LOCATIONS: ['admin', 'location_owner'] as UserRole[],
   
   /**
    * View locations.
@@ -94,9 +94,9 @@ export const Permissions = {
   /**
    * Create organizations.
    * 
-   * Who has it: admin (creates partner orgs), property_owner (self-signup)
+   * Who has it: admin (creates partner orgs), location_owner (self-signup)
    */
-  CREATE_ORGANIZATIONS: ['admin', 'property_owner'] as UserRole[],
+  CREATE_ORGANIZATIONS: ['admin', 'location_owner'] as UserRole[],
   
   /**
    * Manage all organizations in the system.
@@ -110,25 +110,25 @@ export const Permissions = {
   // -------------------------------------------------------------------------
   
   /**
-   * Generate invite codes for field operators.
+   * Generate invite codes for field workers.
    * 
-   * Who has it: Managers (both partner_manager and property_owner)
+   * Who has it: Managers (both partner_manager and location_owner)
    */
-  INVITE_FIELD_OPERATORS: ['admin', 'partner_manager', 'property_owner'] as UserRole[],
+  INVITE_FIELD_OPERATORS: ['admin', 'partner_manager', 'location_owner'] as UserRole[],
   
   /**
-   * Assign field operators to specific locations.
+   * Assign field workers to specific locations.
    * 
    * Who has it: Managers
    */
-  ASSIGN_WORKERS: ['admin', 'partner_manager', 'property_owner'] as UserRole[],
+  ASSIGN_WORKERS: ['admin', 'partner_manager', 'location_owner'] as UserRole[],
   
   /**
-   * View team members (field operators in organization).
+   * View team members (field workers in organization).
    * 
    * Who has it: Managers
    */
-  VIEW_TEAM: ['admin', 'partner_manager', 'property_owner'] as UserRole[],
+  VIEW_TEAM: ['admin', 'partner_manager', 'location_owner'] as UserRole[],
   
   // -------------------------------------------------------------------------
   // TASK OPERATIONS
@@ -139,7 +139,7 @@ export const Permissions = {
    * 
    * Who has it: Location creators and admins
    */
-  MANAGE_TASKS: ['admin', 'property_owner'] as UserRole[],
+  MANAGE_TASKS: ['admin', 'location_owner'] as UserRole[],
   
   /**
    * Record videos for task completion.
@@ -164,11 +164,11 @@ export const Permissions = {
    * Different roles see different data:
    * - admin: Platform-wide analytics
    * - partner_manager: Their team's performance at assigned locations
-   * - property_owner: Cleaning performance at their properties
+   * - location_owner: Cleaning performance at their properties
    * 
    * Who has it: Admins and managers
    */
-  VIEW_ANALYTICS: ['admin', 'partner_manager', 'property_owner'] as UserRole[],
+  VIEW_ANALYTICS: ['admin', 'partner_manager', 'location_owner'] as UserRole[],
   
 } as const;
 
@@ -198,7 +198,7 @@ export type Permission = keyof typeof Permissions;
  * 
  * @example
  * ```typescript
- * if (hasPermission('property_owner', 'CREATE_OWN_LOCATIONS')) {
+ * if (hasPermission('location_owner', 'CREATE_OWN_LOCATIONS')) {
  *   // Allow location creation
  * }
  * ```
@@ -289,8 +289,8 @@ export async function canAccessLocation(
   // Admin can access everything
   if (user.role === 'admin') return true;
   
-  // Property owner can access locations they created
-  if (user.role === 'property_owner') {
+  // Location owner can access locations they created
+  if (user.role === 'location_owner') {
     if (!location) {
       // If location not provided, we can't check ownership
       // In real implementation, fetch location here
