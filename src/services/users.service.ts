@@ -149,6 +149,68 @@ class UsersService {
       throw new Error(error.error || "Failed to sync user");
     }
   }
+
+  async deleteUser(uid: string): Promise<void> {
+    try {
+      const token = await authService.getAuthToken();
+
+      const response = await fetch(`${this.baseUrl}/${uid}`, {
+        method: "DELETE",
+        headers: {
+          "x-firebase-token": token,
+        },
+      });
+
+      if (response.status === 401) {
+        authService.clearCache();
+        throw new UsersServiceError(
+          "Your session has expired. Please refresh the page.",
+          "AUTH_ERROR",
+          401,
+        );
+      }
+
+      if (response.status === 403) {
+        throw new UsersServiceError(
+          "You do not have permission to delete users.",
+          "AUTH_ERROR",
+          403,
+        );
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new UsersServiceError(
+          data.error || "Failed to delete user",
+          "SERVER_ERROR",
+          response.status,
+        );
+      }
+    } catch (error) {
+      if (error instanceof UsersServiceError) {
+        throw error;
+      }
+
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new UsersServiceError(
+          "Network error. Please check your connection and try again.",
+          "NETWORK_ERROR",
+        );
+      }
+
+      if (error instanceof Error && error.message.includes("Authentication")) {
+        throw new UsersServiceError(
+          error.message,
+          "AUTH_ERROR",
+        );
+      }
+
+      throw new UsersServiceError(
+        "An unexpected error occurred. Please try again.",
+        "SERVER_ERROR",
+      );
+    }
+  }
 }
 
 export const usersService = new UsersService();

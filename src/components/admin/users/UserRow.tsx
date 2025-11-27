@@ -5,17 +5,39 @@
 
 "use client";
 
-import { CheckCircle, AlertCircle, Edit2, XCircle } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, AlertCircle, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { DeleteUserModal } from "./DeleteUserModal";
+import { usersService } from "@/services/users.service";
 import type { User, UserRole } from "@/domain/user/user.types";
 
 interface UserRowProps {
   user: User;
   onEdit: () => void;
+  onDeleted: () => void;
 }
 
-export function UserRow({ user, onEdit }: UserRowProps) {
+export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDelete() {
+    setIsDeleting(true);
+    try {
+      await usersService.deleteUser(user.uid);
+      setShowDeleteModal(false);
+      onDeleted();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete user";
+      alert(`Failed to delete user: ${message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   const displayName =
     user.displayName ||
     user.firestore?.displayName ||
@@ -25,61 +47,87 @@ export function UserRow({ user, onEdit }: UserRowProps) {
     user.auth.organizationId || user.firestore?.organizationId;
 
   return (
-    <TableRow className="hover:bg-neutral-50 transition-colors">
-      {/* User Info */}
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${getUserAvatarColor(role)}`}
-          >
-            {displayName.charAt(0).toUpperCase()}
+    <>
+      <TableRow className="hover:bg-neutral-50 transition-colors">
+        {/* User Info */}
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${getUserAvatarColor(role)}`}
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="font-medium text-neutral-900">{displayName}</div>
+              <div className="text-sm text-neutral-500">{user.email}</div>
+            </div>
           </div>
-          <div>
-            <div className="font-medium text-neutral-900">{displayName}</div>
-            <div className="text-sm text-neutral-500">{user.email}</div>
+        </TableCell>
+
+        {/* Role */}
+        <TableCell>
+          <RoleBadge role={role} />
+        </TableCell>
+
+        {/* Organization */}
+        <TableCell>
+          <span className="text-sm text-neutral-600">
+            {organization ? (
+              <span className="px-2 py-1 bg-neutral-100 rounded text-xs font-mono">
+                {organization.slice(0, 8)}...
+              </span>
+            ) : (
+              <span className="text-neutral-400">—</span>
+            )}
+          </span>
+        </TableCell>
+
+        {/* Sync Status */}
+        <TableCell>
+          <SyncStatusBadge
+            syncStatus={user.syncStatus}
+            issues={user.syncIssues}
+          />
+        </TableCell>
+
+        {/* Actions */}
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              className="gap-1.5"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteModal(true)}
+              className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </Button>
           </div>
-        </div>
-      </TableCell>
+        </TableCell>
+      </TableRow>
 
-      {/* Role */}
-      <TableCell>
-        <RoleBadge role={role} />
-      </TableCell>
-
-      {/* Organization */}
-      <TableCell>
-        <span className="text-sm text-neutral-600">
-          {organization ? (
-            <span className="px-2 py-1 bg-neutral-100 rounded text-xs font-mono">
-              {organization.slice(0, 8)}...
-            </span>
-          ) : (
-            <span className="text-neutral-400">—</span>
-          )}
-        </span>
-      </TableCell>
-
-      {/* Sync Status */}
-      <TableCell>
-        <SyncStatusBadge
-          syncStatus={user.syncStatus}
-          issues={user.syncIssues}
+      {showDeleteModal && (
+        <DeleteUserModal
+          user={{
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+          }}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDelete}
+          isDeleting={isDeleting}
         />
-      </TableCell>
-
-      {/* Actions */}
-      <TableCell className="text-right">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          className="gap-1.5"
-        >
-          <Edit2 className="w-3.5 h-3.5" />
-          Edit
-        </Button>
-      </TableCell>
-    </TableRow>
+      )}
+    </>
   );
 }
 
@@ -118,6 +166,11 @@ function RoleBadge({ role }: { role?: UserRole }) {
       text: "text-blue-800",
       label: "Partner Admin",
     },
+    location_owner: {
+      bg: "bg-blue-100",
+      text: "text-blue-800",
+      label: "Location Owner",
+    },
     field_operator: {
       bg: "bg-green-100",
       text: "text-green-800",
@@ -131,7 +184,8 @@ function RoleBadge({ role }: { role?: UserRole }) {
   };
 
   const config =
-    configs[role] || { bg: "bg-neutral-100", text: "text-neutral-800", label: role };
+    configs[role] ||
+    { bg: "bg-neutral-100", text: "text-neutral-800", label: role };
 
   return (
     <span
@@ -216,6 +270,7 @@ function getUserAvatarColor(role?: UserRole): string {
     org_manager: "bg-blue-500",
     partner_manager: "bg-blue-600",
     partner_admin: "bg-blue-600",
+    location_owner: "bg-blue-600",
     field_operator: "bg-green-500",
     teleoperator: "bg-green-600",
   };

@@ -223,6 +223,7 @@ export default function UsersTable() {
                     key={user.uid}
                     user={user}
                     onEdit={() => setSelectedUser(user)}
+                    onDeleted={() => void refresh()}
                   />
                 ))}
               </TableBody>

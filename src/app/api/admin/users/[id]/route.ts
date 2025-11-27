@@ -268,3 +268,89 @@ export async function PATCH(
   }
 }
 
+// ============================================================================
+// DELETE - Delete user
+// ============================================================================
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  try {
+    // Get auth token
+    const authHeader = request.headers.get("x-firebase-token");
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(authHeader);
+    } catch {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Only admins can delete users
+    if (
+      decodedToken.role !== "admin" &&
+      decodedToken.role !== "superadmin"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id: userId } = params;
+
+    // Prevent self-deletion
+    if (userId === decodedToken.uid) {
+      return NextResponse.json(
+        { error: "Cannot delete your own account" },
+        { status: 400 },
+      );
+    }
+
+    // Delete from Firebase Auth
+    await adminAuth.deleteUser(userId);
+    console.log("[DELETE User] Deleted from Auth:", userId);
+
+    // Delete from Firestore
+    await adminDb.collection("users").doc(userId).delete();
+    console.log("[DELETE User] Deleted from Firestore:", userId);
+
+    // Audit log
+    try {
+      await adminDb.collection("audit_logs").add({
+        entityId: userId,
+        entityType: "user",
+        action: "user_delete",
+        actorId: decodedToken.uid || decodedToken.email || "system",
+        createdAt: new Date(),
+      });
+    } catch (auditError) {
+      // Don't fail the request if audit logging fails
+      console.error("Failed to log audit entry:", auditError);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error: unknown) {
+    console.error("Failed to delete user:", error);
+
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "auth/user-not-found"
+    ) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const message =
+      error instanceof Error ? error.message : "Failed to delete user";
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 500 },
+    );
+  }
+}
+

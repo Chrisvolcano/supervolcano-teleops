@@ -59,10 +59,13 @@ export class UserValidator {
       };
     }
 
-    if (organizationId && !this.isValidUUID(organizationId)) {
+    // Accept both UUIDs and slugs (alphanumeric with hyphens)
+    if (organizationId && !this.isValidOrganizationId(organizationId)) {
       return {
         valid: false,
-        errors: ["Organization ID must be a valid UUID"],
+        errors: [
+          'Organization ID must be a valid UUID or slug (e.g., "demo-org" or "94c8ed66-...")',
+        ],
       };
     }
 
@@ -109,6 +112,17 @@ export class UserValidator {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  private static isValidOrganizationId(id: string): boolean {
+    // Accept UUID format
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(id)) return true;
+
+    // Accept slug format (lowercase letters, numbers, hyphens, 2-50 chars)
+    const slugRegex = /^[a-z0-9-]{2,50}$/;
+    return slugRegex.test(id);
   }
 
   private static isValidUUID(uuid: string): boolean {
