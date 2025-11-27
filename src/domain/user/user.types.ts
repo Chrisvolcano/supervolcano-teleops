@@ -3,15 +3,64 @@
  * Single source of truth for user-related types
  */
 
+/**
+ * USER ROLE TYPE SYSTEM
+ * Each role represents a distinct job function with specific permissions
+ * DO NOT add generic roles - be explicit about job functions
+ */
 export type UserRole =
-  | "admin"
-  | "superadmin"
-  | "org_manager"
-  | "partner_manager"
-  | "location_owner"
-  | "field_operator"
-  | "teleoperator"
-  | "partner_admin";
+  // Platform Administration
+  | "admin" // SuperVolcano operational admin
+  | "superadmin" // SuperVolcano engineering/root access
+  // B2B: OEM Robotics Testing
+  | "partner_manager" // OEM company manager (assigns tests)
+  | "oem_teleoperator" // OEM worker (operates robots remotely)
+  // B2C: Property Management
+  | "location_owner" // Property owner/manager (assigns cleaning)
+  | "property_cleaner"; // Cleaning worker (performs cleaning)
+
+// Backward compatibility type (for migration)
+export type LegacyUserRole = UserRole | "field_operator";
+
+// Type guard for runtime role validation
+export function isValidUserRole(role: string): role is UserRole {
+  const validRoles: UserRole[] = [
+    "admin",
+    "superadmin",
+    "partner_manager",
+    "oem_teleoperator",
+    "location_owner",
+    "property_cleaner",
+  ];
+  return validRoles.includes(role as UserRole);
+}
+
+// Human-readable role labels for UI
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Admin",
+  superadmin: "Super Admin",
+  partner_manager: "Partner Manager",
+  oem_teleoperator: "OEM Teleoperator",
+  location_owner: "Location Owner",
+  property_cleaner: "Property Cleaner",
+};
+
+// Role descriptions for UI hints
+export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  admin: "SuperVolcano internal - operational access",
+  superadmin: "SuperVolcano internal - full system access",
+  partner_manager: "OEM company manager - assigns robot tests",
+  oem_teleoperator: "OEM worker - operates robots remotely",
+  location_owner: "Property manager - assigns cleaning tasks",
+  property_cleaner: "Cleaning worker - performs cleaning",
+};
+
+// Roles grouped by business model for UI organization
+export const ROLE_GROUPS = {
+  platform: ["admin", "superadmin"] as const,
+  oem_b2b: ["partner_manager", "oem_teleoperator"] as const,
+  property_b2c: ["location_owner", "property_cleaner"] as const,
+};
 
 export interface UserAuthClaims {
   role?: UserRole;

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { OrganizationDropdown } from "./OrganizationDropdown";
+import { RoleDropdown } from "./RoleDropdown";
 import type { UserRole } from "@/domain/user/user.types";
 
 interface CreateUserModalProps {
@@ -35,10 +36,10 @@ export function CreateUserModal({ onClose, onSuccess }: CreateUserModalProps) {
   const [error, setError] = useState<string | null>(null);
 
   const requiresOrganization =
-    formData.role === "org_manager" ||
     formData.role === "partner_manager" ||
-    formData.role === "field_operator" ||
-    formData.role === "teleoperator";
+    formData.role === "oem_teleoperator" ||
+    formData.role === "location_owner" ||
+    formData.role === "property_cleaner";
 
   async function handleCreate() {
     setError(null);
@@ -185,28 +186,13 @@ export function CreateUserModal({ onClose, onSuccess }: CreateUserModalProps) {
           </div>
 
           {/* Role */}
-          <div>
-            <Label htmlFor="role" className="block text-sm font-medium text-neutral-700 mb-1.5">
-              Role <span className="text-red-500">*</span>
-            </Label>
-            <select
-              id="role"
-              value={formData.role}
-              onChange={(e) =>
-                setFormData({ ...formData, role: e.target.value as UserRole })
-              }
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">Select role</option>
-              <option value="admin">Admin (SuperVolcano Internal)</option>
-              <option value="superadmin">Super Admin</option>
-              <option value="org_manager">Organization Manager</option>
-              <option value="partner_manager">Partner Manager (OEM Company)</option>
-              <option value="partner_admin">Partner Admin</option>
-              <option value="field_operator">Field Operator (Worker)</option>
-              <option value="teleoperator">Teleoperator</option>
-            </select>
-          </div>
+          <RoleDropdown
+            value={formData.role}
+            onChange={(role) =>
+              setFormData({ ...formData, role, organizationId: "" })
+            }
+            disabled={creating}
+          />
 
           {/* Organization Dropdown */}
           <OrganizationDropdown
@@ -218,8 +204,8 @@ export function CreateUserModal({ onClose, onSuccess }: CreateUserModalProps) {
             disabled={creating}
           />
 
-          {/* Teleoperator ID (Optional for field_operator) */}
-          {formData.role === "field_operator" && (
+          {/* Teleoperator ID (Optional for oem_teleoperator) */}
+          {formData.role === "oem_teleoperator" && (
             <div>
               <Label htmlFor="teleoperatorId" className="block text-sm font-medium text-neutral-700 mb-1.5">
                 Teleoperator ID (Optional)

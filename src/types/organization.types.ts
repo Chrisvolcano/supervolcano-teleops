@@ -59,22 +59,45 @@ export function parseOrganizationId(id: string): {
   };
 }
 
-// Helper to get organization type from role
+import type { UserRole } from "@/domain/user/user.types";
+
+/**
+ * Maps user roles to their required organization types
+ * This enforces the business model separation at the type level
+ */
 export function getOrganizationTypeForRole(
-  role: string,
+  role: UserRole,
 ): OrganizationType | null {
+  // Type-safe mapping with exhaustive checking
   switch (role) {
     case "admin":
     case "superadmin":
       return "supervolcano";
+
     case "partner_manager":
+    case "oem_teleoperator":
       return "oem_partner";
+
     case "location_owner":
+    case "property_cleaner":
       return "location_owner";
-    case "field_operator":
-      return null; // Field operators can belong to either OEM or location owner
+
     default:
+      // TypeScript will error if we add a new role and forget to handle it
+      const _exhaustiveCheck: never = role;
       return null;
   }
+}
+
+/**
+ * Validates that a role is compatible with an organization type
+ * Used in API validation
+ */
+export function isRoleCompatibleWithOrgType(
+  role: UserRole,
+  orgType: OrganizationType,
+): boolean {
+  const requiredType = getOrganizationTypeForRole(role);
+  return requiredType === orgType;
 }
 

@@ -57,7 +57,16 @@ export default function AssignCleanerModal({
       const token = await user.getIdToken();
       console.log('[Modal] Got auth token');
       
-      const response = await fetch('/api/admin/users?role=field_operator', {
+      // Fetch both property_cleaner and oem_teleoperator roles
+      // We'll filter by organizationId to match the location
+      const response = await fetch('/api/admin/users?role=property_cleaner', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      // Also fetch oem_teleoperators if needed (you can combine both queries)
+      const responseOem = await fetch('/api/admin/users?role=oem_teleoperator', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -70,15 +79,20 @@ export default function AssignCleanerModal({
       }
 
       const data = await response.json();
+      const dataOem = await responseOem.json();
+      
+      // Combine both responses
+      const allUsers = [...(data.users || []), ...(dataOem.users || [])];
+      
       console.log('[Modal] Response data:', data);
-      console.log('[Modal] Users count:', data.users?.length || 0);
+      console.log('[Modal] Users count:', allUsers.length);
       
       // Transform users to match modal's expected format
-      const transformedUsers: User[] = (data.users || []).map((user: any) => ({
+      const transformedUsers: User[] = allUsers.map((user: any) => ({
         id: user.uid,
         name: user.displayName || user.firestore?.displayName || user.email.split('@')[0],
         email: user.email,
-        role: user.auth?.role || user.firestore?.role || 'field_operator',
+        role: user.auth?.role || user.firestore?.role || 'property_cleaner',
         organizationId: user.auth?.organizationId || user.firestore?.organizationId,
       }));
       

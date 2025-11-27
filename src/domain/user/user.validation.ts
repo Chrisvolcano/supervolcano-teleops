@@ -3,6 +3,9 @@
  * Single source of truth for user validation logic
  */
 import type { UserRole } from "./user.types";
+import { getOrganizationTypeForRole } from "@/types/organization.types";
+import { ROLE_LABELS, isValidUserRole } from "./user.types";
+import type { OrganizationType } from "@/types/organization.types";
 
 export interface ValidationResult {
   valid: boolean;
@@ -18,18 +21,7 @@ export class UserValidator {
       };
     }
 
-    const validRoles: UserRole[] = [
-      "admin",
-      "superadmin",
-      "org_manager",
-      "partner_manager",
-      "location_owner",
-      "field_operator",
-      "teleoperator",
-      "partner_admin",
-    ];
-
-    if (!validRoles.includes(role as UserRole)) {
+    if (!isValidUserRole(role)) {
       return {
         valid: false,
         errors: ["Invalid role selected"],
@@ -39,34 +31,67 @@ export class UserValidator {
     return { valid: true, errors: [] };
   }
 
+  // Roles that require an organization assignment
+  private static readonly ROLES_REQUIRING_ORG: UserRole[] = [
+    "partner_manager",
+    "oem_teleoperator",
+    "location_owner",
+    "property_cleaner",
+  ];
+
   static validateOrganizationId(
     organizationId: string,
     role: UserRole | "",
   ): ValidationResult {
-    const rolesRequiringOrg: UserRole[] = [
-      "partner_manager",
-      "location_owner",
-      "field_operator",
-      "org_manager",
-      "teleoperator",
-      "partner_admin",
-    ];
+    // Check if role requires org
+    if (!role || role === "admin" || role === "superadmin") {
+      // Admins don't need explicit org (they're always sv:internal)
+      return { valid: true, errors: [] };
+    }
 
-    if (rolesRequiringOrg.includes(role as UserRole) && !organizationId) {
+    if (
+      this.ROLES_REQUIRING_ORG.includes(role as UserRole) &&
+      !organizationId
+    ) {
+      const roleLabel = role ? ROLE_LABELS[role as UserRole] : role;
       return {
         valid: false,
-        errors: [`Organization ID is required for ${role} role`],
+        errors: [`Organization is required for ${roleLabel} role`],
       };
     }
 
-    // Accept both UUIDs and slugs (alphanumeric with hyphens)
+    // Validate organization ID format
     if (organizationId && !this.isValidOrganizationId(organizationId)) {
       return {
         valid: false,
         errors: [
-          'Organization ID must be a valid UUID or slug (e.g., "demo-org" or "94c8ed66-...")',
+          "Organization ID must be in format: sv:slug, oem:slug, or owner:slug",
         ],
       };
+    }
+
+    // Validate org type matches role
+    if (organizationId && role && isValidUserRole(role)) {
+      const [prefix] = organizationId.split(":");
+
+      const expectedOrgType = getOrganizationTypeForRole(role);
+
+      const prefixToType: Record<string, OrganizationType> = {
+        sv: "supervolcano",
+        oem: "oem_partner",
+        owner: "location_owner",
+      };
+
+      const actualOrgType = prefixToType[prefix];
+
+      if (expectedOrgType && actualOrgType !== expectedOrgType) {
+        return {
+          valid: false,
+          errors: [
+            `Role ${ROLE_LABELS[role]} requires organization type ${expectedOrgType}, but got ${actualOrgType}`,
+          ],
+        };
+      }
     }
 
     return { valid: true, errors: [] };
