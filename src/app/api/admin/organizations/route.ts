@@ -40,18 +40,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const typeFilter = searchParams.get("type") as OrganizationType | null;
 
-    // Fetch from Firestore
-    let query: FirebaseFirestore.Query = adminDb
+    // Fetch all organizations (client-side filter until index builds)
+    const query: FirebaseFirestore.Query = adminDb
       .collection("organizations")
       .orderBy("name", "asc");
 
-    if (typeFilter) {
-      query = query.where("type", "==", typeFilter);
-    }
-
     const snapshot = await query.get();
 
-    const organizations: Organization[] = snapshot.docs.map((doc) => {
+    let organizations: Organization[] = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -66,6 +62,11 @@ export async function GET(request: NextRequest) {
         updated_at: data.updated_at?.toDate?.() || new Date(data.updated_at),
       } as Organization;
     });
+
+    // Client-side filter by type if specified
+    if (typeFilter) {
+      organizations = organizations.filter((org) => org.type === typeFilter);
+    }
 
     return NextResponse.json({
       success: true,
