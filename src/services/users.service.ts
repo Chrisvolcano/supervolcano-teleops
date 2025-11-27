@@ -1,23 +1,24 @@
 /**
  * USER SERVICE
- * Handles all user-related API calls with proper error handling
+ * Clean API abstraction for user operations
  */
 
-import type {
-  User,
-  UserUpdateRequest,
-  UserFilters,
-} from "@/domain/user/user.types";
-import { useAuth } from "@/hooks/useAuth";
+import { authService } from "./auth.service";
+import type { User, UserUpdateRequest, UserFilters } from "@/domain/user/user.types";
+
+export class UsersServiceError extends Error {
+  constructor(
+    message: string,
+    public code: "AUTH_ERROR" | "NETWORK_ERROR" | "VALIDATION_ERROR" | "SERVER_ERROR",
+    public statusCode?: number,
+  ) {
+    super(message);
+    this.name = "UsersServiceError";
+  }
+}
 
 class UsersService {
-  private async getAuthToken(): Promise<string> {
-    // This will be called from client components
-    // We'll need to handle this differently in hooks
-    throw new Error(
-      "getAuthToken should be called from hooks, not directly from service",
-    );
-  }
+  private readonly baseUrl = "/api/admin/users";
 
   async listUsers(
     token: string,
@@ -63,25 +64,67 @@ class UsersService {
     return data.user;
   }
 
-  async updateUser(
-    token: string,
-    uid: string,
-    updates: UserUpdateRequest,
-  ): Promise<void> {
-    const response = await fetch(`/api/admin/users/${uid}`, {
-      method: "PATCH",
-      headers: {
-        "x-firebase-token": token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updates),
-    });
+  async updateUser(uid: string, updates: UserUpdateRequest): Promise<void> {
+    try {
+      const token = await authService.getAuthToken();
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        error: "Failed to update user",
-      }));
-      throw new Error(error.error || "Failed to update user");
+      const response = await fetch(`${this.baseUrl}/${uid}`, {
+        method: "PATCH",
+        headers: {
+          "x-firebase-token": token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.status === 401) {
+        authService.clearCache();
+        throw new UsersServiceError(
+          "Your session has expired. Please refresh the page.",
+          "AUTH_ERROR",
+          401,
+        );
+      }
+
+      if (response.status === 403) {
+        throw new UsersServiceError(
+          "You do not have permission to perform this action.",
+          "AUTH_ERROR",
+          403,
+        );
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new UsersServiceError(
+          data.error || "Failed to update user",
+          "SERVER_ERROR",
+          response.status,
+        );
+      }
+    } catch (error) {
+      if (error instanceof UsersServiceError) {
+        throw error;
+      }
+
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new UsersServiceError(
+          "Network error. Please check your connection and try again.",
+          "NETWORK_ERROR",
+        );
+      }
+
+      if (error instanceof Error && error.message.includes("Authentication")) {
+        throw new UsersServiceError(
+          error.message,
+          "AUTH_ERROR",
+        );
+      }
+
+      throw new UsersServiceError(
+        "An unexpected error occurred. Please try again.",
+        "SERVER_ERROR",
+      );
     }
   }
 
