@@ -41,14 +41,15 @@ export async function GET(
       assignmentsSnapshot.docs.map(async (doc) => {
         const data = doc.data();
         
-        // Get user info
+        // Get user info with normalization
         let userName = 'Unknown User';
         let userEmail = '';
         try {
           const userDoc = await adminDb.collection('users').doc(data.user_id).get();
           if (userDoc.exists) {
             const userData = userDoc.data();
-            userName = userData?.name || userName;
+            // Use normalized field (prefer displayName, fall back to name)
+            userName = userData?.displayName || userData?.name || userName;
             userEmail = userData?.email || '';
           }
         } catch (error) {
@@ -147,14 +148,15 @@ export async function POST(
     const assignmentDoc = await assignmentRef.get();
     const assignmentData = assignmentDoc.data();
 
-    // Get user info
+    // Get user info with normalization
     let userName = 'Unknown User';
     let userEmail = '';
     try {
       const userDoc = await adminDb.collection('users').doc(user_id).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
-        userName = userData?.name || userName;
+        // Use normalized field (prefer displayName, fall back to name)
+        userName = userData?.displayName || userData?.name || userName;
         userEmail = userData?.email || '';
       }
     } catch (error) {

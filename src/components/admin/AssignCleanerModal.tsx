@@ -65,6 +65,19 @@ export default function AssignCleanerModal({
       }
 
       const data = await response.json();
+      
+      // Log any cleaners missing required fields (helpful for debugging)
+      const invalidCleaners = (data.users || []).filter(
+        (user: any) => !user.organizationId || !user.partnerId
+      );
+      
+      if (invalidCleaners.length > 0) {
+        console.warn(
+          '[AssignCleanerModal] Found cleaners missing organization fields:',
+          invalidCleaners.map((u: any) => u.email)
+        );
+      }
+      
       setCleaners(data.users || []);
     } catch (err: any) {
       console.error('Error loading cleaners:', err);
