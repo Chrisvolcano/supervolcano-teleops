@@ -115,12 +115,16 @@ export class UserValidator {
   }
 
   private static isValidOrganizationId(id: string): boolean {
-    // Accept UUID format
+    // Accept prefixed format: sv:slug, oem:slug, owner:slug
+    const prefixedRegex = /^(sv|oem|owner):[a-z0-9-]{2,50}$/;
+    if (prefixedRegex.test(id)) return true;
+
+    // Still accept UUID format for backward compatibility
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(id)) return true;
 
-    // Accept slug format (lowercase letters, numbers, hyphens, 2-50 chars)
+    // Accept simple slugs for backward compatibility
     const slugRegex = /^[a-z0-9-]{2,50}$/;
     return slugRegex.test(id);
   }

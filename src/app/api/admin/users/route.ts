@@ -74,19 +74,7 @@ export async function GET(request: NextRequest) {
     for (const authUser of listUsersResult.users) {
       const customClaims = authUser.customClaims || {};
 
-      // Apply filters early for performance
-      if (roleFilter && customClaims.role !== roleFilter) {
-        continue;
-      }
-
-      if (
-        organizationIdFilter &&
-        customClaims.organizationId !== organizationIdFilter
-      ) {
-        continue;
-      }
-
-      // Get Firestore data
+      // Get Firestore data (we'll use it for filtering)
       const firestoreDoc = await adminDb
         .collection("users")
         .doc(authUser.uid)
@@ -94,6 +82,26 @@ export async function GET(request: NextRequest) {
       const firestoreData = firestoreDoc.exists
         ? (firestoreDoc.data() as Record<string, unknown>)
         : null;
+
+      // Apply role filter - check both auth and firestore
+      if (roleFilter) {
+        const hasRole =
+          customClaims.role === roleFilter ||
+          firestoreData?.role === roleFilter;
+        if (!hasRole) {
+          continue;
+        }
+      }
+
+      // Apply organization filter - check both auth and firestore
+      if (organizationIdFilter) {
+        const hasOrg =
+          customClaims.organizationId === organizationIdFilter ||
+          firestoreData?.organizationId === organizationIdFilter;
+        if (!hasOrg) {
+          continue;
+        }
+      }
 
       // Calculate sync status
       const { syncStatus, syncIssues } = calculateSyncStatus(

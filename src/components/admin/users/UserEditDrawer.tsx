@@ -5,6 +5,7 @@ import { X, Save, AlertCircle, RefreshCw } from "lucide-react";
 import { useUserUpdate } from "@/hooks/useUserUpdate";
 import { UserValidator } from "@/domain/user/user.validation";
 import { UsersServiceError } from "@/services/users.service";
+import { OrganizationDropdown } from "./OrganizationDropdown";
 import type { User, UserRole, UserUpdateRequest } from "@/domain/user/user.types";
 
 interface UserEditDrawerProps {
@@ -263,42 +264,15 @@ export function UserEditDrawer({
               </p>
             </div>
 
-            {/* Organization ID */}
-            <div>
-              <label
-                htmlFor="organizationId"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Organization ID
-                {(formData.role === "field_operator" ||
-                  formData.role === "partner_manager" ||
-                  formData.role === "location_owner" ||
-                  formData.role === "org_manager" ||
-                  formData.role === "teleoperator" ||
-                  formData.role === "partner_admin") && (
-                  <span className="text-red-500 ml-1" aria-label="required">
-                    *
-                  </span>
-                )}
-              </label>
-              <input
-                id="organizationId"
-                type="text"
-                value={formData.organizationId}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    organizationId: e.target.value,
-                  })
-                }
-                placeholder="e.g., 94c8ed66-46ed-49dd-8d02-c053f2c38cb9"
-                disabled={isLoading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 transition-colors"
-              />
-              <p className="text-xs text-gray-500 mt-1.5">
-                Required for non-admin roles
-              </p>
-            </div>
+            {/* Organization Dropdown */}
+            <OrganizationDropdown
+              role={formData.role}
+              value={formData.organizationId}
+              onChange={(value) =>
+                setFormData({ ...formData, organizationId: value })
+              }
+              disabled={isLoading}
+            />
           </form>
 
           {/* Validation Errors */}

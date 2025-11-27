@@ -16,6 +16,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  organizationId?: string;
 }
 
 interface AssignCleanerModalProps {
@@ -71,18 +72,29 @@ export default function AssignCleanerModal({
       const data = await response.json();
       console.log('[Modal] Response data:', data);
       console.log('[Modal] Users count:', data.users?.length || 0);
-      console.log('[Modal] Users:', data.users?.map((u: any) => ({ email: u.email, name: u.name })));
+      
+      // Transform users to match modal's expected format
+      const transformedUsers: User[] = (data.users || []).map((user: any) => ({
+        id: user.uid,
+        name: user.displayName || user.firestore?.displayName || user.email.split('@')[0],
+        email: user.email,
+        role: user.auth?.role || user.firestore?.role || 'field_operator',
+        organizationId: user.auth?.organizationId || user.firestore?.organizationId,
+      }));
+      
+      console.log('[Modal] Transformed users:', transformedUsers.map((u: any) => ({ email: u.email, name: u.name, orgId: u.organizationId })));
       
       // Check for test cleaner specifically
-      const testCleaner = data.users?.find((u: any) => u.email === 'testcleaner@supervolcano.com');
+      const testCleaner = transformedUsers.find((u: any) => u.email === 'testcleaner@supervolcano.com');
       if (testCleaner) {
         console.log('[Modal] ✅ Test Cleaner FOUND:', testCleaner);
+        console.log('[Modal] Test cleaner orgId:', testCleaner.organizationId);
       } else {
         console.warn('[Modal] ❌ Test Cleaner NOT FOUND in response');
       }
       
       // Log any cleaners missing required fields (helpful for debugging)
-      const invalidCleaners = (data.users || []).filter(
+      const invalidCleaners = transformedUsers.filter(
         (user: any) => !user.organizationId
       );
       
@@ -93,7 +105,7 @@ export default function AssignCleanerModal({
         );
       }
       
-      setCleaners(data.users || []);
+      setCleaners(transformedUsers);
       console.log('[Modal] Cleaners set in state');
     } catch (err: any) {
       console.error('[Modal] Error loading cleaners:', err);
