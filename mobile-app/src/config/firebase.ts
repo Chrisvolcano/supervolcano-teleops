@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFirestore, enableNetwork } from 'firebase/firestore';
 import Constants from 'expo-constants';
@@ -49,6 +50,10 @@ const app = initializeApp(firebaseConfig);
 console.log('✅ Firebase app initialized');
 console.log('App name:', app.name);
 
+// Initialize Auth
+export const auth = getAuth(app);
+console.log('✅ Firebase Auth initialized');
+
 // Initialize Storage
 export const storage = getStorage(app);
 console.log('✅ Firebase Storage initialized');
@@ -58,6 +63,7 @@ console.log('Storage bucket:', firebaseConfig.storageBucket);
 // Use 'default' not '(default)'
 const databaseId = Constants.expoConfig?.extra?.firebaseDatabaseId || process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
 export const firestore = getFirestore(app, databaseId);
+export const db = firestore; // Alias for convenience
 console.log('✅ Firestore initialized');
 console.log('Database ID:', databaseId);
 

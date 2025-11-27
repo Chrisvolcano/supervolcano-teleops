@@ -5,13 +5,25 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomeScreen({ navigation }: any) {
+  const { user, signOut } = useAuth();
+
   const handleStartRecording = () => {
     navigation.navigate('Camera');
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Navigation will be handled by auth state change in App.tsx
+    } catch (error) {
+      Alert.alert('Error', 'Failed to sign out');
+    }
   };
 
   return (
@@ -20,8 +32,11 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.name}>Cleaner</Text>
+          <Text style={styles.name}>{user?.name || 'Cleaner'}</Text>
         </View>
+        <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
+          <Ionicons name="log-out-outline" size={24} color="#666" />
+        </TouchableOpacity>
       </View>
       
       {/* Main Content */}
@@ -129,5 +144,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+  },
+  signOutButton: {
+    padding: 8,
   },
 });
