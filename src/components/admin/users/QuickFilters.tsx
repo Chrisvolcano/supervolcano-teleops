@@ -33,9 +33,9 @@ export function QuickFilters({ onFilterChange }: QuickFiltersProps) {
       color: "text-yellow-600 bg-yellow-50 border-yellow-200 hover:bg-yellow-100",
     },
     {
-      label: "Field Operators",
+      label: "Field Workers",
       icon: Users,
-      filter: { role: "field_operator" as const },
+      filter: { role: "oem_teleoperator" as const }, // Show OEM teleoperators by default, parent can handle multi-role
       color: "text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100",
     },
     {

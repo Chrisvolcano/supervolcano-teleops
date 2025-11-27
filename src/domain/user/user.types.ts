@@ -19,8 +19,7 @@ export type UserRole =
   | "location_owner" // Property owner/manager (assigns cleaning)
   | "property_cleaner"; // Cleaning worker (performs cleaning)
 
-// Backward compatibility type (for migration)
-export type LegacyUserRole = UserRole | "field_operator";
+// Legacy role removed - migration completed
 
 // Type guard for runtime role validation
 export function isValidUserRole(role: string): role is UserRole {

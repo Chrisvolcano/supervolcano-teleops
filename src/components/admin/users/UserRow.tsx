@@ -171,10 +171,15 @@ function RoleBadge({ role }: { role?: UserRole }) {
       text: "text-blue-800",
       label: "Location Owner",
     },
-    field_operator: {
+    oem_teleoperator: {
       bg: "bg-green-100",
       text: "text-green-800",
-      label: "Field Operator",
+      label: "OEM Teleoperator",
+    },
+    property_cleaner: {
+      bg: "bg-green-100",
+      text: "text-green-800",
+      label: "Property Cleaner",
     },
     teleoperator: {
       bg: "bg-green-100",
@@ -271,7 +276,8 @@ function getUserAvatarColor(role?: UserRole): string {
     partner_manager: "bg-blue-600",
     partner_admin: "bg-blue-600",
     location_owner: "bg-blue-600",
-    field_operator: "bg-green-500",
+    oem_teleoperator: "bg-green-500",
+    property_cleaner: "bg-green-500",
     teleoperator: "bg-green-600",
   };
   return role ? colors[role] || "bg-neutral-500" : "bg-neutral-500";

@@ -110,7 +110,7 @@ export async function POST(
       );
     }
 
-    if (!role || !['field_operator', 'property_owner', 'partner_manager'].includes(role)) {
+    if (!role || !['oem_teleoperator', 'property_cleaner', 'location_owner', 'partner_manager'].includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role' },
         { status: 400 }

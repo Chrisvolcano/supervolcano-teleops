@@ -146,6 +146,10 @@ export default function AssignCleanerModal({
 
       const token = await user.getIdToken();
 
+      // Determine role based on selected user
+      const selectedUser = cleaners.find(c => c.id === selectedUserId);
+      const workerRole = selectedUser?.role || 'property_cleaner';
+
       const response = await fetch(`/api/admin/locations/${locationId}/assignments`, {
         method: 'POST',
         headers: {
@@ -154,7 +158,7 @@ export default function AssignCleanerModal({
         },
         body: JSON.stringify({
           user_id: selectedUserId,
-          role: 'field_operator',
+          role: workerRole,
         }),
       });
 

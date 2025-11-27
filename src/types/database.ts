@@ -38,14 +38,19 @@
  *   - Views cleaning analytics
  *   - Web + Mobile
  * 
- * @role field_operator - Worker in the field
- *   - Teleoperators (work for OEM partners)
- *   - Cleaners (work for property owners)
- *   - Views assigned locations only
+ * @role oem_teleoperator - OEM worker (operates robots remotely)
+ *   - Works for OEM partners
+ *   - Views assigned test locations only
  *   - Records videos and completes tasks
  *   - Mobile only
+ * 
+ * @role property_cleaner - Cleaning worker (performs cleaning)
+ *   - Works for property owners
+ *   - Views assigned properties only
+ *   - Records videos and completes cleaning tasks
+ *   - Mobile only
  */
-export type UserRole = 'admin' | 'partner_manager' | 'property_owner' | 'field_operator';
+export type UserRole = 'admin' | 'superadmin' | 'partner_manager' | 'location_owner' | 'oem_teleoperator' | 'property_cleaner';
 
 /**
  * User entity

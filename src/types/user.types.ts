@@ -6,9 +6,11 @@
 
 export type UserRole = 
   | 'admin' 
+  | 'superadmin'
   | 'partner_manager' 
-  | 'property_owner' 
-  | 'field_operator';
+  | 'location_owner' 
+  | 'oem_teleoperator'
+  | 'property_cleaner';
 
 // Firestore Timestamp type (simplified)
 interface FirestoreTimestamp {

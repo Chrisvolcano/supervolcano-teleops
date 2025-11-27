@@ -61,9 +61,8 @@ export function normalizeUser(
  */
 export function canBeAssigned(user: User): boolean {
   return !!(
-    user.role === 'field_operator' &&
-    user.organizationId &&
-    user.partnerId
+    (user.role === 'oem_teleoperator' || user.role === 'property_cleaner') &&
+    user.organizationId
   );
 }
 

@@ -11,10 +11,22 @@ The application consists of two main portals:
 
 ## User Roles
 
-1. **superadmin/admin**: SuperVolcano team, full system access
-2. **partner_admin**: Partner organization admin, manages their partner's organizations
-3. **org_manager**: Organization manager, analytics view, team management
-4. **teleoperator**: Robot operator, task execution and completion tracking
+### Platform Administration
+- **admin**: SuperVolcano operational admin, full system access
+- **superadmin**: SuperVolcano engineering/root access, highest privileges
+
+### B2B: OEM Robotics Testing
+- **partner_manager**: OEM company manager, assigns robot tests, manages teleoperators
+- **oem_teleoperator**: OEM worker, operates robots remotely at test locations
+
+### B2C: Property Management
+- **location_owner**: Property owner/manager, assigns cleaning tasks, manages cleaners
+- **property_cleaner**: Cleaning worker, performs cleaning tasks at assigned properties
+
+### Organization Assignment
+- Admins belong to `sv:internal` (SuperVolcano organization)
+- Partner Managers & OEM Teleoperators belong to OEM partner orgs (`oem:company-slug`)
+- Location Owners & Property Cleaners belong to property owner orgs (`owner:owner-slug`)
 
 ### Stack
 

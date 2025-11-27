@@ -32,17 +32,21 @@ export async function GET() {
     const uid = userDoc.id;
     console.log("[Fix Test Cleaner] Found user:", uid);
 
+    // Determine role based on organizationId prefix (if it exists)
+    const existingOrgId = userDoc.data()?.organizationId || "94c8ed66-46ed-49dd-8d02-c053f2c38cb9";
+    const role = existingOrgId.startsWith("oem:") ? "oem_teleoperator" : "property_cleaner";
+
     // Fix Auth custom claims
     await adminAuth.setCustomUserClaims(uid, {
-      role: "field_operator",
-      organizationId: "94c8ed66-46ed-49dd-8d02-c053f2c38cb9",
+      role,
+      organizationId: existingOrgId,
     });
     console.log("[Fix Test Cleaner] Auth claims updated");
 
     // Fix Firestore document
     await adminDb.collection("users").doc(uid).update({
-      role: "field_operator",
-      organizationId: "94c8ed66-46ed-49dd-8d02-c053f2c38cb9",
+      role,
+      organizationId: existingOrgId,
       displayName: "Test Cleaner",
       updated_at: new Date(),
     });
@@ -53,8 +57,8 @@ export async function GET() {
       message: "Test cleaner fixed successfully",
       uid,
       details: {
-        role: "field_operator",
-        organizationId: "94c8ed66-46ed-49dd-8d02-c053f2c38cb9",
+        role,
+        organizationId: existingOrgId,
       },
     });
   } catch (error: unknown) {

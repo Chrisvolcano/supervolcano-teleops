@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
 
     // Validate role-specific requirements
     if (
-      (body.role === "org_manager" ||
-        body.role === "partner_manager" ||
-        body.role === "field_operator" ||
-        body.role === "teleoperator") &&
+      (body.role === "partner_manager" ||
+        body.role === "oem_teleoperator" ||
+        body.role === "location_owner" ||
+        body.role === "property_cleaner") &&
       !body.organizationId
     ) {
       return NextResponse.json(
