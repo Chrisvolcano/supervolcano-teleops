@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(request: NextRequest) {
   try {
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
           if (hasPartnerId) {
             await adminDb.collection("users").doc(doc.id).update({
               ...updates,
-              partnerId: adminDb.FieldValue.delete() as any,
+              partnerId: FieldValue.delete(),
             });
 
             stats.usersUpdated++;
@@ -195,7 +196,7 @@ export async function POST(request: NextRequest) {
           if (hasPartnerId) {
             await adminDb.collection("locations").doc(doc.id).update({
               ...updates,
-              partnerId: adminDb.FieldValue.delete() as any,
+              partnerId: FieldValue.delete(),
             });
 
             stats.locationsUpdated++;
