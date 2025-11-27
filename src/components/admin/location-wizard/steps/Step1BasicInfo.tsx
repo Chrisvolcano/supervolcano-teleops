@@ -1,12 +1,10 @@
 /**
  * STEP 1: BASIC INFO
- * Location name and address
+ * Simple location name and address input
  * Last updated: 2025-11-26
  */
 
-import React from 'react';
 import { MapPin, Home } from 'lucide-react';
-import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 
 interface Step1BasicInfoProps {
   name: string;
@@ -67,14 +65,17 @@ export default function Step1BasicInfo({
             <div className="absolute left-3 top-3.5 text-gray-400">
               <MapPin size={20} />
             </div>
-            <div className="pl-11">
-              <AddressAutocomplete
-                onAddressSelect={(addressData) => {
-                  setAddress(addressData.fullAddress);
-                }}
-                initialValue={address}
-              />
-            </div>
+            <input
+              id="location-address"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main St, Santa Monica CA 90404"
+              className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+              aria-required="true"
+              aria-describedby="address-hint"
+            />
           </div>
           <p id="address-hint" className="mt-1.5 text-sm text-gray-500">
             Full street address including city, state, and ZIP

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Trash2, Loader } from 'lucide-react';
 import { getAuth } from 'firebase/auth';
 import AssignCleanerModal from './AssignCleanerModal';
@@ -27,11 +27,7 @@ export default function LocationAssignmentsTab({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAssignments();
-  }, [locationId]);
-
-  const loadAssignments = async () => {
+  const loadAssignments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -62,7 +58,11 @@ export default function LocationAssignmentsTab({
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
 
   const handleRemoveAssignment = async (assignmentId: string) => {
     if (!confirm('Are you sure you want to remove this assignment?')) {
