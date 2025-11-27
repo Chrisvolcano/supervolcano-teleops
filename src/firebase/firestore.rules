@@ -14,19 +14,27 @@ service cloud.firestore {
       );
     }
 
-    function isTeleoperator() {
-      return isAuthenticated() && request.auth.token.role == "teleoperator";
+    function isFieldWorker() {
+      return isAuthenticated() && (
+        request.auth.token.role == "oem_teleoperator" ||
+        request.auth.token.role == "property_cleaner"
+      );
+    }
+
+    function isManager() {
+      return isAuthenticated() && (
+        request.auth.token.role == "partner_manager" ||
+        request.auth.token.role == "location_owner"
+      );
     }
 
     function isOrgUser() {
       return isAuthenticated() && (
-        request.auth.token.role == "org_manager" ||
-        request.auth.token.role == "teleoperator"
+        request.auth.token.role == "partner_manager" ||
+        request.auth.token.role == "location_owner" ||
+        request.auth.token.role == "oem_teleoperator" ||
+        request.auth.token.role == "property_cleaner"
       );
-    }
-
-    function isOrgManager() {
-      return isAuthenticated() && request.auth.token.role == "org_manager";
     }
 
     function getOrganizationId() {
@@ -99,11 +107,10 @@ service cloud.firestore {
         (isOrgUser() && resource.data.organizationId == getOrganizationId())
       );
       
-      // Only teleoperators can create completions, and only for their organization
+      // Only field workers can create completions, and only for their organization
       allow create: if isAuthenticated() &&
-        request.auth.token.role == 'teleoperator' &&
-        request.resource.data.organizationId == getOrganizationId() &&
-        request.resource.data.teleoperatorId == request.auth.token.teleoperatorId;
+        isFieldWorker() &&
+        request.resource.data.organizationId == getOrganizationId();
       
       // Only admins can update/delete
       allow update, delete: if isAdmin();
@@ -141,16 +148,15 @@ service cloud.firestore {
         (isOrgUser() && resource.data.organizationId == getOrganizationId())
       );
       
-      // Teleoperators can create their own sessions
+      // Field workers can create their own sessions
       allow create: if isAuthenticated() &&
-        request.auth.token.role == 'teleoperator' &&
-        request.resource.data.teleoperatorId == request.auth.token.teleoperatorId &&
+        isFieldWorker() &&
         request.resource.data.organizationId == getOrganizationId();
       
-      // Teleoperators can update their own sessions
+      // Field workers can update their own sessions
       allow update: if isAuthenticated() &&
-        request.auth.token.role == 'teleoperator' &&
-        resource.data.teleoperatorId == request.auth.token.teleoperatorId;
+        isFieldWorker() &&
+        resource.data.organizationId == getOrganizationId();
       
       // Only admins can delete
       allow delete: if isAdmin();

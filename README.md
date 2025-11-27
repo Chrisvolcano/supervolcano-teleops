@@ -1,13 +1,13 @@
 # SuperVolcano OEM Partner Portal
 
-Next.js (App Router) portal for SuperVolcano teleoperators and OEM partners. Built with TypeScript, TailwindCSS, and shadcn/ui, backed by Firebase for client and admin workloads.
+Next.js (App Router) portal for SuperVolcano field workers (OEM teleoperators and property cleaners), managers, and OEM partners. Built with TypeScript, TailwindCSS, and shadcn/ui, backed by Firebase for client and admin workloads.
 
 ## Architecture
 
 The application consists of two main portals:
 
 - **Admin Portal** (`/admin`): For SuperVolcano internal team to manage organizations, locations, tasks, and users
-- **Organization Portal** (`/org`): For customer organizations (managers and teleoperators) to view analytics, manage tasks, and track performance
+- **Organization Portal** (`/org`): For customer organizations (managers and field workers) to view analytics, manage tasks, and track performance
 
 ## User Roles
 
@@ -119,10 +119,13 @@ firebase deploy --only firestore:rules --project your-project-id
 
 # Deploy Storage rules (if using)
 firebase deploy --only storage:rules --project your-project-id
-   ```
+```
 
-   - Firestore rules: `src/firebase/firestore.rules`
-   - Storage rules: `src/firebase/storage.rules`
+- Firestore rules: `src/firebase/firestore.rules`
+  - Role-based access control using explicit roles: `admin`, `superadmin`, `partner_manager`, `location_owner`, `oem_teleoperator`, `property_cleaner`
+  - Organization-based data isolation
+  - Field worker permissions for task completion and session management
+- Storage rules: `src/firebase/storage.rules`
 
 ### 3. Create Firestore Indexes
 
@@ -139,10 +142,10 @@ See `TESTING_CHECKLIST.md` for comprehensive testing procedures.
 ### Quick Test
 
 1. Create an organization via admin portal
-2. Log in as the created manager
+2. Log in as the created manager (partner_manager or location_owner)
 3. View dashboard and locations
-4. Create a teleoperator
-5. Log in as teleoperator
+4. Create a field worker (oem_teleoperator or property_cleaner)
+5. Log in as the field worker
 6. Complete a task
 7. Verify completion appears in manager dashboard
 
@@ -165,13 +168,13 @@ See `SECURITY_AUDIT.md` for security checklist and best practices.
 - **Organizations**: Create and manage customer organizations with primary managers
 - **Locations**: Create locations, assign to organizations, manage tasks and instructions
 - **Tasks**: Create tasks with detailed instructions (text, images, videos)
-- **Team Management**: Add managers and teleoperators to organizations
+- **Team Management**: Add managers (partner_manager, location_owner) and field workers (oem_teleoperator, property_cleaner) to organizations
 - **Analytics**: View organization performance metrics
 
 ### Organization Portal (`/org`)
-- **Dashboard**: Role-based views (analytics for managers, task-focused for teleoperators)
+- **Dashboard**: Role-based views (analytics for managers, task-focused for field workers)
 - **Locations**: View assigned locations with tasks and instructions
-- **Task Completion**: Teleoperators can complete tasks with detailed tracking
+- **Task Completion**: Field workers (oem_teleoperator, property_cleaner) can complete tasks with detailed tracking
 - **Session Tracking**: Automatic session creation based on task completions
 - **Performance Analytics**: Track completions, durations, and team performance
 - **Team View**: Managers can view all team members and their stats
