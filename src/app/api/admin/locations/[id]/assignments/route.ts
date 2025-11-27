@@ -1,254 +1,226 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
-import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
-import { getUserClaims, requireRole } from '@/lib/utils/auth';
-
-export const dynamic = 'force-dynamic';
-
 /**
- * GET /api/admin/locations/[id]/assignments
- * 
- * Get all cleaners assigned to a location
+ * LOCATION ASSIGNMENTS API
+ * Manage cleaner-to-location assignments
+ * Endpoints: GET (list), POST (create), DELETE (remove)
+ * Last updated: 2025-11-26
  */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { AssignmentRole } from '@/types/assignment.types';
+
+// ============================================================================
+// GET - List all assignments for a location
+// ============================================================================
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Admin auth check
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
+    // Auth
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.id;
-    
-    const assignmentsResult = await sql`
-      SELECT 
-        id,
-        user_id,
-        user_email,
-        user_name,
-        location_id,
-        location_name,
-        assigned_by,
-        assigned_at,
-        is_active
-      FROM location_assignments
-      WHERE location_id = ${locationId}
-        AND is_active = true
-      ORDER BY assigned_at DESC
-    `;
-    
-    const assignments = Array.isArray(assignmentsResult)
-      ? assignmentsResult
-      : (assignmentsResult as any)?.rows || [];
-    
+    const token = authHeader.split('Bearer ')[1];
+    await adminAuth.verifyIdToken(token);
+
+    const { id: locationId } = params;
+
+    // Query assignments for this location
+    const assignmentsSnapshot = await adminDb
+      .collection('assignments')
+      .where('location_id', '==', locationId)
+      .where('status', '==', 'active')
+      .get();
+
+    // Fetch user details for each assignment
+    const assignments = await Promise.all(
+      assignmentsSnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        
+        // Get user info
+        let userName = 'Unknown User';
+        let userEmail = '';
+        try {
+          const userDoc = await adminDb.collection('users').doc(data.user_id).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            userName = userData?.name || userName;
+            userEmail = userData?.email || '';
+          }
+        } catch (error) {
+          console.error('[GET Assignments] Error fetching user:', error);
+        }
+
+        return {
+          id: doc.id,
+          ...data,
+          user_name: userName,
+          user_email: userEmail,
+          assigned_at: data.assigned_at?.toDate?.()?.toISOString() || null,
+          created_at: data.created_at?.toDate?.()?.toISOString() || null,
+          updated_at: data.updated_at?.toDate?.()?.toISOString() || null,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
       assignments,
     });
-    
   } catch (error: any) {
-    console.error('Failed to get assignments:', error);
+    console.error('[GET Assignments] Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { error: 'Failed to fetch assignments', details: error.message },
       { status: 500 }
     );
   }
 }
 
-/**
- * POST /api/admin/locations/[id]/assignments
- * 
- * Assign cleaners to a location
- * Body: { userIds: string[], assignedBy: string }
- */
+// ============================================================================
+// POST - Create new assignment
+// ============================================================================
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Admin auth check
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
+    // Auth
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    requireRole(claims, ['superadmin', 'admin']);
 
-    // Get the current user's email for the assignedBy field
-    let currentUserEmail = 'admin';
-    try {
-      const decodedToken = await adminAuth.verifyIdToken(token);
-      const currentUserRecord = await adminAuth.getUser(decodedToken.uid);
-      currentUserEmail = currentUserRecord.email || 'admin';
-    } catch (err) {
-      console.warn('Could not fetch current user email:', err);
-    }
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await adminAuth.verifyIdToken(token);
 
-    const locationId = params.id;
+    const { id: locationId } = params;
     const body = await request.json();
-    const { userIds, assignedBy } = body;
-    
-    if (!Array.isArray(userIds) || userIds.length === 0) {
+    const { user_id, role } = body;
+
+    // Validation
+    if (!user_id) {
       return NextResponse.json(
-        { success: false, error: 'userIds array is required' },
+        { error: 'user_id is required' },
         { status: 400 }
       );
     }
-    
-    // Get location name from Firestore
-    const locationDoc = await adminDb.collection('locations').doc(locationId).get();
-    const locationData = locationDoc.data();
-    const locationName = locationData?.name || '';
-    
-    // Get user details for each user
-    const assignments = [];
-    
-    for (const userId of userIds) {
-      // Get user details from Firebase Auth
-      let userEmail = '';
-      let userName = '';
-      
-      try {
-        const userRecord = await adminAuth.getUser(userId);
-        userEmail = userRecord.email || '';
-        userName = userRecord.displayName || userRecord.email || '';
-      } catch (err) {
-        console.warn(`Could not fetch user details for ${userId}:`, err);
-      }
-      
-      // Upsert assignment (insert or update if exists)
-      const result = await sql`
-        INSERT INTO location_assignments (
-          user_id,
-          user_email,
-          user_name,
-          location_id,
-          location_name,
-          assigned_by,
-          is_active
-        ) VALUES (
-          ${userId},
-          ${userEmail},
-          ${userName},
-          ${locationId},
-          ${locationName},
-          ${assignedBy || currentUserEmail},
-          true
-        )
-        ON CONFLICT (user_id, location_id)
-        DO UPDATE SET
-          is_active = true,
-          user_email = EXCLUDED.user_email,
-          user_name = EXCLUDED.user_name,
-          location_name = EXCLUDED.location_name,
-          assigned_by = EXCLUDED.assigned_by,
-          assigned_at = NOW(),
-          updated_at = NOW()
-        RETURNING id
-      `;
-      
-      const assignmentId = Array.isArray(result) 
-        ? result[0]?.id 
-        : (result as any)?.rows?.[0]?.id;
-      
-      if (assignmentId) {
-        assignments.push({ id: assignmentId });
-      }
+
+    if (!role || !['field_operator', 'property_owner', 'partner_manager'].includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role' },
+        { status: 400 }
+      );
     }
-    
-    console.log(`✅ Assigned ${assignments.length} users to location ${locationId}`);
-    
+
+    // Check if assignment already exists
+    const existingAssignment = await adminDb
+      .collection('assignments')
+      .where('user_id', '==', user_id)
+      .where('location_id', '==', locationId)
+      .where('status', '==', 'active')
+      .get();
+
+    if (!existingAssignment.empty) {
+      return NextResponse.json(
+        { error: 'User is already assigned to this location' },
+        { status: 409 }
+      );
+    }
+
+    // Create assignment
+    const assignmentRef = await adminDb.collection('assignments').add({
+      user_id,
+      location_id: locationId,
+      assigned_by: decodedToken.uid,
+      assigned_at: FieldValue.serverTimestamp(),
+      status: 'active',
+      role: role as AssignmentRole,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    // Fetch created assignment with user details
+    const assignmentDoc = await assignmentRef.get();
+    const assignmentData = assignmentDoc.data();
+
+    // Get user info
+    let userName = 'Unknown User';
+    let userEmail = '';
+    try {
+      const userDoc = await adminDb.collection('users').doc(user_id).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        userName = userData?.name || userName;
+        userEmail = userData?.email || '';
+      }
+    } catch (error) {
+      console.error('[POST Assignment] Error fetching user:', error);
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Assigned ${assignments.length} users to location`,
-      assignments,
-    });
-    
+      assignment: {
+        id: assignmentRef.id,
+        ...assignmentData,
+        user_name: userName,
+        user_email: userEmail,
+      },
+    }, { status: 201 });
   } catch (error: any) {
-    console.error('Failed to create assignments:', error);
+    console.error('[POST Assignment] Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { error: 'Failed to create assignment', details: error.message },
       { status: 500 }
     );
   }
 }
 
-/**
- * DELETE /api/admin/locations/[id]/assignments
- * 
- * Unassign cleaners from a location
- * Body: { userIds: string[] }
- */
+// ============================================================================
+// DELETE - Remove assignment (soft delete by setting status to inactive)
+// ============================================================================
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Admin auth check
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
+    // Auth
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    requireRole(claims, ['superadmin', 'admin']);
 
-    const locationId = params.id;
-    const body = await request.json();
-    const { userIds } = body;
-    
-    if (!Array.isArray(userIds) || userIds.length === 0) {
+    const token = authHeader.split('Bearer ')[1];
+    await adminAuth.verifyIdToken(token);
+
+    const { searchParams } = new URL(request.url);
+    const assignmentId = searchParams.get('assignmentId');
+
+    if (!assignmentId) {
       return NextResponse.json(
-        { success: false, error: 'userIds array is required' },
+        { error: 'assignmentId query parameter is required' },
         { status: 400 }
       );
     }
-    
-    // Soft delete by setting is_active = false
-    // @vercel/postgres supports arrays in ANY() clause
-    // Type assertion needed because TypeScript doesn't recognize array support in template tag
-    await sql`
-      UPDATE location_assignments
-      SET is_active = false, updated_at = NOW()
-      WHERE location_id = ${locationId}
-        AND user_id = ANY(${userIds as any})
-    `;
-    
-    console.log(`✅ Unassigned ${userIds.length} users from location ${locationId}`);
-    
+
+    // Update assignment status to inactive (soft delete)
+    await adminDb.collection('assignments').doc(assignmentId).update({
+      status: 'inactive',
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
     return NextResponse.json({
       success: true,
-      message: `Unassigned ${userIds.length} users from location`,
+      message: 'Assignment removed successfully',
     });
-    
   } catch (error: any) {
-    console.error('Failed to delete assignments:', error);
+    console.error('[DELETE Assignment] Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { error: 'Failed to remove assignment', details: error.message },
       { status: 500 }
     );
   }
 }
-

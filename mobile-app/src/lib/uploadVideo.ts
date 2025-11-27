@@ -11,6 +11,7 @@ import { storage, firestore } from '../config/firebase';
 interface UploadMetadata {
   userId?: string;
   userName?: string;
+  locationId?: string; // CRITICAL - for filtering videos by location
   timestamp?: string;
 }
 
@@ -24,7 +25,8 @@ export async function uploadVideo(
     // Generate unique filename
     const timestamp = Date.now();
     const userId = metadata.userId || 'unknown';
-    const filename = `videos/${userId}/${timestamp}.mp4`;
+    const locationId = metadata.locationId || 'unassigned';
+    const filename = `videos/${locationId}/${userId}/${timestamp}.mp4`;
     const storageRef = ref(storage, filename);
 
     console.log('📹 Storage path:', filename);
@@ -72,6 +74,7 @@ export async function uploadVideo(
     await addDoc(collection(firestore, 'videos'), {
       url: downloadUrl,
       storagePath: filename,
+      location_id: locationId, // CRITICAL - for filtering videos by location
       uploadedBy: userId,
       uploadedByName: metadata.userName || 'Unknown',
       uploadedAt: serverTimestamp(),

@@ -79,7 +79,7 @@ export default function LocationTasksTab({ locationId, locationName, partnerOrgI
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
             <p className="text-sm text-gray-600 mt-1">
               All actions across all floors - edit and manage work items
             </p>

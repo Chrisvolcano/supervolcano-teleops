@@ -4,11 +4,14 @@
  * Last updated: 2025-11-26
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { firestore } from '../config/firebase';
 import { uploadVideo } from '../lib/uploadVideo';
 
 export default function CameraScreen({ navigation }: any) {
@@ -17,6 +20,55 @@ export default function CameraScreen({ navigation }: any) {
   const [recording, setRecording] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
   const [uploading, setUploading] = useState(false);
+  const [assignedLocationId, setAssignedLocationId] = useState<string | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(true);
+
+  // Fetch assigned location on mount
+  useEffect(() => {
+    loadAssignedLocation();
+  }, []);
+
+  const loadAssignedLocation = async () => {
+    try {
+      setLoadingLocation(true);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        console.warn('No user authenticated');
+        setAssignedLocationId(null);
+        return;
+      }
+
+      // Fetch assignments for this user
+      const assignmentsRef = collection(firestore, 'assignments');
+      const assignmentsQuery = query(
+        assignmentsRef,
+        where('user_id', '==', user.uid),
+        where('status', '==', 'active'),
+        where('role', '==', 'field_operator')
+      );
+
+      const assignmentsSnapshot = await getDocs(assignmentsQuery);
+      
+      if (assignmentsSnapshot.empty) {
+        console.warn('No active assignments found for user');
+        setAssignedLocationId(null);
+        return;
+      }
+
+      // Use the first assigned location
+      const firstAssignment = assignmentsSnapshot.docs[0];
+      const locationId = firstAssignment.data().location_id;
+      setAssignedLocationId(locationId);
+      console.log('📍 Assigned location ID:', locationId);
+    } catch (error) {
+      console.error('Error loading assigned location:', error);
+      setAssignedLocationId(null);
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
 
   if (!permission) {
     return (
@@ -39,6 +91,34 @@ export default function CameraScreen({ navigation }: any) {
           <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (loadingLocation) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#000" />
+        <Text style={styles.uploadingText}>Loading location...</Text>
+      </View>
+    );
+  }
+
+  if (!assignedLocationId) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.permissionContainer}>
+          <Ionicons name="location-outline" size={64} color="#666" />
+          <Text style={styles.errorText}>No Location Assigned</Text>
+          <Text style={styles.permissionText}>
+            You need to be assigned to a location before recording videos.
+            Please contact your administrator.
+          </Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -92,10 +172,21 @@ export default function CameraScreen({ navigation }: any) {
     try {
       setUploading(true);
 
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Use assigned location or 'unassigned' if none
+      const locationId = assignedLocationId || 'unassigned';
+
       // Upload to Firebase Storage
       await uploadVideo(videoUri, {
-        userId: 'cleaner', // TODO: Get from auth context
-        userName: 'Cleaner',
+        userId: user.uid,
+        userName: user.displayName || 'Cleaner',
+        locationId: locationId, // CRITICAL - tags video with location
         timestamp: new Date().toISOString(),
       });
 

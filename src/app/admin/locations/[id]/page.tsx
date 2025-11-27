@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Building2, ListTodo, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import LocationStructureTab from '@/components/admin/LocationStructureTab';
 import LocationTasksTab from '@/components/admin/LocationTasksTab';
+import LocationAssignmentsTab from '@/components/admin/LocationAssignmentsTab';
 
-type Tab = 'structure' | 'tasks' | 'settings';
+type Tab = 'structure' | 'assignments' | 'tasks' | 'settings';
 
 export default function AdminLocationDetailPage() {
   const router = useRouter();
@@ -107,6 +108,17 @@ export default function AdminLocationDetailPage() {
               Structure
             </button>
             <button
+              onClick={() => setActiveTab('assignments')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'assignments'
+                  ? 'border-blue-600 text-blue-600 font-medium'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              Assignments
+            </button>
+            <button
               onClick={() => setActiveTab('tasks')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'tasks'
@@ -136,6 +148,12 @@ export default function AdminLocationDetailPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {activeTab === 'structure' && (
           <LocationStructureTab locationId={locationId} />
+        )}
+        {activeTab === 'assignments' && (
+          <LocationAssignmentsTab
+            locationId={locationId}
+            locationName={location?.name || 'Location'}
+          />
         )}
         {activeTab === 'tasks' && (
           <LocationTasksTab 
