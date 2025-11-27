@@ -36,7 +36,8 @@ export async function requireAdmin(req: NextRequest) {
 
   try {
     const decoded = await adminAuth.verifyIdToken(firebaseToken);
-    return decoded?.role === "admin";
+    const role = decoded?.role;
+    return role === "admin" || role === "superadmin" || role === "partner_admin";
   } catch (error) {
     console.error("Failed to verify Firebase token", error);
     return false;

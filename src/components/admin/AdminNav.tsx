@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Users", href: "/admin/users", icon: Users },
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Locations", href: "/admin/locations", icon: MapPin },
   { label: "Task Taxonomy", href: "/admin/taxonomy", icon: FolderTree },

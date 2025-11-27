@@ -48,7 +48,7 @@ type AuthContextValue = {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  getIdToken: () => Promise<string | null>;
+  getIdToken: (force?: boolean) => Promise<string | null>;
   refreshClaims: (force?: boolean) => Promise<Record<string, unknown> | null>;
 };
 

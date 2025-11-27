@@ -155,6 +155,20 @@ body {
     }
   }
   
+  /* Drawer slide-in animation */
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+  }
+  
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 10px;
