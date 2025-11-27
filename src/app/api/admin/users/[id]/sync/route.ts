@@ -45,8 +45,6 @@ export async function POST(
           customClaims.role = firestoreData.role;
         if (firestoreData.organizationId !== undefined)
           customClaims.organizationId = firestoreData.organizationId;
-        if (firestoreData.partnerId !== undefined)
-          customClaims.partnerId = firestoreData.partnerId;
         if (firestoreData.teleoperatorId !== undefined)
           customClaims.teleoperatorId = firestoreData.teleoperatorId;
 
@@ -72,8 +70,6 @@ export async function POST(
       if (authClaims.role !== undefined) firestoreUpdates.role = authClaims.role;
       if (authClaims.organizationId !== undefined)
         firestoreUpdates.organizationId = authClaims.organizationId;
-      if (authClaims.partnerId !== undefined)
-        firestoreUpdates.partnerId = authClaims.partnerId;
       if (authClaims.teleoperatorId !== undefined)
         firestoreUpdates.teleoperatorId = authClaims.teleoperatorId;
       if (authUser.displayName !== undefined)

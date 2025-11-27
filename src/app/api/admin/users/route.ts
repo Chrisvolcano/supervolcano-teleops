@@ -40,13 +40,6 @@ function calculateSyncStatus(
     );
   }
 
-  const authPartnerId = authClaims.partnerId as string | undefined;
-  const firestorePartnerId = firestoreData.partnerId as string | undefined;
-  if (authPartnerId !== firestorePartnerId) {
-    issues.push(
-      `Partner mismatch: Auth="${authPartnerId || "none"}", Firestore="${firestorePartnerId || "none"}"`,
-    );
-  }
 
   if (issues.length === 0) {
     return { syncStatus: "synced", syncIssues: [] };
@@ -123,7 +116,6 @@ export async function GET(request: NextRequest) {
         auth: {
           role: customClaims.role as UserRole | undefined,
           organizationId: customClaims.organizationId as string | undefined,
-          partnerId: customClaims.partnerId as string | undefined,
           teleoperatorId: customClaims.teleoperatorId as string | undefined,
         },
         firestore: firestoreData
@@ -132,7 +124,6 @@ export async function GET(request: NextRequest) {
               displayName: firestoreData.displayName as string | undefined,
               role: firestoreData.role as UserRole | undefined,
               organizationId: firestoreData.organizationId as string | undefined,
-              partnerId: firestoreData.partnerId as string | undefined,
               teleoperatorId: firestoreData.teleoperatorId as string | undefined,
               created_at: firestoreData.created_at as
                 | Date

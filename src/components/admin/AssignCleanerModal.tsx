@@ -83,7 +83,7 @@ export default function AssignCleanerModal({
       
       // Log any cleaners missing required fields (helpful for debugging)
       const invalidCleaners = (data.users || []).filter(
-        (user: any) => !user.organizationId || !user.partnerId
+        (user: any) => !user.organizationId
       );
       
       if (invalidCleaners.length > 0) {

@@ -46,7 +46,6 @@ export function UserEditDrawer({
       "") as UserRole | "",
     organizationId:
       user.auth.organizationId || user.firestore?.organizationId || "",
-    partnerId: user.auth.partnerId || user.firestore?.partnerId || "",
     teleoperatorId:
       user.auth.teleoperatorId || user.firestore?.teleoperatorId || "",
   });
@@ -64,8 +63,6 @@ export function UserEditDrawer({
       formData.role !== (user.auth.role || user.firestore?.role || "") ||
       formData.organizationId !==
         (user.auth.organizationId || user.firestore?.organizationId || "") ||
-      formData.partnerId !==
-        (user.auth.partnerId || user.firestore?.partnerId || "") ||
       formData.teleoperatorId !==
         (user.auth.teleoperatorId || user.firestore?.teleoperatorId || "");
     setHasChanges(changed);
@@ -81,7 +78,6 @@ export function UserEditDrawer({
       displayName: formData.displayName || undefined,
       role: formData.role as UserRole,
       organizationId: formData.organizationId || undefined,
-      partnerId: formData.partnerId || undefined,
       teleoperatorId: formData.teleoperatorId || undefined,
       syncToAuth: syncStrategy === "both" || syncStrategy === "auth",
       syncToFirestore:
@@ -190,26 +186,6 @@ export function UserEditDrawer({
               </p>
             </div>
 
-            {/* Partner ID */}
-            <div>
-              <Label htmlFor="partnerId" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Partner ID
-              </Label>
-              <Input
-                id="partnerId"
-                type="text"
-                value={formData.partnerId}
-                onChange={(e) =>
-                  setFormData({ ...formData, partnerId: e.target.value })
-                }
-                placeholder="e.g., demo-org"
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-neutral-500 mt-1.5">
-                Required for partner_manager role
-              </p>
-            </div>
-
             {/* Teleoperator ID */}
             <div>
               <Label htmlFor="teleoperatorId" className="block text-sm font-medium text-neutral-700 mb-1.5">
@@ -307,11 +283,6 @@ export function UserEditDrawer({
                 label="Organization ID"
                 authValue={user.auth.organizationId}
                 firestoreValue={user.firestore?.organizationId}
-              />
-              <StateComparison
-                label="Partner ID"
-                authValue={user.auth.partnerId}
-                firestoreValue={user.firestore?.partnerId}
               />
             </div>
           </div>

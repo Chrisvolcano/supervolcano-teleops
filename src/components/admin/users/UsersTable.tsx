@@ -8,6 +8,7 @@ import {
   RefreshCw,
   AlertCircle,
   Download,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
 import { useUsers } from "@/hooks/useUsers";
 import { UserRow } from "./UserRow";
 import { UserEditDrawer } from "./UserEditDrawer";
+import { CreateUserModal } from "./CreateUserModal";
 import { EmptyState } from "./EmptyState";
 import { LoadingSkeleton } from "./LoadingSkeleton";
 import { QuickFilters } from "./QuickFilters";
@@ -31,6 +33,7 @@ export default function UsersTable() {
   const { users, loading, error, refresh, filter } = useUsers();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [debounceTimeout, setDebounceTimeout] = useState<NodeJS.Timeout>();
 
@@ -73,7 +76,6 @@ export default function UsersTable() {
       "Display Name",
       "Role",
       "Organization ID",
-      "Partner ID",
       "Sync Status",
       "Last Sign In",
     ];
@@ -82,7 +84,6 @@ export default function UsersTable() {
       u.displayName || u.firestore?.displayName || "",
       u.auth.role || u.firestore?.role || "",
       u.auth.organizationId || u.firestore?.organizationId || "",
-      u.auth.partnerId || u.firestore?.partnerId || "",
       u.syncStatus,
       u.lastSignInTime || "",
     ]);
@@ -137,6 +138,14 @@ export default function UsersTable() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowCreateModal(true)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create User
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -229,6 +238,17 @@ export default function UsersTable() {
           onClose={() => setSelectedUser(null)}
           onSuccess={() => {
             setSelectedUser(null);
+            void refresh();
+          }}
+        />
+      )}
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <CreateUserModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
             void refresh();
           }}
         />

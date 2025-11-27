@@ -15,7 +15,6 @@ export type UserRole =
 export interface UserAuthClaims {
   role?: UserRole;
   organizationId?: string;
-  partnerId?: string;
   teleoperatorId?: string;
 }
 
@@ -24,7 +23,6 @@ export interface UserFirestoreData {
   displayName?: string;
   role?: UserRole;
   organizationId?: string;
-  partnerId?: string;
   teleoperatorId?: string;
   created_at?: Date | { _seconds: number } | string;
   updated_at?: Date | { _seconds: number } | string;
@@ -47,7 +45,6 @@ export interface UserUpdateRequest {
   displayName?: string;
   role?: UserRole;
   organizationId?: string;
-  partnerId?: string;
   teleoperatorId?: string;
   disabled?: boolean;
   syncToAuth?: boolean;

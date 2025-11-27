@@ -41,13 +41,6 @@ function calculateSyncStatus(
     );
   }
 
-  const authPartnerId = authClaims.partnerId as string | undefined;
-  const firestorePartnerId = firestoreData.partnerId as string | undefined;
-  if (authPartnerId !== firestorePartnerId) {
-    issues.push(
-      `Partner mismatch: Auth="${authPartnerId || "none"}", Firestore="${firestorePartnerId || "none"}"`,
-    );
-  }
 
   if (issues.length === 0) {
     return { syncStatus: "synced", syncIssues: [] };
@@ -100,7 +93,6 @@ export async function GET(
       auth: {
         role: customClaims.role as UserRole | undefined,
         organizationId: customClaims.organizationId as string | undefined,
-        partnerId: customClaims.partnerId as string | undefined,
         teleoperatorId: customClaims.teleoperatorId as string | undefined,
       },
       firestore: firestoreData
@@ -109,7 +101,6 @@ export async function GET(
             displayName: firestoreData.displayName as string | undefined,
             role: firestoreData.role as UserRole | undefined,
             organizationId: firestoreData.organizationId as string | undefined,
-            partnerId: firestoreData.partnerId as string | undefined,
             teleoperatorId: firestoreData.teleoperatorId as string | undefined,
             created_at: firestoreData.created_at as
               | Date
@@ -178,7 +169,6 @@ export async function PATCH(
       displayName,
       role,
       organizationId,
-      partnerId,
       teleoperatorId,
       disabled,
       syncToAuth,
@@ -201,7 +191,6 @@ export async function PATCH(
       if (role !== undefined) customClaims.role = role;
       if (organizationId !== undefined)
         customClaims.organizationId = organizationId;
-      if (partnerId !== undefined) customClaims.partnerId = partnerId;
       if (teleoperatorId !== undefined)
         customClaims.teleoperatorId = teleoperatorId;
 
@@ -224,7 +213,6 @@ export async function PATCH(
       if (role !== undefined) updates.role = role;
       if (displayName !== undefined) updates.displayName = displayName;
       if (organizationId !== undefined) updates.organizationId = organizationId;
-      if (partnerId !== undefined) updates.partnerId = partnerId;
       if (teleoperatorId !== undefined) updates.teleoperatorId = teleoperatorId;
       updates.updated_at = new Date();
 
