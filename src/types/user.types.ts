@@ -1,6 +1,6 @@
 /**
  * USER TYPES
- * Standardized user model with field normalization
+ * Standardized user model with Firestore timestamp handling
  * Last updated: 2025-11-26
  */
 
@@ -9,6 +9,13 @@ export type UserRole =
   | 'partner_manager' 
   | 'property_owner' 
   | 'field_operator';
+
+// Firestore Timestamp type (simplified)
+interface FirestoreTimestamp {
+  toDate(): Date;
+  seconds: number;
+  nanoseconds: number;
+}
 
 export interface FirestoreUserDocument {
   // Standard fields
@@ -22,9 +29,9 @@ export interface FirestoreUserDocument {
   partnerId?: string;
   teleoperatorId?: string | null;
   
-  // Timestamps
-  created_at: Date;
-  updated_at: Date;
+  // Timestamps - Firestore Timestamp objects OR JavaScript Dates
+  created_at: FirestoreTimestamp | Date;
+  updated_at: FirestoreTimestamp | Date;
 }
 
 export interface User {
