@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { OrganizationDropdown } from "./OrganizationDropdown";
 import type { UserRole } from "@/domain/user/user.types";
 
 interface CreateUserModalProps {
@@ -207,27 +208,15 @@ export function CreateUserModal({ onClose, onSuccess }: CreateUserModalProps) {
             </select>
           </div>
 
-          {/* Organization ID */}
-          {requiresOrganization && (
-            <div>
-              <Label htmlFor="organizationId" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Organization ID <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="organizationId"
-                type="text"
-                value={formData.organizationId}
-                onChange={(e) =>
-                  setFormData({ ...formData, organizationId: e.target.value })
-                }
-                placeholder="e.g., 94c8ed66-46ed-49dd-8d02-c053f2c38cb9"
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-neutral-500 mt-1.5">
-                Required for {formData.role} role
-              </p>
-            </div>
-          )}
+          {/* Organization Dropdown */}
+          <OrganizationDropdown
+            role={formData.role}
+            value={formData.organizationId}
+            onChange={(value) =>
+              setFormData({ ...formData, organizationId: value })
+            }
+            disabled={creating}
+          />
 
           {/* Teleoperator ID (Optional for field_operator) */}
           {formData.role === "field_operator" && (
