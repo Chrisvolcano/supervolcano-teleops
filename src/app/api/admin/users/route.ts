@@ -109,18 +109,24 @@ export async function GET(request: NextRequest) {
       });
 
     console.log('[GET Users] Users after normalization and filtering:', users.length);
-
-    console.log('[GET Users] Users after filtering:', filteredUsers.length);
-    console.log('[GET Users] Final users:', filteredUsers.map(u => ({ email: u.email, name: u.name })));
+    console.log('[GET Users] Final users:', users.map(u => ({ email: u.email, name: u.name })));
     console.log('[GET Users] ============ REQUEST END ============');
+
+    // Check if test cleaner is in results
+    const testCleaner = users.find(u => u.email === 'cleaner@test.com' || u.email === 'testcleaner@supervolcano.com');
+    if (testCleaner) {
+      console.log('[GET Users] ✅ Test Cleaner FOUND:', testCleaner);
+    } else {
+      console.log('[GET Users] ❌ Test Cleaner NOT FOUND in filtered results');
+    }
 
     // ========================================================================
     // 6. RETURN RESPONSE
     // ========================================================================
     return NextResponse.json({
       success: true,
-      users: filteredUsers,
-      total: filteredUsers.length,
+      users,
+      total: users.length,
     });
 
   } catch (error: any) {
