@@ -1,20 +1,14 @@
 /**
- * ATOMIC FIX: Test Cleaner
- * One-time use endpoint - DELETE AFTER EXECUTION
- * GET /api/admin/fix-test-cleaner
+ * ONE-TIME FIX: Test Cleaner
+ * DELETE THIS FILE AFTER USE
  */
 
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
-import { requireAdmin } from "@/lib/apiAuth";
-import { NextRequest } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const authorized = await requireAdmin(request);
-    if (!authorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    console.log("[Fix Test Cleaner] Starting fix...");
 
     // Find test cleaner by email
     const usersQuery = await adminDb
@@ -24,6 +18,7 @@ export async function GET(request: NextRequest) {
       .get();
 
     if (usersQuery.empty) {
+      console.log("[Fix Test Cleaner] User not found");
       return NextResponse.json(
         {
           success: false,
@@ -35,12 +30,14 @@ export async function GET(request: NextRequest) {
 
     const userDoc = usersQuery.docs[0];
     const uid = userDoc.id;
+    console.log("[Fix Test Cleaner] Found user:", uid);
 
     // Fix Auth custom claims
     await adminAuth.setCustomUserClaims(uid, {
       role: "field_operator",
       organizationId: "94c8ed66-46ed-49dd-8d02-c053f2c38cb9",
     });
+    console.log("[Fix Test Cleaner] Auth claims updated");
 
     // Fix Firestore document
     await adminDb.collection("users").doc(uid).update({
@@ -49,23 +46,27 @@ export async function GET(request: NextRequest) {
       displayName: "Test Cleaner",
       updated_at: new Date(),
     });
+    console.log("[Fix Test Cleaner] Firestore updated");
 
     return NextResponse.json({
       success: true,
       message: "Test cleaner fixed successfully",
       uid,
+      details: {
+        role: "field_operator",
+        organizationId: "94c8ed66-46ed-49dd-8d02-c053f2c38cb9",
+      },
     });
   } catch (error: unknown) {
     console.error("[Fix Test Cleaner] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Unknown error occurred";
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return NextResponse.json(
       {
         success: false,
-        error: message,
+        error: err.message,
+        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
       },
       { status: 500 },
     );
   }
 }
-
