@@ -436,24 +436,35 @@ export function UserEditDrawer({
             type="button"
             onClick={handleSave}
             disabled={!canSave}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             title={
               !canSave
                 ? validationErrors.length > 0
-                  ? "Please fix validation errors"
-                  : "Saving..."
-                : "Save changes (⌘S)"
+                  ? "Cannot save: Please fix validation errors first"
+                  : "Saving in progress..."
+                : "Save changes (Cmd+S or Ctrl+S)"
             }
+            aria-label={
+              !canSave
+                ? validationErrors.length > 0
+                  ? "Save button disabled: Validation errors present"
+                  : "Save button disabled: Saving in progress"
+                : "Save user changes"
+            }
+            aria-disabled={!canSave}
           >
             {isLoading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Saving...
+                <RefreshCw
+                  className="w-4 h-4 animate-spin"
+                  aria-hidden="true"
+                />
+                <span>Saving...</span>
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
-                Save Changes
+                <Save className="w-4 h-4" aria-hidden="true" />
+                <span>Save Changes</span>
               </>
             )}
           </button>
