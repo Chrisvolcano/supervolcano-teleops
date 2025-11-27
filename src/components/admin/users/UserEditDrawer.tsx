@@ -191,7 +191,7 @@ export function UserEditDrawer({
                     ))}
                   </ul>
                   <p className="text-sm text-amber-700 mt-2 font-medium">
-                    💡 Click "Save Changes" below to automatically fix this
+                    {`💡 Click "Save Changes" below to automatically fix this`}
                   </p>
                 </div>
               </div>
