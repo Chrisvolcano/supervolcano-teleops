@@ -44,6 +44,7 @@ export default function AssignCleanerModal({
 
   const loadCleaners = async () => {
     try {
+      console.log('[Modal] Loading cleaners...');
       setLoadingCleaners(true);
       
       const auth = getAuth();
@@ -51,20 +52,34 @@ export default function AssignCleanerModal({
       if (!user) {
         throw new Error('Not authenticated');
       }
-      const token = await user.getIdToken();
 
-      // Fetch all field operators
+      const token = await user.getIdToken();
+      console.log('[Modal] Got auth token');
+      
       const response = await fetch('/api/admin/users?role=field_operator', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
+      console.log('[Modal] Response status:', response.status);
+      
       if (!response.ok) {
         throw new Error('Failed to load cleaners');
       }
 
       const data = await response.json();
+      console.log('[Modal] Response data:', data);
+      console.log('[Modal] Users count:', data.users?.length || 0);
+      console.log('[Modal] Users:', data.users?.map((u: any) => ({ email: u.email, name: u.name })));
+      
+      // Check for test cleaner specifically
+      const testCleaner = data.users?.find((u: any) => u.email === 'testcleaner@supervolcano.com');
+      if (testCleaner) {
+        console.log('[Modal] ✅ Test Cleaner FOUND:', testCleaner);
+      } else {
+        console.warn('[Modal] ❌ Test Cleaner NOT FOUND in response');
+      }
       
       // Log any cleaners missing required fields (helpful for debugging)
       const invalidCleaners = (data.users || []).filter(
@@ -73,14 +88,15 @@ export default function AssignCleanerModal({
       
       if (invalidCleaners.length > 0) {
         console.warn(
-          '[AssignCleanerModal] Found cleaners missing organization fields:',
+          '[Modal] Found cleaners missing organization fields:',
           invalidCleaners.map((u: any) => u.email)
         );
       }
       
       setCleaners(data.users || []);
+      console.log('[Modal] Cleaners set in state');
     } catch (err: any) {
-      console.error('Error loading cleaners:', err);
+      console.error('[Modal] Error loading cleaners:', err);
       setError(err.message);
     } finally {
       setLoadingCleaners(false);

@@ -12,6 +12,7 @@ import type { UserRole } from '@/types/user.types';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('[GET Users] ============ REQUEST START ============');
     console.log('[GET Users] Request received');
 
     // ========================================================================
@@ -41,31 +42,61 @@ export async function GET(request: NextRequest) {
     let usersQuery = adminDb.collection('users');
     
     if (roleFilter) {
+      console.log('[GET Users] Applying role filter:', roleFilter);
       usersQuery = usersQuery.where('role', '==', roleFilter) as any;
     }
 
     const usersSnapshot = await usersQuery.get();
-    console.log('[GET Users] Found users:', usersSnapshot.docs.length);
+    console.log('[GET Users] Raw documents found:', usersSnapshot.docs.length);
+
+    // Log each document for debugging
+    usersSnapshot.docs.forEach((doc, index) => {
+      const data = doc.data();
+      console.log(`[GET Users] Doc ${index}:`, {
+        id: doc.id,
+        email: data.email,
+        role: data.role,
+        displayName: data.displayName,
+        name: data.name,
+        organizationId: data.organizationId,
+        partnerId: data.partnerId,
+      });
+    });
 
     // ========================================================================
     // 4. NORMALIZE USER DOCUMENTS
     // ========================================================================
     const users = usersSnapshot.docs.map(doc => {
       const data = doc.data();
-      
-      // Use normalization utility for consistent output
-      return normalizeUser(doc.id, data as any);
+      const normalized = normalizeUser(doc.id, data as any);
+      console.log('[GET Users] Normalized:', {
+        email: normalized.email,
+        name: normalized.name,
+        hasOrgId: !!normalized.organizationId,
+        hasPartnerId: !!normalized.partnerId,
+      });
+      return normalized;
     });
 
-    // Filter out users without required organization fields if filtering by field_operator
-    const filteredUsers = roleFilter === 'field_operator'
-      ? users.filter(user => user.organizationId && user.partnerId)
-      : users;
-
-    console.log('[GET Users] Returning users:', filteredUsers.length);
+    console.log('[GET Users] Users after normalization:', users.length);
 
     // ========================================================================
-    // 5. RETURN RESPONSE
+    // 5. FILTER FOR FIELD OPERATORS WITH REQUIRED ORG FIELDS
+    // ========================================================================
+    const filteredUsers = roleFilter === 'field_operator'
+      ? users.filter(user => {
+          const hasRequiredFields = user.organizationId && user.partnerId;
+          console.log(`[GET Users] ${user.email} - has required fields: ${hasRequiredFields}`);
+          return hasRequiredFields;
+        })
+      : users;
+
+    console.log('[GET Users] Users after filtering:', filteredUsers.length);
+    console.log('[GET Users] Final users:', filteredUsers.map(u => ({ email: u.email, name: u.name })));
+    console.log('[GET Users] ============ REQUEST END ============');
+
+    // ========================================================================
+    // 6. RETURN RESPONSE
     // ========================================================================
     return NextResponse.json({
       success: true,
