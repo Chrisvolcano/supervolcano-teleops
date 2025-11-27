@@ -31,7 +31,7 @@
  *   - Views performance analytics for their team
  *   - Web + Mobile
  * 
- * @role property_owner - Individual property owner/manager
+ * @role location_owner - Individual property owner/manager
  *   - CREATES and manages their own properties
  *   - Builds property structure (floors, rooms, tasks)
  *   - Manages their cleaners
@@ -100,12 +100,12 @@ export interface User {
  *   - Cannot create locations (SuperVolcano curates test environments)
  *   - Pays for access to test locations
  * 
- * @type property_owner - Individual property owner/manager
+ * @type location_owner - Individual property owner/manager
  *   - CREATES their own locations (properties)
  *   - Full control over their properties
  *   - Pays for property management software
  */
-export type OrganizationType = 'partner' | 'property_owner';
+export type OrganizationType = 'partner' | 'location_owner';
 
 /**
  * Organization entity
@@ -115,7 +115,7 @@ export type OrganizationType = 'partner' | 'property_owner';
  * 
  * Represents either:
  * - An OEM partner company (type: 'partner')
- * - An individual property owner's "organization" (type: 'property_owner')
+ * - An individual property owner's "organization" (type: 'location_owner')
  */
 export interface Organization {
   id: string;
@@ -124,7 +124,7 @@ export interface Organization {
   /**
    * Type determines what this organization can do.
    * - partner: Gets locations assigned, can't create
-   * - property_owner: Creates their own locations
+   * - location_owner: Creates their own locations
    */
   type: OrganizationType;
   
@@ -267,7 +267,7 @@ export interface LocationAssignment {
  * Assigns a specific field operator to work at a specific location.
  * 
  * Workflow:
- * 1. Manager (partner_manager or property_owner) invites field operator
+ * 1. Manager (partner_manager or location_owner) invites field worker
  * 2. Field operator accepts invite
  * 3. User-location assignment is created
  * 4. Field operator can now see and work at this location
