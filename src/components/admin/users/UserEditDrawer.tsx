@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Save, AlertCircle, RefreshCw } from "lucide-react";
 import { useUserUpdate } from "@/hooks/useUserUpdate";
 import { UserValidator } from "@/domain/user/user.validation";
+import { UsersServiceError } from "@/services/users.service";
 import type { User, UserRole, UserUpdateRequest } from "@/domain/user/user.types";
 
 interface UserEditDrawerProps {
@@ -126,21 +127,21 @@ export function UserEditDrawer({
   }
 
   // User-friendly error messages
-  const getErrorMessage = (error: typeof error) => {
-    if (!error) return "";
+  const getErrorMessage = (err: UsersServiceError | null) => {
+    if (!err) return "";
 
-    switch (error.code) {
+    switch (err.code) {
       case "AUTH_ERROR":
-        return error.message;
+        return err.message;
       case "NETWORK_ERROR":
         return "Network error. Please check your connection and try again.";
       case "VALIDATION_ERROR":
-        return error.message;
+        return err.message;
       case "SERVER_ERROR":
-        if (error.statusCode === 500) {
+        if (err.statusCode === 500) {
           return "Server error. Please try again in a moment.";
         }
-        return error.message;
+        return err.message;
       default:
         return "An unexpected error occurred. Please try again.";
     }
