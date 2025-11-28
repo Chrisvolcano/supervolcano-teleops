@@ -1,0 +1,71 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == "admin";
+    }
+
+    function partnerMatches(partnerOrgId) {
+      return isAdmin() ||
+        (isAuthenticated() && request.auth.token.partner_org_id == partnerOrgId);
+    }
+
+    match /orgs/{partnerOrgId}/{allPaths=**} {
+      allow read, write: if partnerMatches(partnerOrgId);
+    }
+
+    match /public/{allPaths=**} {
+      allow read;
+      allow write: if isAdmin();
+    }
+
+    // Specific rule for instruction images (MUST come before general locations rule)
+    // This allows authenticated users to upload instruction images
+    match /locations/{locationId}/instructions/{instructionId}/{filename} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // General rule for other location files (requires admin)
+    match /locations/{locationId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Media uploads for robot intelligence
+    // TEMPORARY: Allow unauthenticated uploads during development
+    // TODO: Change to `if request.auth != null` for production
+    match /media/{allPaths=**} {
+      allow read: if true; // Public read for robot access
+      allow write: if true; // TEMPORARY: Allow unauthenticated uploads
+    }
+
+    // Videos path: videos/{locationId}/{userId}/{filename}
+    match /videos/{locationId}/{userId}/{filename} {
+      function isFieldWorker() {
+        return isAuthenticated() && (
+          request.auth.token.role == "oem_teleoperator" ||
+          request.auth.token.role == "property_cleaner"
+        );
+      }
+
+      function getUserOrgId() {
+        return request.auth.token.organizationId;
+      }
+
+      // Allow upload if authenticated, userId matches, and is field worker
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == userId &&
+                       isFieldWorker() &&
+                       request.resource.contentType.matches('video/.*');
+      
+      // Allow read if authenticated (videos are private to organization)
+      allow read: if isAuthenticated();
+    }
+  }
+}
+

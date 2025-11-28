@@ -1,0 +1,10 @@
+# Example files (should not be compiled)
+**/*.example.ts
+**/*.example.tsx
+**/*.example.js
+**/*.example.jsx
+
+# Documentation examples
+docs/examples/
+**/examples/
+

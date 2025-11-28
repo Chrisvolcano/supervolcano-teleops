@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "SuperVolcano Field Worker",
+    "slug": "supervolcano-field-worker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.supervolcano.fieldworker"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.supervolcano.fieldworker"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SuperVolcano to access your camera to record videos for task completion."
+        }
+      ]
+    ],
+    "extra": {
+      "firebaseApiKey": "AIzaSyBJd8_A8tH6e2S5WhgwHqoeXIB58WQWDvw",
+      "firebaseAuthDomain": "super-volcano-oem-portal.firebaseapp.com",
+      "firebaseProjectId": "super-volcano-oem-portal",
+      "firebaseStorageBucket": "super-volcano-oem-portal.firebasestorage.app",
+      "firebaseMessagingSenderId": "243745387315",
+      "firebaseAppId": "1:243745387315:web:88448a0ee710a8fcc2c446",
+      "firebaseDatabaseId": "default"
+    }
+  }
+}
+
