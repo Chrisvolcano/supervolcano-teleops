@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/admin/cleaners
  * 
- * Get all users with teleoperator role
+ * Get all users with location_cleaner role
  * Used to populate assignment modal
  */
 export async function GET(request: NextRequest) {
@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
       // Get custom claims
       const customClaims = userRecord.customClaims || {};
       
-      // Filter to only teleoperators (cleaners)
-      if (customClaims.role === 'teleoperator') {
+      // Filter to only location_cleaner (cleaners)
+      if (customClaims.role === 'location_cleaner') {
         cleaners.push({
           uid: userRecord.uid,
           email: userRecord.email,

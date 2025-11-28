@@ -200,7 +200,7 @@ export default function AssignCleanersModal({
             <div className="text-center py-12 text-gray-600">
               <UserPlus className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p>
-                No cleaners found. Create teleoperator accounts first.
+                No cleaners found. Create location cleaner accounts first.
               </p>
             </div>
           ) : (
