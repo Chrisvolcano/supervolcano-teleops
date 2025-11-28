@@ -148,6 +148,101 @@ class OrganizationsService {
     }
   }
 
+  async updateOrganization(
+    id: string,
+    updates: { name?: string; contactEmail?: string; contactPhone?: string }
+  ): Promise<void> {
+    try {
+      const token = await authService.getAuthToken();
+      const encodedId = encodeURIComponent(id);
+
+      const response = await fetch(`${this.baseUrl}/${encodedId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-firebase-token": token,
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.status === 401) {
+        authService.clearCache();
+        throw new OrganizationsServiceError(
+          "Your session has expired. Please refresh the page.",
+          "AUTH_ERROR",
+          401
+        );
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new OrganizationsServiceError(
+          data.error || "Failed to update organization",
+          "SERVER_ERROR",
+          response.status
+        );
+      }
+
+      // Invalidate cache
+      this.cache.clear();
+      this.cacheExpiry.clear();
+    } catch (error) {
+      if (error instanceof OrganizationsServiceError) {
+        throw error;
+      }
+
+      throw new OrganizationsServiceError(
+        "An unexpected error occurred. Please try again.",
+        "SERVER_ERROR"
+      );
+    }
+  }
+
+  async deleteOrganization(id: string): Promise<void> {
+    try {
+      const token = await authService.getAuthToken();
+      const encodedId = encodeURIComponent(id);
+
+      const response = await fetch(`${this.baseUrl}/${encodedId}`, {
+        method: "DELETE",
+        headers: {
+          "x-firebase-token": token,
+        },
+      });
+
+      if (response.status === 401) {
+        authService.clearCache();
+        throw new OrganizationsServiceError(
+          "Your session has expired. Please refresh the page.",
+          "AUTH_ERROR",
+          401
+        );
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new OrganizationsServiceError(
+          data.error || "Failed to delete organization",
+          "SERVER_ERROR",
+          response.status
+        );
+      }
+
+      // Invalidate cache
+      this.cache.clear();
+      this.cacheExpiry.clear();
+    } catch (error) {
+      if (error instanceof OrganizationsServiceError) {
+        throw error;
+      }
+
+      throw new OrganizationsServiceError(
+        "An unexpected error occurred. Please try again.",
+        "SERVER_ERROR"
+      );
+    }
+  }
+
   clearCache(type?: OrganizationType): void {
     if (type) {
       this.cache.delete(type);
