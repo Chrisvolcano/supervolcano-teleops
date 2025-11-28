@@ -3,7 +3,7 @@
  * ONE-TIME USE - DELETE AFTER RUNNING
  */
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 export async function GET() {
   try {

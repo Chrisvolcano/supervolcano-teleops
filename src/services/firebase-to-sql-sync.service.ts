@@ -3,7 +3,7 @@
  * One-way sync from Firebase (source of truth) to PostgreSQL (analytics DB)
  */
 
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb } from '@/lib/firebaseAdmin';
 import { Client } from 'pg';
 
 interface VideoDocument {

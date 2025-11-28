@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
+import { adminAuth } from '@/lib/firebaseAdmin';
 import { Client } from 'pg';
 import crypto from 'crypto';
 
