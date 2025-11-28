@@ -1,31 +1,33 @@
 /**
  * MIGRATION: Rename property_cleaner → location_cleaner
- * DELETE AFTER SUCCESSFUL EXECUTION
+ * ONE-TIME USE - DELETE AFTER RUNNING
  */
-
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 export async function GET() {
   try {
     console.log('🚀 Starting property_cleaner → location_cleaner migration...');
-
     const stats = {
+      usersAnalyzed: 0,
       usersUpdated: 0,
       authUpdated: 0,
-      errors: [] as any[],
+      errors: [] as string[],
     };
 
-    // Update Firestore users
+    // Find all users with property_cleaner role
     const usersSnapshot = await adminDb
       .collection('users')
       .where('role', '==', 'property_cleaner')
       .get();
 
+    stats.usersAnalyzed = usersSnapshot.size;
     console.log(`Found ${usersSnapshot.size} users with property_cleaner role`);
 
     for (const userDoc of usersSnapshot.docs) {
       try {
+        const userData = userDoc.data();
+        
         // Update Firestore
         await adminDb.collection('users').doc(userDoc.id).update({
           role: 'location_cleaner',
@@ -34,34 +36,34 @@ export async function GET() {
         stats.usersUpdated++;
 
         // Update Auth custom claims
-        const user = await adminAuth.getUser(userDoc.id);
-        const claims = user.customClaims || {};
-        await adminAuth.setCustomUserClaims(userDoc.id, {
-          ...claims,
-          role: 'location_cleaner',
-        });
-        stats.authUpdated++;
+        try {
+          const user = await adminAuth.getUser(userDoc.id);
+          const currentClaims = user.customClaims || {};
+          await adminAuth.setCustomUserClaims(userDoc.id, {
+            ...currentClaims,
+            role: 'location_cleaner',
+          });
+          stats.authUpdated++;
+        } catch (authError: any) {
+          console.error(`Auth update failed for ${userDoc.id}:`, authError.message);
+          stats.errors.push(`Auth: ${userDoc.id} - ${authError.message}`);
+        }
 
-        console.log(`✓ Updated ${userDoc.data().email}`);
+        console.log(`✅ Updated ${userData.email}`);
       } catch (error: any) {
-        stats.errors.push({
-          uid: userDoc.id,
-          error: error.message,
-        });
-        console.error(`✗ Error updating ${userDoc.id}:`, error.message);
+        console.error(`Failed to update ${userDoc.id}:`, error.message);
+        stats.errors.push(`${userDoc.id}: ${error.message}`);
       }
     }
 
-    console.log('\n✅ Migration complete!');
-    console.log(JSON.stringify(stats, null, 2));
-
+    console.log('✅ Migration complete!');
     return NextResponse.json({
       success: true,
       message: 'property_cleaner renamed to location_cleaner',
       stats,
     });
   } catch (error: any) {
-    console.error('💥 Migration failed:', error);
+    console.error('❌ Migration failed:', error);
     return NextResponse.json({
       success: false,
       error: error.message,
