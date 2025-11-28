@@ -66,9 +66,9 @@ export function QuickFilters({ onFilterChange }: QuickFiltersProps) {
       color: "text-cyan-600 bg-cyan-50 border-cyan-200 hover:bg-cyan-100",
     },
     {
-      label: "Property Cleaners",
+      label: "Location Cleaners",
       icon: Home,
-      filter: { role: "property_cleaner" as const },
+      filter: { role: "location_cleaner" as const },
       color: "text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
     },
   ];

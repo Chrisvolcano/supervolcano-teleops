@@ -11,7 +11,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import SplashScreen from './src/components/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
-import HomeScreen from './src/screens/HomeScreen';
+import LocationsScreen from './src/screens/LocationsScreen';
 import CameraScreen from './src/screens/CameraScreen';
 
 const Stack = createNativeStackNavigator();
@@ -52,8 +52,8 @@ function AppNavigator() {
           // Authenticated - show app screens
           <>
             <Stack.Screen 
-              name="Home" 
-              component={HomeScreen}
+              name="Locations" 
+              component={LocationsScreen}
             />
             <Stack.Screen 
               name="Camera" 

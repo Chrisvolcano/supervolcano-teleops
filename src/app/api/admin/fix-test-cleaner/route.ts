@@ -34,7 +34,7 @@ export async function GET() {
 
     // Determine role based on organizationId prefix (if it exists)
     const existingOrgId = userDoc.data()?.organizationId || "94c8ed66-46ed-49dd-8d02-c053f2c38cb9";
-    const role = existingOrgId.startsWith("oem:") ? "oem_teleoperator" : "property_cleaner";
+    const role = existingOrgId.startsWith("oem:") ? "oem_teleoperator" : "location_cleaner";
 
     // Fix Auth custom claims
     await adminAuth.setCustomUserClaims(uid, {

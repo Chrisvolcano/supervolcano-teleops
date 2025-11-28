@@ -57,9 +57,9 @@ export default function AssignCleanerModal({
       const token = await user.getIdToken();
       console.log('[Modal] Got auth token');
       
-      // Fetch both property_cleaner and oem_teleoperator roles
+      // Fetch both location_cleaner and oem_teleoperator roles
       // We'll filter by organizationId to match the location
-      const response = await fetch('/api/admin/users?role=property_cleaner', {
+      const response = await fetch('/api/admin/users?role=location_cleaner', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -92,7 +92,7 @@ export default function AssignCleanerModal({
         id: user.uid,
         name: user.displayName || user.firestore?.displayName || user.email.split('@')[0],
         email: user.email,
-        role: user.auth?.role || user.firestore?.role || 'property_cleaner',
+        role: user.auth?.role || user.firestore?.role || 'location_cleaner',
         organizationId: user.auth?.organizationId || user.firestore?.organizationId,
       }));
       
@@ -148,7 +148,7 @@ export default function AssignCleanerModal({
 
       // Determine role based on selected user
       const selectedUser = cleaners.find(c => c.id === selectedUserId);
-      const workerRole = selectedUser?.role || 'property_cleaner';
+      const workerRole = selectedUser?.role || 'location_cleaner';
 
       const response = await fetch(`/api/admin/locations/${locationId}/assignments`, {
         method: 'POST',

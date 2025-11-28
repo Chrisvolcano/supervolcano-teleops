@@ -79,7 +79,7 @@ export function getOrganizationTypeForRole(
       return "oem_partner";
 
     case "location_owner":
-    case "property_cleaner":
+    case "location_cleaner":
       return "location_owner";
 
     default:

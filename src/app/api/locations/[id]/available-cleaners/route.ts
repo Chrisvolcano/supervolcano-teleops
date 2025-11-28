@@ -34,40 +34,64 @@ export async function GET(
     }
 
     const locationData = locationDoc.data();
-    const locationOrgId = locationData?.organizationId;
+    
+    // Support multiple organization assignments
+    const assignedOrganizations = locationData?.assignedOrganizations || [];
+    
+    // Legacy support: if no assignedOrganizations, fall back to organizationId
+    const legacyOrgId = locationData?.organizationId;
+    const orgIds = assignedOrganizations.length > 0 
+      ? assignedOrganizations 
+      : (legacyOrgId ? [legacyOrgId] : []);
 
-    if (!locationOrgId) {
+    if (orgIds.length === 0) {
       return NextResponse.json(
-        { error: "Location has no organization assigned" },
+        { error: "Location has no organizations assigned" },
         { status: 400 },
       );
     }
 
-    // Determine which worker role to query based on org type
-    const [orgPrefix] = locationOrgId.split(":");
-    const workerRole =
-      orgPrefix === "oem" ? "oem_teleoperator" : "property_cleaner";
+    // Query for all field workers (both roles) assigned to any of the location's organizations
+    // Note: Firestore 'in' operator supports up to 10 values
+    const allCleaners: any[] = [];
+    
+    for (const orgId of orgIds.slice(0, 10)) { // Limit to 10 orgs per Firestore limit
+      // Query for both worker roles with matching organizationId
+      const [oemWorkers, locationWorkers] = await Promise.all([
+        adminDb
+          .collection("users")
+          .where("role", "==", "oem_teleoperator")
+          .where("organizationId", "==", orgId)
+          .get(),
+        adminDb
+          .collection("users")
+          .where("role", "==", "location_cleaner")
+          .where("organizationId", "==", orgId)
+          .get(),
+      ]);
 
-    // Get all field workers with matching organizationId
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("role", "==", workerRole)
-      .where("organizationId", "==", locationOrgId)
-      .get();
+      allCleaners.push(...oemWorkers.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      allCleaners.push(...locationWorkers.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }
 
-    const cleaners = usersSnapshot.docs.map((doc) => ({
+    // Remove duplicates by user ID
+    const uniqueCleaners = Array.from(
+      new Map(allCleaners.map(c => [c.id, c])).values()
+    );
+
+    const cleaners = uniqueCleaners.map((doc: any) => ({
       uid: doc.id,
-      email: doc.data().email,
-      displayName:
-        doc.data().displayName || doc.data().email.split("@")[0],
-      organizationId: doc.data().organizationId,
+      email: doc.email,
+      displayName: doc.displayName || doc.email?.split("@")[0] || "Unknown",
+      organizationId: doc.organizationId,
+      role: doc.role,
     }));
 
     return NextResponse.json({
       success: true,
       cleaners,
       total: cleaners.length,
-      locationOrganizationId: locationOrgId,
+      assignedOrganizations: orgIds,
     });
   } catch (error: unknown) {
     console.error("[GET Available Cleaners] Error:", error);

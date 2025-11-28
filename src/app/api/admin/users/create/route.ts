@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       (body.role === "partner_manager" ||
         body.role === "oem_teleoperator" ||
         body.role === "location_owner" ||
-        body.role === "property_cleaner") &&
+        body.role === "location_cleaner") &&
       !body.organizationId
     ) {
       return NextResponse.json(

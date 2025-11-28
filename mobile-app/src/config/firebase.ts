@@ -50,7 +50,7 @@ const app = initializeApp(firebaseConfig);
 console.log('✅ Firebase app initialized');
 console.log('App name:', app.name);
 
-// Initialize Auth
+// Initialize Auth (Firebase Auth automatically persists on React Native)
 export const auth = getAuth(app);
 console.log('✅ Firebase Auth initialized');
 

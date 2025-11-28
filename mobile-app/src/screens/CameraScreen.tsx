@@ -1,78 +1,32 @@
 /**
- * SIMPLIFIED RECORDING SCREEN
- * Record video and auto-upload
- * Last updated: 2025-11-26
+ * CAMERA SCREEN
+ * Record video and auto-upload to Firebase
+ * Receives locationId and address from navigation params
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
+import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { firestore } from '../config/firebase';
-import { uploadVideo } from '../lib/uploadVideo';
+import { useAuth } from '@/contexts/AuthContext';
+import { VideoUploadService } from '@/services/video-upload.service';
 
-export default function CameraScreen({ navigation }: any) {
+export default function CameraScreen({ route, navigation }: any) {
+  const { locationId, address } = route.params || {};
+  const { user } = useAuth();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [recording, setRecording] = useState(false);
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [videoUri, setVideoUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [assignedLocationId, setAssignedLocationId] = useState<string | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-
-  // Fetch assigned location on mount
-  useEffect(() => {
-    loadAssignedLocation();
-  }, []);
-
-  const loadAssignedLocation = async () => {
-    try {
-      setLoadingLocation(true);
-      const auth = getAuth();
-      const user = auth.currentUser;
-      
-      if (!user) {
-        console.warn('No user authenticated');
-        setAssignedLocationId(null);
-        return;
-      }
-
-      // Fetch assignments for this user
-      const assignmentsRef = collection(firestore, 'assignments');
-      const assignmentsQuery = query(
-        assignmentsRef,
-        where('user_id', '==', user.uid),
-        where('status', '==', 'active'),
-        where('role', '==', 'field_operator')
-      );
-
-      const assignmentsSnapshot = await getDocs(assignmentsQuery);
-      
-      if (assignmentsSnapshot.empty) {
-        console.warn('No active assignments found for user');
-        setAssignedLocationId(null);
-        return;
-      }
-
-      // Use the first assigned location
-      const firstAssignment = assignmentsSnapshot.docs[0];
-      const locationId = firstAssignment.data().location_id;
-      setAssignedLocationId(locationId);
-      console.log('📍 Assigned location ID:', locationId);
-    } catch (error) {
-      console.error('Error loading assigned location:', error);
-      setAssignedLocationId(null);
-    } finally {
-      setLoadingLocation(false);
-    }
-  };
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#000" />
         <Text>Requesting camera permission...</Text>
       </View>
     );
@@ -99,25 +53,15 @@ export default function CameraScreen({ navigation }: any) {
     );
   }
 
-  if (loadingLocation) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.uploadingText}>Loading location...</Text>
-      </View>
-    );
-  }
-
-  if (!assignedLocationId) {
+  if (!locationId || !user) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
         <View style={styles.permissionContainer}>
           <Ionicons name="location-outline" size={64} color="#666" />
-          <Text style={styles.errorText}>No Location Assigned</Text>
+          <Text style={styles.errorText}>Missing Information</Text>
           <Text style={styles.permissionText}>
-            You need to be assigned to a location before recording videos.
-            Please contact your administrator.
+            Location information is missing. Please go back and select a location.
           </Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -127,95 +71,127 @@ export default function CameraScreen({ navigation }: any) {
     );
   }
 
-  if (uploading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.uploadingText}>Uploading video...</Text>
-      </View>
-    );
-  }
-
-  async function handleStartRecording() {
-    if (!cameraRef.current || recording) return;
-
-    try {
-      setRecording(true);
-      console.log('Starting recording...');
-      
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: 300, // 5 minutes max
-      });
-      
-      console.log('Recording saved to:', video.uri);
-      setRecording(false);
-      
-      if (video?.uri) {
-        await handleUpload(video.uri);
+  async function handleRecordPress() {
+    if (recording) {
+      // Stop recording
+      if (cameraRef.current) {
+        try {
+          const video = await cameraRef.current.stopRecording();
+          setVideoUri(video.uri);
+          setRecording(false);
+        } catch (error: any) {
+          console.error('Error stopping recording:', error);
+          Alert.alert('Error', 'Failed to stop recording');
+          setRecording(false);
+        }
       }
-    } catch (error: any) {
-      console.error('Recording error:', error);
-      setRecording(false);
-      Alert.alert('Error', 'Failed to record video');
+    } else {
+      // Start recording
+      if (cameraRef.current) {
+        try {
+          setRecording(true);
+          await cameraRef.current.recordAsync({
+            maxDuration: 300, // 5 minutes max
+          });
+        } catch (error: any) {
+          console.error('Error starting recording:', error);
+          Alert.alert('Error', 'Failed to start recording');
+          setRecording(false);
+        }
+      }
     }
   }
 
-  function handleStopRecording() {
-    if (cameraRef.current && recording) {
-      console.log('Stopping recording...');
-      cameraRef.current.stopRecording();
-      setRecording(false);
-    }
-  }
+  async function handleUpload() {
+    if (!videoUri || !user || !locationId) return;
 
-  async function handleUpload(videoUri: string) {
     try {
       setUploading(true);
+      setUploadProgress(0);
 
-      const auth = getAuth();
-      const user = auth.currentUser;
-      
-      if (!user) {
-        throw new Error('Not authenticated');
-      }
+      await VideoUploadService.uploadVideo(
+        videoUri,
+        locationId,
+        user.uid,
+        user.organizationId,
+        (progress) => {
+          setUploadProgress(progress.progress);
+        }
+      );
 
-      // Use assigned location or 'unassigned' if none
-      const locationId = assignedLocationId || 'unassigned';
-
-      // Upload to Firebase Storage
-      await uploadVideo(videoUri, {
-        userId: user.uid,
-        userName: user.displayName || 'Cleaner',
-        locationId: locationId, // CRITICAL - tags video with location
-        timestamp: new Date().toISOString(),
-      });
-
-      setUploading(false);
-      
       Alert.alert(
-        'Success!',
-        'Video uploaded successfully',
+        'Upload Complete',
+        'Your video has been uploaded successfully!',
         [
-          {
-            text: 'Record Another',
-            onPress: () => {
-              setUploading(false);
-            },
-          },
           {
             text: 'Done',
             onPress: () => navigation.goBack(),
           },
         ]
       );
-
     } catch (error: any) {
-      console.error('Upload error:', error);
+      Alert.alert('Upload Failed', error.message || 'Failed to upload video');
+    } finally {
       setUploading(false);
-      Alert.alert('Error', 'Failed to upload video');
+      setUploadProgress(0);
     }
   }
 
+  function handleRetake() {
+    setVideoUri(null);
+    setUploadProgress(0);
+  }
+
+  // Show video preview after recording
+  if (videoUri) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <Video
+          source={{ uri: videoUri }}
+          style={styles.video}
+          useNativeControls
+          resizeMode="contain"
+          isLooping
+        />
+
+        {/* Controls Overlay */}
+        <SafeAreaView style={styles.previewControls}>
+          <View style={styles.previewControlsContent}>
+            <TouchableOpacity
+              onPress={handleRetake}
+              disabled={uploading}
+              style={[styles.previewButton, styles.retakeButton]}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.previewButtonText}>Retake</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleUpload}
+              disabled={uploading}
+              style={[styles.previewButton, styles.uploadButton]}
+              activeOpacity={0.8}
+            >
+              {uploading ? (
+                <View style={styles.uploadProgressContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.uploadProgressText}>{uploadProgress}%</Text>
+                </View>
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+                  <Text style={styles.previewButtonText}>Upload</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // Camera view
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -223,10 +199,11 @@ export default function CameraScreen({ navigation }: any) {
       <CameraView
         ref={cameraRef}
         style={styles.camera}
-        facing={facing}
+        facing="back"
         mode="video"
+        videoQuality="1080p"
       >
-        {/* Top Bar */}
+        {/* Header Overlay */}
         <SafeAreaView style={styles.topBar}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -235,39 +212,40 @@ export default function CameraScreen({ navigation }: any) {
           >
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-          
-          {recording && (
-            <View style={styles.recordingIndicator}>
-              <View style={styles.recordingDot} />
-              <Text style={styles.recordingText}>Recording</Text>
-            </View>
-          )}
+          <Text style={styles.locationText} numberOfLines={1}>
+            {address || 'Location'}
+          </Text>
+          <View style={{ width: 44 }} />
         </SafeAreaView>
 
-        {/* Bottom Controls */}
-        <View style={styles.controls}>
-          <View style={styles.controlsInner}>
-            {!recording ? (
-              <TouchableOpacity
-                style={styles.recordButtonLarge}
-                onPress={handleStartRecording}
-              >
-                <View style={styles.recordButtonCircle} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.stopButton}
-                onPress={handleStopRecording}
-              >
-                <View style={styles.stopButtonSquare} />
-              </TouchableOpacity>
-            )}
+        {/* Recording Indicator */}
+        {recording && (
+          <View style={styles.recordingIndicator}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingText}>Recording</Text>
           </View>
-          
-          <Text style={styles.instruction}>
-            {!recording ? 'Tap to start recording' : 'Tap to stop'}
-          </Text>
-        </View>
+        )}
+
+        {/* Record Button */}
+        <SafeAreaView style={styles.controls}>
+          <View style={styles.controlsInner}>
+            <TouchableOpacity
+              onPress={handleRecordPress}
+              style={[styles.recordButton, recording && styles.recordButtonActive]}
+              activeOpacity={0.8}
+              disabled={uploading}
+            >
+              {recording ? (
+                <View style={styles.stopButtonSquare} />
+              ) : (
+                <View style={styles.recordButtonCircle} />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.instruction}>
+              {recording ? 'Tap to stop' : 'Tap to record'}
+            </Text>
+          </View>
+        </SafeAreaView>
       </CameraView>
     </View>
   );
@@ -280,6 +258,10 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  video: {
+    flex: 1,
+    backgroundColor: '#000',
   },
   centerContainer: {
     flex: 1,
@@ -331,17 +313,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  uploadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   closeButton: {
     width: 44,
@@ -351,7 +329,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 22,
   },
+  locationText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginHorizontal: 12,
+  },
   recordingIndicator: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -376,18 +365,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 40,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   controlsInner: {
     alignItems: 'center',
-    marginBottom: 20,
+    paddingBottom: 40,
+    paddingTop: 20,
   },
-  recordButtonLarge: {
+  recordButton: {
     width: 80,
     height: 80,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
   },
   recordButtonCircle: {
     width: 72,
@@ -397,11 +387,7 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#000',
   },
-  stopButton: {
-    width: 80,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
+  recordButtonActive: {
     backgroundColor: 'rgba(255, 0, 0, 0.8)',
     borderRadius: 40,
   },
@@ -415,5 +401,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  previewControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  previewControlsContent: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  previewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  retakeButton: {
+    backgroundColor: '#6b7280',
+  },
+  uploadButton: {
+    backgroundColor: '#2563eb',
+  },
+  previewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  uploadProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  uploadProgressText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

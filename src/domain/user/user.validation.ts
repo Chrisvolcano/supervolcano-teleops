@@ -36,7 +36,7 @@ export class UserValidator {
     "partner_manager",
     "oem_teleoperator",
     "location_owner",
-    "property_cleaner",
+    "location_cleaner",
   ];
 
   static validateOrganizationId(

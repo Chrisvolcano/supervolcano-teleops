@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-sql",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+

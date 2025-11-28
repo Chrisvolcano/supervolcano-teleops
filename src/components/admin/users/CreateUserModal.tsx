@@ -39,7 +39,7 @@ export function CreateUserModal({ onClose, onSuccess }: CreateUserModalProps) {
     formData.role === "partner_manager" ||
     formData.role === "oem_teleoperator" ||
     formData.role === "location_owner" ||
-    formData.role === "property_cleaner";
+    formData.role === "location_cleaner";
 
   async function handleCreate() {
     setError(null);

@@ -44,13 +44,13 @@
  *   - Records videos and completes tasks
  *   - Mobile only
  * 
- * @role property_cleaner - Cleaning worker (performs cleaning)
+ * @role location_cleaner - Cleaning worker (performs cleaning)
  *   - Works for property owners
  *   - Views assigned properties only
  *   - Records videos and completes cleaning tasks
  *   - Mobile only
  */
-export type UserRole = 'admin' | 'superadmin' | 'partner_manager' | 'location_owner' | 'oem_teleoperator' | 'property_cleaner';
+export type UserRole = 'admin' | 'superadmin' | 'partner_manager' | 'location_owner' | 'oem_teleoperator' | 'location_cleaner';
 
 /**
  * User entity

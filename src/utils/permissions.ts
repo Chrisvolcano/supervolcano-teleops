@@ -10,7 +10,7 @@ export class PermissionUtils {
    * Check if user is a field worker (any type)
    */
   static isFieldWorker(role: UserRole | string): boolean {
-    return role === "oem_teleoperator" || role === "property_cleaner";
+    return role === "oem_teleoperator" || role === "location_cleaner";
   }
 
   /**
@@ -38,7 +38,7 @@ export class PermissionUtils {
    * Check if user is property-related
    */
   static isPropertyRole(role: UserRole | string): boolean {
-    return role === "location_owner" || role === "property_cleaner";
+    return role === "location_owner" || role === "location_cleaner";
   }
 
   /**

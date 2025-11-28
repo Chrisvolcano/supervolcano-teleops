@@ -1,30 +1,21 @@
 /**
  * AUTHENTICATION CONTEXT
  * Manages user auth state with Firebase
- * Persists auth across app restarts
- * Last updated: 2025-11-26
+ * Uses AuthService for role validation and organization checking
+ * Last updated: 2025-01-26
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { 
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/config/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import { auth } from '@/config/firebase';
+import { AuthService } from '@/services/auth.service';
+import type { UserProfile } from '@/types/user.types';
 
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -33,21 +24,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     console.log('[Auth] Setting up auth listener');
     
+    // Try to load cached profile first (faster UX)
+    AuthService.getCachedProfile().then((cached) => {
+      if (cached) {
+        setUser(cached);
+        setLoading(false);
+      }
+    });
+
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('[Auth] Auth state changed:', firebaseUser?.email || 'null');
       
       if (firebaseUser) {
-        await loadUserData(firebaseUser);
+        try {
+          // Refresh profile from Firestore
+          const profile = await AuthService.refreshProfile(firebaseUser.uid);
+          setUser(profile);
+        } catch (error: any) {
+          console.error('[Auth] Error refreshing profile:', error);
+          // If refresh fails, try cached profile
+          const cached = await AuthService.getCachedProfile();
+          if (cached) {
+            setUser(cached);
+          } else {
+            setUser(null);
+          }
+        }
       } else {
         setUser(null);
-        await AsyncStorage.removeItem('user');
       }
       
       setLoading(false);
@@ -56,65 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const loadUserData = async (firebaseUser: FirebaseUser) => {
-    try {
-      console.log('[Auth] Loading user data for:', firebaseUser.uid);
-      
-      // Fetch user document from Firestore
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-      
-      if (!userDoc.exists()) {
-        console.error('[Auth] User document not found in Firestore');
-        throw new Error('User profile not found');
-      }
-
-      const userData = userDoc.data();
-      
-      const user: User = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: userData.displayName || userData.name || 'User',
-        role: userData.role || 'field_operator',
-      };
-
-      console.log('[Auth] User loaded:', user.email, user.role);
-      
-      setUser(user);
-      
-      // Persist to AsyncStorage for faster loads
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-    } catch (error: any) {
-      console.error('[Auth] Error loading user data:', error);
-      throw error;
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
     try {
       console.log('[Auth] Signing in:', email);
       setLoading(true);
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userProfile = await AuthService.signIn(email, password);
       console.log('[Auth] Sign in successful');
       
-      await loadUserData(userCredential.user);
+      setUser(userProfile);
     } catch (error: any) {
       console.error('[Auth] Sign in error:', error);
-      
-      // Provide user-friendly error messages
-      let message = 'Login failed';
-      
-      if (error.code === 'auth/user-not-found') {
-        message = 'No account found with this email';
-      } else if (error.code === 'auth/wrong-password') {
-        message = 'Incorrect password';
-      } else if (error.code === 'auth/invalid-email') {
-        message = 'Invalid email address';
-      } else if (error.code === 'auth/too-many-requests') {
-        message = 'Too many failed attempts. Please try again later.';
-      }
-      
-      throw new Error(message);
+      throw error; // Re-throw to let UI handle error messages
     } finally {
       setLoading(false);
     }
@@ -123,9 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       console.log('[Auth] Signing out');
-      await firebaseSignOut(auth);
+      await AuthService.signOut();
       setUser(null);
-      await AsyncStorage.removeItem('user');
       console.log('[Auth] Sign out successful');
     } catch (error: any) {
       console.error('[Auth] Sign out error:', error);
@@ -147,4 +110,3 @@ export function useAuth() {
   }
   return context;
 }
-

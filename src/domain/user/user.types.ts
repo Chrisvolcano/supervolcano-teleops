@@ -17,7 +17,7 @@ export type UserRole =
   | "oem_teleoperator" // OEM worker (operates robots remotely)
   // B2C: Property Management
   | "location_owner" // Property owner/manager (assigns cleaning)
-  | "property_cleaner"; // Cleaning worker (performs cleaning)
+  | "location_cleaner"; // Cleaning worker (performs cleaning)
 
 // Legacy role removed - migration completed
 
@@ -29,7 +29,7 @@ export function isValidUserRole(role: string): role is UserRole {
     "partner_manager",
     "oem_teleoperator",
     "location_owner",
-    "property_cleaner",
+    "location_cleaner",
   ];
   return validRoles.includes(role as UserRole);
 }
@@ -41,7 +41,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   partner_manager: "Partner Manager",
   oem_teleoperator: "OEM Teleoperator",
   location_owner: "Location Owner",
-  property_cleaner: "Property Cleaner",
+  location_cleaner: "Location Cleaner",
 };
 
 // Role descriptions for UI hints
@@ -51,14 +51,14 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   partner_manager: "OEM company manager - assigns robot tests",
   oem_teleoperator: "OEM worker - operates robots remotely",
   location_owner: "Property manager - assigns cleaning tasks",
-  property_cleaner: "Cleaning worker - performs cleaning",
+  location_cleaner: "Cleaning worker - performs cleaning",
 };
 
 // Roles grouped by business model for UI organization
 export const ROLE_GROUPS = {
   platform: ["admin", "superadmin"] as const,
   oem_b2b: ["partner_manager", "oem_teleoperator"] as const,
-  property_b2c: ["location_owner", "property_cleaner"] as const,
+  property_b2c: ["location_owner", "location_cleaner"] as const,
 };
 
 export interface UserAuthClaims {

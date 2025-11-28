@@ -6,7 +6,7 @@
 
 export type AssignmentStatus = 'active' | 'inactive';
 
-export type AssignmentRole = 'oem_teleoperator' | 'property_cleaner' | 'location_owner' | 'partner_manager';
+export type AssignmentRole = 'oem_teleoperator' | 'location_cleaner' | 'location_owner' | 'partner_manager';
 
 export interface Assignment {
   id: string;

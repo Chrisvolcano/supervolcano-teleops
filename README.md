@@ -21,7 +21,7 @@ The application consists of two main portals:
 
 ### B2C: Property Management
 - **location_owner**: Property owner/manager, assigns cleaning tasks, manages cleaners
-- **property_cleaner**: Cleaning worker, performs cleaning tasks at assigned properties
+- **location_cleaner**: Cleaning worker, performs cleaning tasks at assigned properties
 
 ### Organization Assignment
 - Admins belong to `sv:internal` (SuperVolcano organization)
@@ -74,6 +74,15 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 FIREBASE_ADMIN_PROJECT_ID=your-project-id
 FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
 FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# SQL Database Connection (for Robot Intelligence sync)
+SQL_HOST=your-sql-host.com
+SQL_USER=your-sql-user
+SQL_PASSWORD=your-sql-password
+SQL_DATABASE=supervolcano_production
+
+# Cron Secret (generate with: openssl rand -base64 32)
+CRON_SECRET=your-super-secret-cron-key-here
 ```
 
 **⚠️ Security Note**: Never commit `.env.local` to version control. The admin private key should retain literal `\n` characters. When copying from a JSON service account, surround the value with quotes and keep `\n` escapes.
@@ -122,7 +131,7 @@ firebase deploy --only storage:rules --project your-project-id
 ```
 
 - Firestore rules: `src/firebase/firestore.rules`
-  - Role-based access control using explicit roles: `admin`, `superadmin`, `partner_manager`, `location_owner`, `oem_teleoperator`, `property_cleaner`
+  - Role-based access control using explicit roles: `admin`, `superadmin`, `partner_manager`, `location_owner`, `oem_teleoperator`, `location_cleaner`
   - Organization-based data isolation
   - Field worker permissions for task completion and session management
 - Storage rules: `src/firebase/storage.rules`
@@ -174,7 +183,7 @@ See `SECURITY_AUDIT.md` for security checklist and best practices.
 ### Organization Portal (`/org`)
 - **Dashboard**: Role-based views (analytics for managers, task-focused for field workers)
 - **Locations**: View assigned locations with tasks and instructions
-- **Task Completion**: Field workers (oem_teleoperator, property_cleaner) can complete tasks with detailed tracking
+- **Task Completion**: Field workers (oem_teleoperator, location_cleaner) can complete tasks with detailed tracking
 - **Session Tracking**: Automatic session creation based on task completions
 - **Performance Analytics**: Track completions, durations, and team performance
 - **Team View**: Managers can view all team members and their stats

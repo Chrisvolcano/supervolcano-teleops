@@ -74,11 +74,11 @@ export const Permissions = {
    * - partner_manager: Locations assigned to their organization
    * - location_owner: Locations they created
    * - oem_teleoperator: Locations assigned to their OEM organization
-   * - property_cleaner: Locations they're assigned to work at
+   * - location_cleaner: Locations they're assigned to work at
    * 
    * Who has it: Everyone (scoped differently)
    */
-  VIEW_LOCATIONS: ['admin', 'partner_manager', 'location_owner', 'oem_teleoperator', 'property_cleaner'] as UserRole[],
+  VIEW_LOCATIONS: ['admin', 'partner_manager', 'location_owner', 'oem_teleoperator', 'location_cleaner'] as UserRole[],
   
   // -------------------------------------------------------------------------
   // ORGANIZATION MANAGEMENT
@@ -144,16 +144,16 @@ export const Permissions = {
   /**
    * Record videos for task completion.
    * 
-   * Who has it: Field workers only (OEM teleoperators and property cleaners)
+   * Who has it: Field workers only (OEM teleoperators and location cleaners)
    */
-  RECORD_VIDEOS: ['oem_teleoperator', 'property_cleaner'] as UserRole[],
+  RECORD_VIDEOS: ['oem_teleoperator', 'location_cleaner'] as UserRole[],
   
   /**
    * Mark tasks as complete.
    * 
-   * Who has it: Field workers (OEM teleoperators and property cleaners)
+   * Who has it: Field workers (OEM teleoperators and location cleaners)
    */
-  COMPLETE_TASKS: ['oem_teleoperator', 'property_cleaner'] as UserRole[],
+  COMPLETE_TASKS: ['oem_teleoperator', 'location_cleaner'] as UserRole[],
   
   // -------------------------------------------------------------------------
   // ANALYTICS
@@ -313,7 +313,7 @@ export async function canAccessLocation(
   }
   
   // Field workers can access locations they're assigned to
-  if (user.role === 'oem_teleoperator' || user.role === 'property_cleaner') {
+  if (user.role === 'oem_teleoperator' || user.role === 'location_cleaner') {
     if (getUserLocationAssignment) {
       return await getUserLocationAssignment(user.id, locationId);
     }
