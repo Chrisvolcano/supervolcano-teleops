@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db/postgres';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+
 export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     // Admin auth check
@@ -89,4 +91,9 @@ export async function GET(request: Request) {
     
   } catch (error: any) {
     console.error('Stats error:', error);
-    return NextResponse
+    return NextResponse.json(
+      { error: error.message || 'Failed to load stats' },
+      { status: 500 }
+    );
+  }
+}

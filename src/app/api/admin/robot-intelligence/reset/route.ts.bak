@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db/postgres';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+
 export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
