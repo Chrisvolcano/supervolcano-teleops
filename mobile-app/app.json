@@ -2,7 +2,7 @@
   "expo": {
     "name": "SuperVolcano Camera",
     "slug": "supervolcano-camera",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,6 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#2563eb"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.supervolcano.camera",

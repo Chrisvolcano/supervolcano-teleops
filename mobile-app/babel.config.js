@@ -10,6 +10,7 @@ module.exports = function(api) {
           alias: {
             '@': './src',
           },
+          extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
         },
       ],
       'react-native-reanimated/plugin', // Must be last
