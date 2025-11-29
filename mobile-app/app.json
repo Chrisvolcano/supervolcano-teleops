@@ -1,38 +1,45 @@
 {
-    "expo": {
-      "name": "SuperVolcano Field Worker",
-      "slug": "supervolcano-fieldworker",
-      "version": "1.0.0",
-      "orientation": "portrait",
-      "icon": "./assets/icon.png",
-      "userInterfaceStyle": "light",
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
+  "expo": {
+    "name": "SuperVolcano Camera",
+    "slug": "supervolcano-camera",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2563eb"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.supervolcano.camera",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to record videos at work locations.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access to record videos with audio.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2563eb"
       },
-      "ios": {
-        "supportsTablet": true,
-        "bundleIdentifier": "com.supervolcano.fieldworker",
-        "infoPlist": {
-          "NSCameraUsageDescription": "This app needs camera access to record videos at work locations.",
-          "NSMicrophoneUsageDescription": "This app needs microphone access to record videos with audio."
+      "package": "com.supervolcano.camera",
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SuperVolcano to access your camera to record videos."
         }
-      },
-      "android": {
-        "adaptiveIcon": {
-          "foregroundImage": "./assets/adaptive-icon.png",
-          "backgroundColor": "#2563eb"
-        },
-        "package": "com.supervolcano.fieldworker",
-        "permissions": ["CAMERA", "RECORD_AUDIO"]
-      },
-      "plugins": [
-        [
-          "expo-camera",
-          {
-            "cameraPermission": "Allow SuperVolcano to access your camera to record videos."
-          }
-        ]
       ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "88f8aa67-5bcd-49af-8bee-f4502c1d1ff7"
+      }
     }
+  }
+}
