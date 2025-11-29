@@ -1,10 +1,16 @@
-import { initializeApp } from 'firebase/app';
+/**
+ * FIREBASE CONFIGURATION
+ * Uses EXPO_PUBLIC_ prefixed env vars for Expo compatibility
+ * Fallback to app.json extra fields for production builds
+ */
+
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
 import { getFirestore, enableNetwork } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import Constants from 'expo-constants';
 
-console.log('🔥 Initializing Firebase...');
+console.log('[Firebase] Initializing Firebase...');
 
 // Get config from app.json extra field (production) or .env (development)
 const firebaseConfig = {
@@ -16,66 +22,87 @@ const firebaseConfig = {
   appId: Constants.expoConfig?.extra?.firebaseAppId || process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-console.log('🔥 Project ID:', firebaseConfig.projectId);
-console.log('🔥 Storage Bucket:', firebaseConfig.storageBucket);
+console.log('[Firebase] Project ID:', firebaseConfig.projectId);
+console.log('[Firebase] Storage Bucket:', firebaseConfig.storageBucket);
 
 // Validate config
 const missingKeys = Object.entries(firebaseConfig)
-  .filter(([key, value]) => !value)
+  .filter(([_, value]) => !value)
   .map(([key]) => key);
 
 if (missingKeys.length > 0) {
-  console.error('❌ Missing Firebase config keys:', missingKeys);
-  throw new Error('Firebase config incomplete. Missing: ' + missingKeys.join(', '));
+  const errorMsg = `[Firebase] Missing config keys: ${missingKeys.join(', ')}`;
+  console.error(errorMsg);
+  console.error('[Firebase] Available env vars:', Object.keys(process.env).filter(k => k.startsWith('EXPO')));
+  console.error('[Firebase] Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
+  
+  // Don't throw in production - log error but try to continue
+  // This allows error boundary to catch and display user-friendly message
+  console.error('[Firebase] Config validation failed - app may not work correctly');
 }
 
-console.log('✅ Firebase config loaded');
-
-// Validate all config values are present
-const configValid = Object.values(firebaseConfig).every(value => value && value !== '');
-if (!configValid) {
-  console.error('❌ Firebase config validation failed!');
-  console.error('Config values:', {
-    hasApiKey: !!firebaseConfig.apiKey,
-    hasAuthDomain: !!firebaseConfig.authDomain,
-    hasProjectId: !!firebaseConfig.projectId,
-    hasStorageBucket: !!firebaseConfig.storageBucket,
-    hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
-    hasAppId: !!firebaseConfig.appId,
-  });
-  throw new Error('Firebase config is incomplete');
+// Initialize Firebase (only once)
+let app;
+try {
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+    console.log('[Firebase] ✅ Firebase app initialized');
+    console.log('[Firebase] App name:', app.name);
+  } else {
+    app = getApps()[0];
+    console.log('[Firebase] ✅ Using existing Firebase app');
+  }
+} catch (error: any) {
+  console.error('[Firebase] ❌ Failed to initialize Firebase:', error);
+  throw new Error(`Firebase initialization failed: ${error.message}`);
 }
-
-const app = initializeApp(firebaseConfig);
-console.log('✅ Firebase app initialized');
-console.log('App name:', app.name);
 
 // Initialize Auth (Firebase Auth automatically persists on React Native)
-export const auth = getAuth(app);
-console.log('✅ Firebase Auth initialized');
+let auth;
+try {
+  auth = getAuth(app);
+  console.log('[Firebase] ✅ Firebase Auth initialized (auto-persists on React Native)');
+} catch (error: any) {
+  console.error('[Firebase] ❌ Failed to initialize Auth:', error);
+  throw error;
+}
 
 // Initialize Storage
-export const storage = getStorage(app);
-console.log('✅ Firebase Storage initialized');
-console.log('Storage bucket:', firebaseConfig.storageBucket);
+let storage;
+try {
+  storage = getStorage(app);
+  console.log('[Firebase] ✅ Firebase Storage initialized');
+  console.log('[Firebase] Storage bucket:', firebaseConfig.storageBucket);
+} catch (error: any) {
+  console.error('[Firebase] ❌ Failed to initialize Storage:', error);
+  throw error;
+}
 
-// Initialize Firestore with correct database ID (no parentheses!)
-// Use 'default' not '(default)'
+// Initialize Firestore
 const databaseId = Constants.expoConfig?.extra?.firebaseDatabaseId || process.env.EXPO_PUBLIC_FIREBASE_DATABASE_ID || 'default';
-export const firestore = getFirestore(app, databaseId);
+let firestore;
+try {
+  firestore = getFirestore(app, databaseId);
+  console.log('[Firebase] ✅ Firestore initialized');
+  console.log('[Firebase] Database ID:', databaseId);
+  
+  // Enable network explicitly
+  enableNetwork(firestore)
+    .then(() => {
+      console.log('[Firebase] ✅ Firestore network enabled');
+    })
+    .catch((error) => {
+      console.error('[Firebase] ❌ Failed to enable network:', error);
+      // Don't throw - network will auto-enable when available
+    });
+} catch (error: any) {
+  console.error('[Firebase] ❌ Failed to initialize Firestore:', error);
+  throw error;
+}
+
 export const db = firestore; // Alias for convenience
-console.log('✅ Firestore initialized');
-console.log('Database ID:', databaseId);
 
-// Enable network explicitly
-enableNetwork(firestore)
-  .then(() => {
-    console.log('✅ Firestore network enabled');
-  })
-  .catch((error) => {
-    console.error('❌ Failed to enable network:', error);
-  });
+export { app, auth, storage, firestore };
 
-console.log(`✅ Firebase fully initialized with database ID: ${databaseId}`);
-console.log('═══════════════════════════════════════');
-
+console.log('[Firebase] ✅ Firebase fully initialized');
+console.log('[Firebase] ═══════════════════════════════════════');
