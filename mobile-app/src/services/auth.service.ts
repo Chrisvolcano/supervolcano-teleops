@@ -20,7 +20,7 @@ const USER_PROFILE_KEY = '@user_profile';
 export class AuthService {
   /**
    * Sign in with email and password
-   * Validates role is field worker (property_cleaner or oem_teleoperator)
+   * Validates role is field worker (location_cleaner or oem_teleoperator)
    */
   static async signIn(email: string, password: string): Promise<UserProfile> {
     try {
@@ -37,8 +37,9 @@ export class AuthService {
 
       const userData = userDoc.data();
       
-      // Validate role
-      if (userData.role !== 'property_cleaner' && userData.role !== 'oem_teleoperator') {
+      // Validate role - must be a field worker role
+      const allowedRoles = ['location_cleaner', 'oem_teleoperator'];
+      if (!allowedRoles.includes(userData.role)) {
         await firebaseSignOut(auth);
         throw new Error('Only field workers can access the mobile app. Please use the web portal.');
       }

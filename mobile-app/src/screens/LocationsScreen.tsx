@@ -34,14 +34,15 @@ export default function LocationsScreen({ navigation }: any) {
   }, [user]);
 
   async function loadLocations() {
-    if (!user?.organizationId) {
-      Alert.alert('Error', 'No organization assigned. Please contact your manager.');
+    if (!user?.uid) {
+      Alert.alert('Error', 'Not logged in. Please sign in again.');
       setLoading(false);
       return;
     }
 
     try {
-      const locs = await LocationsService.getAssignedLocations(user.organizationId);
+      // Now queries by user ID via assignments collection
+      const locs = await LocationsService.getAssignedLocations(user.uid);
       setLocations(locs);
     } catch (error: any) {
       Alert.alert('Error Loading Locations', error.message);
@@ -140,6 +141,9 @@ export default function LocationsScreen({ navigation }: any) {
                 <Ionicons name="location" size={24} color="#2563eb" />
               </View>
               <View style={styles.locationInfo}>
+                {item.name && item.name !== item.address && (
+                  <Text style={styles.locationName}>{item.name}</Text>
+                )}
                 <Text style={styles.locationAddress}>{item.address}</Text>
                 <Text style={styles.locationHint}>Tap to start recording</Text>
               </View>
@@ -222,10 +226,16 @@ const styles = StyleSheet.create({
   locationInfo: {
     flex: 1,
   },
-  locationAddress: {
+  locationName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+    marginBottom: 2,
+  },
+  locationAddress: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#6b7280',
     marginBottom: 4,
   },
   locationHint: {

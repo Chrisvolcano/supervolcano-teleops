@@ -1,6 +1,7 @@
 /**
  * USER TYPES - Mobile App
  * Must match web app types exactly
+ * Last updated: 2025-11-28
  */
 
 export type UserRole = 
@@ -9,7 +10,13 @@ export type UserRole =
   | 'partner_manager'
   | 'location_owner'
   | 'oem_teleoperator'
-  | 'property_cleaner';
+  | 'location_cleaner';  // ← RENAMED from property_cleaner
+
+// Roles allowed to use mobile app
+export const MOBILE_ALLOWED_ROLES: UserRole[] = [
+  'location_cleaner',
+  'oem_teleoperator',
+];
 
 export interface UserProfile {
   uid: string;
@@ -23,9 +30,22 @@ export interface UserProfile {
 
 export interface Location {
   id: string;
+  name?: string;  // ← ADDED: location name
   address: string;
   organizationId: string;
   type: 'test_site' | 'property';
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Assignment {
+  id: string;
+  user_id: string;
+  location_id: string;
+  role: UserRole;
+  status: 'active' | 'inactive';
+  assigned_by: string;
+  assigned_at: Date;
   created_at: Date;
   updated_at: Date;
 }
@@ -42,4 +62,3 @@ export interface VideoUpload {
   uploadedAt: Date;
   status: 'uploading' | 'completed' | 'failed';
 }
-
