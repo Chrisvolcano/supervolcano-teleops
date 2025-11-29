@@ -13,6 +13,7 @@ interface Cleaner {
 }
 
 interface Assignment {
+  id: string;
   user_id: string;
   user_email: string;
   user_name: string;
@@ -116,8 +117,8 @@ export default function AssignCleanersModal({
       const toAdd = Array.from(selectedUserIds).filter(id => !currentlyAssigned.has(id));
       const toRemove = Array.from(currentlyAssigned).filter(id => !selectedUserIds.has(id));
       
-      // Add new assignments
-      if (toAdd.length > 0) {
+      // Add new assignments (one request per user)
+      for (const userId of toAdd) {
         const addRes = await fetch(`/api/admin/locations/${locationId}/assignments`, {
           method: 'POST',
           headers: { 
@@ -125,8 +126,8 @@ export default function AssignCleanersModal({
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            userIds: toAdd,
-            assignedBy: 'admin', // TODO: Get from auth context
+            user_id: userId,
+            role: 'location_cleaner',
           }),
         });
         
@@ -136,20 +137,24 @@ export default function AssignCleanersModal({
         }
       }
       
-      // Remove old assignments
-      if (toRemove.length > 0) {
-        const removeRes = await fetch(`/api/admin/locations/${locationId}/assignments`, {
-          method: 'DELETE',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userIds: toRemove }),
-        });
-        
-        const removeData = await removeRes.json();
-        if (!removeData.success) {
-          throw new Error(removeData.error);
+      // Remove old assignments (need assignment IDs, not user IDs)
+      for (const userId of toRemove) {
+        const assignment = assignments.find(a => a.user_id === userId);
+        if (assignment) {
+          const removeRes = await fetch(
+            `/api/admin/locations/${locationId}/assignments?assignmentId=${assignment.id}`,
+            {
+              method: 'DELETE',
+              headers: { 
+                'Authorization': `Bearer ${token}`,
+              },
+            }
+          );
+          
+          const removeData = await removeRes.json();
+          if (!removeData.success) {
+            throw new Error(removeData.error);
+          }
         }
       }
       
