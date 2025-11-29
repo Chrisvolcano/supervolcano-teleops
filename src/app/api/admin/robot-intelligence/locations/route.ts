@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // Admin auth check
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!token) {
@@ -26,11 +25,24 @@ export async function GET(request: Request) {
       ORDER BY name ASC
     `;
     
-    return NextResponse.json({ success: true, locations: result.rows });
+    // Handle both array and { rows: [...] } response formats
+    const rows = Array.isArray(result) ? result : (result as any)?.rows || [];
+    
+    console.log('[Robot Intelligence] Locations fetched:', rows.length);
+    
+    return NextResponse.json({ 
+      success: true, 
+      locations: rows.map((row: any) => ({
+        id: row.id,
+        name: row.name || row.organization_name || 'Unnamed Location',
+        organizationId: row.organization_id,
+        organizationName: row.organization_name,
+      }))
+    });
   } catch (error: any) {
-    console.error('Get locations error:', error);
+    console.error('[Robot Intelligence] Get locations error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get locations' },
+      { success: false, error: error.message || 'Failed to get locations', locations: [] },
       { status: 500 }
     );
   }
