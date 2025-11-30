@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
     });
     
     // Get media from SQL
-    const sqlMedia = await sql`SELECT id, location_id, job_id, storage_url FROM media`;
-    console.log(`[SQL] Found ${sqlMedia.rows.length} media files\n`);
+    const sqlMedia = await sqll`SELECT id, location_id, job_id, storage_url FROM media`;
+    console.log(`[SQL] Found ${sqlMedia.length} media files\n`);
     
     // Check each Firestore media
     const checks = [];
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       };
       
       // Check if in SQL
-      const sqlMatch = sqlMedia.rows.find(r => r.id === media.id);
+      const sqlMatch = sqlMedia.find(r => r.id === media.id);
       if (sqlMatch) {
         check.inSQL = true;
         console.log(`  ✓ In SQL`);
@@ -77,13 +77,13 @@ export async function GET(request: NextRequest) {
       
       // Check if location exists in SQL
       if (media.locationId) {
-        const locCheck = await sql`
+        const locCheck = await sqll`
           SELECT id, name FROM locations WHERE id = ${media.locationId}
         `;
-        if (locCheck.rows.length > 0) {
+        if (locCheck.length > 0) {
           check.locationExists = true;
-          check.locationName = locCheck.rows[0].name;
-          console.log(`  ✓ Location exists: ${locCheck.rows[0].name}`);
+          check.locationName = locCheck[0].name;
+          console.log(`  ✓ Location exists: ${locCheck[0].name}`);
         } else {
           console.log(`  ✗ Location ${media.locationId} not in SQL`);
           check.issues.push(`Location ${media.locationId} not in SQL`);
@@ -95,13 +95,13 @@ export async function GET(request: NextRequest) {
       
       // Check if job exists in SQL
       if (media.taskId) {
-        const jobCheck = await sql`
+        const jobCheck = await sqll`
           SELECT id, title FROM jobs WHERE id = ${media.taskId}
         `;
-        if (jobCheck.rows.length > 0) {
+        if (jobCheck.length > 0) {
           check.jobExists = true;
-          check.jobTitle = jobCheck.rows[0].title;
-          console.log(`  ✓ Job exists: ${jobCheck.rows[0].title}`);
+          check.jobTitle = jobCheck[0].title;
+          console.log(`  ✓ Job exists: ${jobCheck[0].title}`);
         } else {
           console.log(`  ⚠ Job ${media.taskId} not in SQL (will sync without job reference)`);
           check.issues.push(`Job ${media.taskId} not in SQL (non-blocking)`);
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     console.log('SUMMARY');
     console.log('========================================');
     console.log(`Total media in Firestore: ${firestoreMedia.length}`);
-    console.log(`Total media in SQL: ${sqlMedia.rows.length}`);
+    console.log(`Total media in SQL: ${sqlMedia.length}`);
     console.log(`Can sync: ${canSync.length}`);
     console.log(`Cannot sync: ${cannotSync.length}`);
     
@@ -136,13 +136,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       summary: {
         firestoreCount: firestoreMedia.length,
-        sqlCount: sqlMedia.rows.length,
+        sqlCount: sqlMedia.length,
         canSync: canSync.length,
         cannotSync: cannotSync.length,
       },
       checks,
       firestoreMedia,
-      sqlMedia: sqlMedia.rows,
+      sqlMedia: sqlMedia,
     });
   } catch (error: any) {
     console.error('Debug failed:', error);
