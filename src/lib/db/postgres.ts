@@ -1,29 +1,9 @@
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 
-// Connection is automatic via Vercel Postgres
-// No need to manually configure connection
+const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-export { sql };
-
-// Type-safe query helpers
-export interface QueryResult<T> {
-  rows: T[];
-  rowCount: number;
+if (!databaseUrl) {
+  throw new Error('Missing POSTGRES_URL or DATABASE_URL environment variable');
 }
 
-export async function query<T>(
-  queryText: string,
-  params?: any[]
-): Promise<QueryResult<T>> {
-  try {
-    const result = await sql.query(queryText, params);
-    return {
-      rows: result.rows as T[],
-      rowCount: result.rowCount || 0,
-    };
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
-  }
-}
-
+export const sql = neon(databaseUrl);
