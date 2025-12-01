@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db/postgres';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
+
 export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -13,15 +15,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
+
     console.log('Fetching stats from SQL database...');
+
     const locationsResult = await sql`SELECT COUNT(*)::int as count FROM locations`;
     const locationsCount = Array.isArray(locationsResult) 
       ? Number(locationsResult[0]?.count || 0)
       : Number((locationsResult as any)?.rows?.[0]?.count || 0);
+
     const jobsResult = await sql`SELECT COUNT(*)::int as count FROM jobs`;
     const jobsCount = Array.isArray(jobsResult)
       ? Number(jobsResult[0]?.count || 0)
       : Number((jobsResult as any)?.rows?.[0]?.count || 0);
+
     const mediaResult = await sql`SELECT COUNT(*)::int as count FROM media`;
     let mediaCount = 0;
     if (Array.isArray(mediaResult)) {
@@ -30,6 +36,7 @@ export async function GET(request: Request) {
       const rows = (mediaResult as any)?.rows || [];
       mediaCount = Number(rows[0]?.count || 0);
     }
+
     let shiftsCount = 0;
     try {
       const shiftsResult = await sql`SELECT COUNT(*) as count FROM shifts`;
@@ -38,6 +45,7 @@ export async function GET(request: Request) {
     } catch (e) {
       console.log('Shifts table not found');
     }
+
     let executionsCount = 0;
     try {
       const executionsResult = await sql`SELECT COUNT(*) as count FROM robot_executions`;
@@ -46,6 +54,7 @@ export async function GET(request: Request) {
     } catch (e) {
       console.log('Robot executions table not found');
     }
+
     const stats = {
       locations: locationsCount,
       shifts: shiftsCount,
@@ -53,8 +62,10 @@ export async function GET(request: Request) {
       executions: executionsCount,
       media: mediaCount,
     };
+
     console.log('Robot Intelligence stats:', stats);
     return NextResponse.json(stats);
+
   } catch (error: any) {
     console.error('Stats error:', error);
     return NextResponse.json(
