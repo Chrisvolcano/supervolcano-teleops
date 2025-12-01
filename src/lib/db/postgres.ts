@@ -8,12 +8,15 @@ if (!databaseUrl) {
 
 const neonSql = neon(databaseUrl);
 
-// Wrapper to maintain compatibility with @vercel/postgres interface
-// Neon returns array directly, but some code expects { rows: [...] }
+// Wrapper that returns both array format AND .rows for compatibility
+// Some code uses Array.isArray(result), some uses result.rows
 export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
   const result = await neonSql(strings, ...values);
-  return result; // Neon already returns array, which works for Array.isArray checks
+  
+  // Return array with .rows property attached for backwards compatibility
+  const response = result as any;
+  response.rows = result;
+  response.rowCount = result.length;
+  
+  return response;
 };
-
-// For direct array access (new Neon style)
-export { neonSql };
