@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       SELECT organization_id FROM locations WHERE id = ${locationId}
     `;
     
-    const organizationId = locationResult.rows[0]?.organization_id || null;
+    const organizationId = locationResult[0]?.organization_id || null;
     
     // Save to SQL database (media table uses job_id after migration)
     const result = await sql`
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      id: result.rows[0].id,
+      id: result[0].id,
       url: storageUrl
     });
   } catch (error: any) {
