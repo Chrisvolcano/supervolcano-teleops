@@ -1,14 +1,18 @@
 import { neon } from '@neondatabase/serverless';
 
-const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+// Prioritize POSTGRES_URL, then svdb_POSTGRES_URL, then DATABASE_URL
+const databaseUrl = process.env.POSTGRES_URL 
+  || process.env.svdb_POSTGRES_URL 
+  || process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error('Missing POSTGRES_URL or DATABASE_URL environment variable');
+  throw new Error('Missing database URL environment variable');
 }
+
+console.log('[DB] Connecting to:', databaseUrl.split('@')[1]?.split('/')[0] || 'unknown host');
 
 const neonSql = neon(databaseUrl);
 
-// Wrapper that returns both array format AND .rows for compatibility
 export const sql = Object.assign(
   async (strings: TemplateStringsArray, ...values: any[]) => {
     const result = await neonSql(strings, ...values);
@@ -18,7 +22,6 @@ export const sql = Object.assign(
     return response;
   },
   {
-    // Add .query() method for compatibility with @vercel/postgres
     query: async (queryText: string, params?: any[]) => {
       const result = await neonSql.query(queryText, params);
       return {
