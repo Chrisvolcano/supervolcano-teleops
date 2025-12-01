@@ -34,15 +34,15 @@ export default function LocationsScreen({ navigation }: any) {
   }, [user]);
 
   async function loadLocations() {
-    if (!user?.uid) {
-      Alert.alert('Error', 'Not logged in. Please sign in again.');
+    if (!user?.organizationId) {
+      Alert.alert('Error', 'No organization assigned. Please contact your administrator.');
       setLoading(false);
       return;
     }
 
     try {
-      // Now queries by user ID via assignments collection
-      const locs = await LocationsService.getAssignedLocations(user.uid);
+      // Query locations by organizationId (matches web app architecture)
+      const locs = await LocationsService.getAssignedLocations(user.organizationId);
       setLocations(locs);
     } catch (error: any) {
       Alert.alert('Error Loading Locations', error.message);

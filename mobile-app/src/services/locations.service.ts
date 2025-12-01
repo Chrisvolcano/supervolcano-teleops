@@ -1,7 +1,8 @@
 /**
  * LOCATIONS SERVICE - Mobile App
- * Fetches locations assigned to current user via assignments collection
- * Aligned with web app architecture as of 2025-11-28
+ * Fetches locations assigned to user's organization
+ * Aligned with web app architecture (uses assignedOrganizationId)
+ * Last updated: 2025-12-01
  */
 
 import { 
@@ -11,69 +12,53 @@ import {
   getDocs, 
   doc, 
   getDoc,
-  orderBy 
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import type { Location, Assignment } from '@/types/user.types';
+import type { Location } from '@/types/user.types';
 
 export class LocationsService {
   /**
-   * Fetch locations assigned to user via assignments collection
-   * Step 1: Query assignments where user_id = userId and status = 'active'
-   * Step 2: Fetch each location document
+   * Fetch locations assigned to user's organization
+   * @param organizationId - The user's organizationId from their profile
    */
-  static async getAssignedLocations(userId: string): Promise<Location[]> {
+  static async getAssignedLocations(organizationId: string): Promise<Location[]> {
     try {
-      console.log('[LocationsService] Fetching assignments for user:', userId);
-      
-      // Step 1: Get active assignments for this user
-      const assignmentsRef = collection(db, 'assignments');
-      const assignmentsQuery = query(
-        assignmentsRef,
-        where('user_id', '==', userId),
-        where('status', '==', 'active')
-      );
-      const assignmentsSnapshot = await getDocs(assignmentsQuery);
-      
-      if (assignmentsSnapshot.empty) {
-        console.log('[LocationsService] No assignments found for user');
+      if (!organizationId) {
+        console.warn('[LocationsService] No organizationId provided');
         return [];
       }
 
-      console.log('[LocationsService] Found', assignmentsSnapshot.size, 'assignments');
-
-      // Step 2: Extract location IDs
-      const locationIds = assignmentsSnapshot.docs.map(
-        (doc) => doc.data().location_id as string
+      console.log('[LocationsService] Fetching locations for org:', organizationId);
+      
+      const locationsRef = collection(db, 'locations');
+      const locationsQuery = query(
+        locationsRef,
+        where('assignedOrganizationId', '==', organizationId)
       );
-
-      // Step 3: Fetch each location document
-      const locations: Location[] = [];
-      for (const locationId of locationIds) {
-        try {
-          const locationDoc = await getDoc(doc(db, 'locations', locationId));
-          
-          if (locationDoc.exists()) {
-            const data = locationDoc.data();
-            locations.push({
-              id: locationDoc.id,
-              name: data.name || data.address || 'Unnamed Location',
-              address: data.address || '',
-              organizationId: data.organizationId || '',
-              type: data.type || 'property',
-              created_at: data.created_at?.toDate?.() || new Date(),
-              updated_at: data.updated_at?.toDate?.() || new Date(),
-            });
-          } else {
-            console.warn('[LocationsService] Location not found:', locationId);
-          }
-        } catch (err) {
-          console.error('[LocationsService] Error fetching location:', locationId, err);
-        }
+      const snapshot = await getDocs(locationsQuery);
+      
+      if (snapshot.empty) {
+        console.log('[LocationsService] No locations found for org:', organizationId);
+        return [];
       }
 
-      // Sort by address
-      locations.sort((a, b) => a.address.localeCompare(b.address));
+      console.log('[LocationsService] Found', snapshot.size, 'locations');
+
+      const locations: Location[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          name: data.name || 'Unnamed Location',
+          address: data.address || data.addressData?.fullAddress || '',
+          organizationId: data.assignedOrganizationId || '',
+          type: data.type || 'property',
+          created_at: data.createdAt?.toDate?.() || data.created_at?.toDate?.() || new Date(),
+          updated_at: data.updatedAt?.toDate?.() || data.updated_at?.toDate?.() || new Date(),
+        };
+      });
+
+      // Sort alphabetically by name
+      locations.sort((a, b) => a.name.localeCompare(b.name));
 
       console.log('[LocationsService] Returning', locations.length, 'locations');
       return locations;
@@ -99,12 +84,12 @@ export class LocationsService {
       const data = docSnap.data();
       return {
         id: docSnap.id,
-        name: data.name || data.address || 'Unnamed Location',
-        address: data.address || '',
-        organizationId: data.organizationId || '',
+        name: data.name || 'Unnamed Location',
+        address: data.address || data.addressData?.fullAddress || '',
+        organizationId: data.assignedOrganizationId || '',
         type: data.type || 'property',
-        created_at: data.created_at?.toDate?.() || new Date(),
-        updated_at: data.updated_at?.toDate?.() || new Date(),
+        created_at: data.createdAt?.toDate?.() || data.created_at?.toDate?.() || new Date(),
+        updated_at: data.updatedAt?.toDate?.() || data.updated_at?.toDate?.() || new Date(),
       };
     } catch (error) {
       console.error('[LocationsService] Error fetching location:', error);
