@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.supervolcano.camera",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to record videos at work locations.",
         "NSMicrophoneUsageDescription": "This app needs microphone access to record videos with audio.",

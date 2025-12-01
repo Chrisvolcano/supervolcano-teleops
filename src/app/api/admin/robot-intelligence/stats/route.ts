@@ -19,6 +19,9 @@ export async function GET(request: Request) {
     console.log('Fetching stats from SQL database...');
 
     const locationsResult = await sql`SELECT COUNT(*)::int as count FROM locations`;
+    console.log('[DEBUG] locationsResult:', JSON.stringify(locationsResult));
+    console.log('[DEBUG] isArray:', Array.isArray(locationsResult));
+    console.log('[DEBUG] first:', locationsResult[0]);
     const locationsCount = Array.isArray(locationsResult) 
       ? Number(locationsResult[0]?.count || 0)
       : Number((locationsResult as any)?.rows?.[0]?.count || 0);

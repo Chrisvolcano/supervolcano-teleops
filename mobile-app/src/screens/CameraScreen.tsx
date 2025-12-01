@@ -8,7 +8,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { VideoUploadService } from '@/services/video-upload.service';
@@ -73,14 +73,14 @@ export default function CameraScreen({ route, navigation }: any) {
 
   async function handleRecordPress() {
     if (recording) {
-      // Stop recording
+      // Stop recording - just signal to stop, video comes from recordAsync promise
       if (cameraRef.current) {
         try {
-          const video = await cameraRef.current.stopRecording();
-          setVideoUri(video.uri);
-          setRecording(false);
+          console.log('[Camera] Stopping recording...');
+          cameraRef.current.stopRecording();
+          // Don't set recording to false here - let the recordAsync completion handle it
         } catch (error: any) {
-          console.error('Error stopping recording:', error);
+          console.error('[Camera] Error stopping recording:', error);
           Alert.alert('Error', 'Failed to stop recording');
           setRecording(false);
         }
@@ -90,12 +90,18 @@ export default function CameraScreen({ route, navigation }: any) {
       if (cameraRef.current) {
         try {
           setRecording(true);
-          await cameraRef.current.recordAsync({
+          console.log('[Camera] Starting recording...');
+          const video = await cameraRef.current.recordAsync({
             maxDuration: 300, // 5 minutes max
           });
+          console.log('[Camera] Recording finished, video:', video?.uri);
+          if (video?.uri) {
+            setVideoUri(video.uri);
+          }
+          setRecording(false);
         } catch (error: any) {
-          console.error('Error starting recording:', error);
-          Alert.alert('Error', 'Failed to start recording');
+          console.error('[Camera] Error recording:', error);
+          Alert.alert('Error', 'Failed to record video');
           setRecording(false);
         }
       }
@@ -151,7 +157,7 @@ export default function CameraScreen({ route, navigation }: any) {
           source={{ uri: videoUri }}
           style={styles.video}
           useNativeControls
-          resizeMode="contain"
+          resizeMode={ResizeMode.CONTAIN}
           isLooping
         />
 
