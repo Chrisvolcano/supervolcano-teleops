@@ -9,14 +9,22 @@ if (!databaseUrl) {
 const neonSql = neon(databaseUrl);
 
 // Wrapper that returns both array format AND .rows for compatibility
-// Some code uses Array.isArray(result), some uses result.rows
-export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
-  const result = await neonSql(strings, ...values);
-  
-  // Return array with .rows property attached for backwards compatibility
-  const response = result as any;
-  response.rows = result;
-  response.rowCount = result.length;
-  
-  return response;
-};
+export const sql = Object.assign(
+  async (strings: TemplateStringsArray, ...values: any[]) => {
+    const result = await neonSql(strings, ...values);
+    const response = result as any;
+    response.rows = result;
+    response.rowCount = result.length;
+    return response;
+  },
+  {
+    // Add .query() method for compatibility with @vercel/postgres
+    query: async (queryText: string, params?: any[]) => {
+      const result = await neonSql.query(queryText, params);
+      return {
+        rows: result,
+        rowCount: result.length,
+      };
+    }
+  }
+);
