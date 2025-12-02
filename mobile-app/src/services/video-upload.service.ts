@@ -33,7 +33,7 @@ export class VideoUploadService {
       const storagePath = `videos/${locationId}/${userId}/${filename}`;
 
       // Create Firestore record first (status: uploading)
-      const videoDoc = await addDoc(collection(db, 'videos'), {
+      const videoDoc = await addDoc(collection(db, 'media'), {
         userId,
         locationId,
         organizationId,
@@ -66,7 +66,7 @@ export class VideoUploadService {
           },
           (error) => {
             // Upload failed - update Firestore
-            updateDoc(doc(db, 'videos', videoDoc.id), {
+            updateDoc(doc(db, 'media', videoDoc.id), {
               status: 'failed',
               error: error.message,
             });
@@ -80,7 +80,7 @@ export class VideoUploadService {
             const fileSize = blob.size;
 
             // Update Firestore with completed status
-            await updateDoc(doc(db, 'videos', videoDoc.id), {
+            await updateDoc(doc(db, 'media', videoDoc.id), {
               status: 'completed',
               videoUrl: downloadURL,
               fileSize,
@@ -103,7 +103,10 @@ export class VideoUploadService {
       });
     } catch (error: any) {
       console.error('[VideoUploadService] Upload error:', error);
-      throw new Error('Failed to upload video. Please try again.');
+      console.error('[VideoUploadService] Error message:', error?.message);
+      console.error('[VideoUploadService] Error code:', error?.code);
+      // Include actual error message for debugging
+      throw new Error(`Failed to upload video: ${error?.message || error?.code || 'Unknown error'}`);
     }
   }
 }

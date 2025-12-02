@@ -1,86 +1,116 @@
+/**
+ * SPLASH SCREEN - Premium Clean
+ * Minimal, elegant animations
+ */
+
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
+  withDelay,
+  runOnJS,
+  Easing,
 } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const opacity = useSharedValue(1);
-  const loadingBarX = useSharedValue(-100);
+  const logoScale = useSharedValue(0.94);
+  const logoOpacity = useSharedValue(0);
+  const textOpacity = useSharedValue(0);
+  const progressWidth = useSharedValue(0);
+  const containerOpacity = useSharedValue(1);
 
   useEffect(() => {
     console.log('SplashScreen mounted');
 
-    // Loading bar animation
-    loadingBarX.value = withSequence(
-      withTiming(100, { duration: 1200 }),
-      withTiming(-100, { duration: 0 }),
-      withTiming(100, { duration: 1200 })
+    // Smooth ease-out curve - no bounce
+    const smooth = Easing.bezier(0.25, 0.1, 0.25, 1);
+
+    // 1. Logo fades in with subtle scale
+    logoOpacity.value = withTiming(1, { duration: 500, easing: smooth });
+    logoScale.value = withTiming(1, { duration: 600, easing: smooth });
+
+    // 2. Title fades in
+    textOpacity.value = withDelay(350, withTiming(1, { duration: 450, easing: smooth }));
+
+    // 3. Progress bar fills
+    progressWidth.value = withDelay(
+      500,
+      withTiming(100, { duration: 1700, easing: smooth })
     );
 
-    // Start exit after 3 seconds
+    // 4. Fade out
     const exitTimer = setTimeout(() => {
-      console.log('SplashScreen: Starting exit animation');
-      opacity.value = withTiming(0, { duration: 500 }, () => {
-        console.log('SplashScreen: Exit animation complete');
+      console.log('SplashScreen: Starting exit');
+      containerOpacity.value = withTiming(0, { duration: 300, easing: smooth }, (finished) => {
+        if (finished) {
+          runOnJS(onComplete)();
+        }
       });
-    }, 3000);
+    }, 2400);
 
-    // Call onComplete after fade out
-    const completeTimer = setTimeout(() => {
-      console.log('SplashScreen: Calling onComplete');
-      onComplete();
-    }, 3500); // 3s display + 0.5s fade out
-
-    return () => {
-      console.log('SplashScreen: Cleaning up timers');
-      clearTimeout(exitTimer);
-      clearTimeout(completeTimer);
-    };
+    return () => clearTimeout(exitTimer);
   }, []);
 
-  const containerStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: containerOpacity.value,
+  }));
 
-  const loadingBarStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: loadingBarX.value }],
-    };
-  });
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+  }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%`,
+  }));
 
   return (
     <Animated.View style={[styles.container, containerStyle]}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* White background */}
-      <View style={styles.background} />
+      <StatusBar barStyle="light-content" />
 
-      {/* VOLCANO text container */}
-      <View style={styles.textContainer}>
-        {/* Black text - no animation */}
-              <Text style={styles.foregroundText}>VOLCANO</Text>
+      <LinearGradient
+        colors={['#0A0A0A', '#141414', '#0A0A0A']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
+      <View style={styles.content}>
+        <Animated.View style={[styles.logoContainer, logoStyle]}>
+          <LinearGradient
+            colors={['#007AFF', '#0055D4']}
+            style={styles.logoGradient}
+          >
+            <Ionicons name="videocam" size={42} color="#fff" />
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View style={[styles.textContainer, textStyle]}>
+          <Text style={styles.titleSuper}>SUPER</Text>
+          <Text style={styles.titleVolcano}>VOLCANO</Text>
+        </Animated.View>
       </View>
 
-      {/* Loading indicator */}
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingBarTrack}>
-          <Animated.View style={[styles.loadingBar, loadingBarStyle]}>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressBar, progressStyle]}>
             <LinearGradient
-              colors={['#262626', '#000000']}
+              colors={['#007AFF', '#00C7FF']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.loadingBarGradient}
+              style={StyleSheet.absoluteFill}
             />
           </Animated.View>
         </View>
@@ -95,38 +125,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FFFFFF',
+  content: {
+    alignItems: 'center',
+  },
+  logoContainer: {
+    marginBottom: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  logoGradient: {
+    width: 92,
+    height: 92,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
   },
-  foregroundText: {
-    fontSize: 72,
-    fontWeight: '900',
-    letterSpacing: -2,
-    color: '#000000',
+  titleSuper: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007AFF',
+    letterSpacing: 5,
+    marginBottom: 6,
   },
-  loadingContainer: {
-    marginTop: 32,
-    alignItems: 'center',
+  titleVolcano: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
-  loadingBarTrack: {
-    width: 192,
+  progressContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 50,
+    right: 50,
+  },
+  progressTrack: {
     height: 2,
-    backgroundColor: '#E5E5E5', // neutral-200
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 1,
     overflow: 'hidden',
   },
-  loadingBar: {
-    width: '100%',
+  progressBar: {
     height: '100%',
-  },
-  loadingBarGradient: {
-    width: '100%',
-    height: '100%',
+    borderRadius: 1,
   },
 });

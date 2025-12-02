@@ -3,13 +3,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users, Film } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import LocationStructureTab from '@/components/admin/LocationStructureTab';
 import LocationTasksTab from '@/components/admin/LocationTasksTab';
 import LocationAssignmentsTab from '@/components/admin/LocationAssignmentsTab';
+import LocationMediaTab from '@/components/locations/LocationMediaTab';
 
-type Tab = 'structure' | 'assignments' | 'tasks' | 'settings';
+type Tab = 'structure' | 'assignments' | 'tasks' | 'media' | 'settings';
 
 export default function AdminLocationDetailPage() {
   const router = useRouter();
@@ -130,6 +131,17 @@ export default function AdminLocationDetailPage() {
               Tasks
             </button>
             <button
+              onClick={() => setActiveTab('media')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'media'
+                  ? 'border-blue-600 text-blue-600 font-medium'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Film className="h-4 w-4" />
+              Media
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'settings'
@@ -161,6 +173,9 @@ export default function AdminLocationDetailPage() {
             locationName={location?.name}
             partnerOrgId={location?.partnerOrgId}
           />
+        )}
+        {activeTab === 'media' && (
+          <LocationMediaTab locationId={locationId} />
         )}
         {activeTab === 'settings' && (
           <div className="bg-white rounded-lg border border-gray-200 p-8">

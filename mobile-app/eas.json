@@ -6,7 +6,18 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m1-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBJd8_A8tH6e2S5WhgwHqoeXIB58WQWDvw",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "super-volcano-oem-portal.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "super-volcano-oem-portal",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "super-volcano-oem-portal.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "243745387315",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:243745387315:web:88448a0ee710a8fcc2c446"
+      }
     },
     "preview": {
       "distribution": "internal",
