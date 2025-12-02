@@ -33,7 +33,7 @@ export function ReviewStep({ wizard, onComplete }: ReviewStepProps) {
           Review your location setup
         </h2>
         <p className="text-gray-500 mt-1">
-          Here's a summary of what you've configured
+          Review your configuration below
         </p>
       </div>
 
