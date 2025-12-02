@@ -23,17 +23,21 @@ export default function AdminLocationDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('structure');
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
+  const [wizardCompleted, setWizardCompleted] = useState(false);
 
   const hasExistingStructure = useMemo(() => {
     return location?.floors?.length > 0 || location?.rooms?.length > 0;
   }, [location]);
 
   useEffect(() => {
+    // Don't re-open wizard if user already completed it
+    if (wizardCompleted) return;
+    
     if (location && !hasExistingStructure && !showWizard) {
       setShowWizard(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, hasExistingStructure]);
+  }, [location, hasExistingStructure, showWizard, wizardCompleted]);
 
   const loadLocation = useCallback(async () => {
     try {
@@ -177,20 +181,28 @@ export default function AdminLocationDetailPage() {
             locationName={location.name}
             locationAddress={location.address || 'No address'}
             onComplete={() => {
+              console.log('[LocationPage] Wizard complete');
+              setWizardCompleted(true);
               setShowWizard(false);
+              setActiveTab('structure');
               loadLocation(); // Reload to show new structure
             }}
             onGoToAssignments={() => {
+              setWizardCompleted(true);
               setShowWizard(false);
               setActiveTab('assignments');
               loadLocation(); // Reload to show new structure
             }}
             onGoToMedia={() => {
+              setWizardCompleted(true);
               setShowWizard(false);
               setActiveTab('media');
               loadLocation(); // Reload to show new structure
             }}
-            onSwitchToManual={() => setShowWizard(false)}
+            onSwitchToManual={() => {
+              setWizardCompleted(true);
+              setShowWizard(false);
+            }}
           />
         ) : activeTab === 'structure' ? (
           <>
