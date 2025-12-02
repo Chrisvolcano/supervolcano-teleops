@@ -85,7 +85,8 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
     if (state.hasUnsavedChanges && debouncedFloors.length > 0) {
       handleSave();
     }
-  }, [debouncedFloors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedFloors, state.hasUnsavedChanges]);
 
   const handleSave = useCallback(async () => {
     if (state.isSaving) return;
