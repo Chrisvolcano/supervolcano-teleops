@@ -18,6 +18,14 @@ export async function GET(request: Request) {
 
     console.log('Fetching stats from SQL database...');
 
+    // Debug: check what database we're connected to
+    const dbInfo = await sql`SELECT current_database() as db, current_schema() as schema, current_user as user`;
+    console.log('[DEBUG] Database info:', JSON.stringify(dbInfo));
+
+    // Debug: try explicit schema
+    const explicitCount = await sql`SELECT COUNT(*)::int as count FROM public.locations`;
+    console.log('[DEBUG] Explicit public.locations count:', JSON.stringify(explicitCount));
+
     const locationsResult = await sql`SELECT COUNT(*)::int as count FROM locations`;
     console.log('[DEBUG] locationsResult:', JSON.stringify(locationsResult));
     console.log('[DEBUG] isArray:', Array.isArray(locationsResult));
