@@ -455,6 +455,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
     
     const validSteps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
     if (validSteps.includes(step)) {
+      console.log('[Wizard] Setting step to:', step);
       setState(prev => ({ ...prev, currentStep: step }));
     }
   }, []);
@@ -462,16 +463,24 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   const goToNextStep = useCallback(() => {
     const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
+    console.log('[Wizard] goToNextStep - current:', state.currentStep, 'index:', currentIndex);
+    
     if (currentIndex < steps.length - 1) {
-      setState(prev => ({ ...prev, currentStep: steps[currentIndex + 1] }));
+      const nextStep = steps[currentIndex + 1];
+      console.log('[Wizard] Going to next step:', nextStep);
+      setState(prev => ({ ...prev, currentStep: nextStep }));
     }
   }, [state.currentStep]);
 
   const goToPreviousStep = useCallback(() => {
     const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
+    console.log('[Wizard] goToPreviousStep - current:', state.currentStep, 'index:', currentIndex);
+    
     if (currentIndex > 0) {
-      setState(prev => ({ ...prev, currentStep: steps[currentIndex - 1] }));
+      const prevStep = steps[currentIndex - 1];
+      console.log('[Wizard] Going to previous step:', prevStep);
+      setState(prev => ({ ...prev, currentStep: prevStep }));
     }
   }, [state.currentStep]);
 
