@@ -40,6 +40,7 @@ export function isValidUserRole(role: string): role is UserRole {
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   superadmin: "Super Admin",
+  partner_admin: "Partner Admin",
   partner_manager: "Partner Manager",
   oem_teleoperator: "OEM Teleoperator",
   location_owner: "Location Owner",
@@ -60,7 +61,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 // Roles grouped by business model for UI organization
 export const ROLE_GROUPS = {
   platform: ["admin", "superadmin"] as const,
-  oem_b2b: ["partner_manager", "oem_teleoperator"] as const,
+  oem_b2b: ["partner_admin", "partner_manager", "oem_teleoperator"] as const,
   property_b2c: ["location_owner", "location_cleaner"] as const,
 };
 
