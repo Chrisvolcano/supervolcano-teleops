@@ -205,7 +205,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   // Initialize all expanded by default
   useEffect(() => {
     if (structure) {
-      const floorIds = new Set(structure.map((f: any) => f.id));
+      const floorIds = new Set<string>(structure.map((f: any) => f.id));
       const roomIds = new Set<string>();
       structure.forEach((f: any) => {
         f.rooms?.forEach((r: any) => roomIds.add(r.id));
@@ -243,7 +243,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   // Expand/collapse all
   const expandAll = () => {
     if (!structure) return;
-    const floorIds = new Set(structure.map((f: any) => f.id));
+    const floorIds = new Set<string>(structure.map((f: any) => f.id));
     const roomIds = new Set<string>();
     structure.forEach((f: any) => {
       f.rooms?.forEach((r: any) => roomIds.add(r.id));
@@ -253,8 +253,8 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   };
 
   const collapseAll = () => {
-    setExpandedFloors(new Set());
-    setExpandedRooms(new Set());
+    setExpandedFloors(new Set<string>());
+    setExpandedRooms(new Set<string>());
   };
 
   // Helper to get auth token
