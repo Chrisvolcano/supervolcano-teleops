@@ -28,10 +28,11 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     endpoints: {
-      jobs: '/api/robot/jobs',
       locations: '/api/robot/locations',
-      videos: '/api/robot/jobs/{id}/videos',
-      query: '/api/robot/v1/query',
+      location_detail: '/api/robot/locations/{id}',
+      jobs: '/api/robot/jobs',
+      sessions: '/api/robot/sessions',
+      media: '/api/robot/media',
     },
   });
 }
