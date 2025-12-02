@@ -26,10 +26,6 @@ export default function AdminLocationDetailPage() {
   const [wizardCompleted, setWizardCompleted] = useState(false);
   const [structureChecked, setStructureChecked] = useState(false);
 
-  const hasExistingStructure = useMemo(() => {
-    return location?.floors?.length > 0 || location?.rooms?.length > 0;
-  }, [location]);
-
   const loadLocation = useCallback(async () => {
     try {
       const token = await getIdToken();
