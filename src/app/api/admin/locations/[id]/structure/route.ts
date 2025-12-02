@@ -10,6 +10,112 @@ import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET - Load existing structure for a location
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Auth check
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    const locationId = params.id;
+    console.log(`[LoadStructure] Fetching structure for location: ${locationId}`);
+
+    // Fetch floors from Firestore
+    const floorsSnap = await adminDb
+      .collection('locations')
+      .doc(locationId)
+      .collection('floors')
+      .orderBy('sortOrder')
+      .get();
+
+    const floors = [];
+
+    for (const floorDoc of floorsSnap.docs) {
+      const floorData = floorDoc.data();
+      
+      // Fetch rooms for this floor
+      const roomsSnap = await floorDoc.ref
+        .collection('rooms')
+        .orderBy('sortOrder')
+        .get();
+
+      const rooms = [];
+
+      for (const roomDoc of roomsSnap.docs) {
+        const roomData = roomDoc.data();
+        
+        // Fetch targets for this room
+        const targetsSnap = await roomDoc.ref
+          .collection('targets')
+          .orderBy('sortOrder')
+          .get();
+
+        const targets = [];
+
+        for (const targetDoc of targetsSnap.docs) {
+          const targetData = targetDoc.data();
+          
+          // Fetch actions for this target
+          const actionsSnap = await targetDoc.ref
+            .collection('actions')
+            .orderBy('sortOrder')
+            .get();
+
+          const actions = actionsSnap.docs.map(actionDoc => ({
+            id: actionDoc.id,
+            ...actionDoc.data(),
+          }));
+
+          targets.push({
+            id: targetDoc.id,
+            ...targetData,
+            actions,
+          });
+        }
+
+        rooms.push({
+          id: roomDoc.id,
+          ...roomData,
+          targets,
+        });
+      }
+
+      floors.push({
+        id: floorDoc.id,
+        ...floorData,
+        rooms,
+      });
+    }
+
+    console.log(`[LoadStructure] Found ${floors.length} floors`);
+
+    return NextResponse.json({
+      success: true,
+      floors,
+      hasStructure: floors.length > 0,
+    });
+
+  } catch (error: any) {
+    console.error('[LoadStructure] Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to load structure' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
