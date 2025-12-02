@@ -141,19 +141,37 @@ export async function POST(
     console.log(`[Structure] Saving structure for location ${locationId}`);
     console.log(`[Structure] Floors: ${floors.length}`);
 
-    // Save to Firestore (source of truth)
-    const batch = adminDb.batch();
-
-    // Delete existing structure for this location
+    // Delete existing structure RECURSIVELY
     const existingFloorsSnap = await adminDb
       .collection('locations')
       .doc(locationId)
       .collection('floors')
       .get();
-    
-    existingFloorsSnap.docs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
+
+    // Must delete subcollections first (Firestore doesn't cascade delete)
+    for (const floorDoc of existingFloorsSnap.docs) {
+      // Delete rooms and their subcollections
+      const roomsSnap = await floorDoc.ref.collection('rooms').get();
+      for (const roomDoc of roomsSnap.docs) {
+        // Delete targets and their subcollections
+        const targetsSnap = await roomDoc.ref.collection('targets').get();
+        for (const targetDoc of targetsSnap.docs) {
+          // Delete actions
+          const actionsSnap = await targetDoc.ref.collection('actions').get();
+          for (const actionDoc of actionsSnap.docs) {
+            await actionDoc.ref.delete();
+          }
+          await targetDoc.ref.delete();
+        }
+        await roomDoc.ref.delete();
+      }
+      await floorDoc.ref.delete();
+    }
+
+    console.log('[Structure] Deleted existing structure');
+
+    // Save to Firestore (source of truth)
+    const batch = adminDb.batch();
 
     // Save new structure
     for (const floor of floors) {
