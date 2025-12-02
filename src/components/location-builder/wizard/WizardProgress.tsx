@@ -20,6 +20,11 @@ const STEPS: { key: WizardStep; label: string; icon: React.ElementType }[] = [
 ];
 
 export function WizardProgress({ currentStep }: WizardProgressProps) {
+  // Hide progress bar on completion
+  if (currentStep === 'completion') {
+    return null;
+  }
+
   const currentIndex = STEPS.findIndex(s => s.key === currentStep);
 
   return (

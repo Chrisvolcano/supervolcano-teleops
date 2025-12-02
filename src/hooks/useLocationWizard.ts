@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDebounce } from './useDebounce';
 import { RoomTemplate, getRoomTemplate, ROOM_TEMPLATES } from '@/lib/templates/location-templates';
 
-export type WizardStep = 'floors' | 'rooms' | 'targets' | 'actions' | 'review';
+export type WizardStep = 'floors' | 'rooms' | 'targets' | 'actions' | 'review' | 'completion';
 
 export interface FloorData {
   id: string;

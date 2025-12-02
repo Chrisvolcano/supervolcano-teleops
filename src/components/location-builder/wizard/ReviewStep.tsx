@@ -15,12 +15,18 @@ interface ReviewStepProps {
 }
 
 export function ReviewStep({ wizard, onComplete }: ReviewStepProps) {
-  const { state, getStats, goToPreviousStep, handleSave } = wizard;
+  const { state, getStats, goToPreviousStep, handleSave, goToStep } = wizard;
   const stats = getStats();
 
   const handleComplete = async () => {
-    await handleSave();
-    onComplete();
+    try {
+      await handleSave();
+      // Navigate to completion step instead of calling onComplete directly
+      goToStep('completion');
+    } catch (error) {
+      console.error('Failed to save:', error);
+      // Could show error toast or message here
+    }
   };
 
   return (

@@ -20,6 +20,7 @@ export type UserRole =
   | "location_owner" // Property owner/manager (assigns cleaning)
   | "location_cleaner" // Cleaning worker (performs cleaning)
   | "oem_teleoperator"; // OEM worker (operates robots remotely)
+  | "oem_teleoperator"; // OEM worker (operates robots remotely)
 
 // Legacy role removed - migration completed
 

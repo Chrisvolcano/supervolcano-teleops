@@ -180,6 +180,16 @@ export default function AdminLocationDetailPage() {
               setShowWizard(false);
               loadLocation(); // Reload to show new structure
             }}
+            onGoToAssignments={() => {
+              setShowWizard(false);
+              setActiveTab('assignments');
+              loadLocation(); // Reload to show new structure
+            }}
+            onGoToMedia={() => {
+              setShowWizard(false);
+              setActiveTab('media');
+              loadLocation(); // Reload to show new structure
+            }}
             onSwitchToManual={() => setShowWizard(false)}
           />
         ) : activeTab === 'structure' ? (

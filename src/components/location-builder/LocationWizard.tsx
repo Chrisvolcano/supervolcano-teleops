@@ -11,6 +11,7 @@ import { FloorStep } from './wizard/FloorStep';
 import { RoomStep } from './wizard/RoomStep';
 import { TargetStep } from './wizard/TargetStep';
 import { ReviewStep } from './wizard/ReviewStep';
+import { CompletionStep } from './wizard/CompletionStep';
 import { WizardProgress } from './wizard/WizardProgress';
 import { Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +21,8 @@ interface LocationWizardProps {
   locationName: string;
   locationAddress: string;
   onComplete: () => void;
+  onGoToAssignments?: () => void;
+  onGoToMedia?: () => void;
   onSwitchToManual: () => void;
 }
 
@@ -28,6 +31,8 @@ export function LocationWizard({
   locationName,
   locationAddress,
   onComplete,
+  onGoToAssignments,
+  onGoToMedia,
   onSwitchToManual,
 }: LocationWizardProps) {
   const { getIdToken } = useAuth();
@@ -66,7 +71,17 @@ export function LocationWizard({
       case 'targets':
         return <TargetStep wizard={wizard} />;
       case 'review':
-        return <ReviewStep wizard={wizard} onComplete={onComplete} />;
+        return <ReviewStep wizard={wizard} onComplete={() => wizard.goToStep('completion')} />;
+      case 'completion':
+        return (
+          <CompletionStep
+            locationName={locationName}
+            stats={stats}
+            onViewStructure={onComplete}
+            onAssignCleaners={onGoToAssignments || onComplete}
+            onAddMedia={onGoToMedia || onComplete}
+          />
+        );
       default:
         return <FloorStep wizard={wizard} />;
     }
@@ -103,8 +118,8 @@ export function LocationWizard({
         {renderStep()}
       </div>
 
-      {/* Stats summary */}
-      {stats.floors > 0 && (
+      {/* Stats summary - hide on completion */}
+      {state.currentStep !== 'completion' && stats.floors > 0 && (
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex justify-between text-sm text-gray-600">
             <span>{stats.floors} floor{stats.floors !== 1 ? 's' : ''}</span>
@@ -116,15 +131,17 @@ export function LocationWizard({
         </div>
       )}
 
-      {/* Manual mode escape */}
-      <div className="mt-6 text-center">
-        <button
-          onClick={onSwitchToManual}
-          className="text-sm text-gray-500 hover:text-gray-700 underline"
-        >
-          Skip setup, build manually →
-        </button>
-      </div>
+      {/* Manual mode escape - hide on completion */}
+      {state.currentStep !== 'completion' && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={onSwitchToManual}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Skip setup, build manually →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
