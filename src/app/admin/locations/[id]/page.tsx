@@ -205,19 +205,10 @@ export default function AdminLocationDetailPage() {
             }}
           />
         ) : activeTab === 'structure' ? (
-          <>
-            {!hasExistingStructure && (
-              <div className="mb-4 text-center">
-                <button
-                  onClick={() => setShowWizard(true)}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  Run setup wizard →
-                </button>
-              </div>
-            )}
-            <LocationStructureTab locationId={locationId} />
-          </>
+          <LocationStructureTab 
+            locationId={locationId} 
+            onRunWizard={() => setShowWizard(true)}
+          />
         ) : null}
         {activeTab === 'assignments' && (
           <LocationAssignmentsTab
