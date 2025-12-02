@@ -9,6 +9,7 @@ export type UserRole =
   | 'superadmin'
   | 'partner_admin'
   | 'partner_manager'
+  | 'org_manager'
   | 'location_owner'
   | 'oem_teleoperator'
   | 'location_cleaner';

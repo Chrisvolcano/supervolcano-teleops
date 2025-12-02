@@ -15,6 +15,7 @@ export type UserRole =
   // B2B: OEM Robotics Testing
   | "partner_admin" // OEM partner admin (legacy/alternative to partner_manager)
   | "partner_manager" // OEM company manager (assigns tests)
+  | "org_manager" // Organization manager (legacy role)
   | "oem_teleoperator" // OEM worker (operates robots remotely)
   // B2C: Property Management
   | "location_owner" // Property owner/manager (assigns cleaning)
@@ -29,6 +30,7 @@ export function isValidUserRole(role: string): role is UserRole {
     "superadmin",
     "partner_admin",
     "partner_manager",
+    "org_manager",
     "oem_teleoperator",
     "location_owner",
     "location_cleaner",
@@ -42,6 +44,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   superadmin: "Super Admin",
   partner_admin: "Partner Admin",
   partner_manager: "Partner Manager",
+  org_manager: "Organization Manager",
   oem_teleoperator: "OEM Teleoperator",
   location_owner: "Location Owner",
   location_cleaner: "Location Cleaner",
@@ -53,6 +56,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   superadmin: "SuperVolcano internal - full system access",
   partner_admin: "OEM partner admin - manages partner organization",
   partner_manager: "OEM company manager - assigns robot tests",
+  org_manager: "Organization manager - manages organization (legacy role)",
   oem_teleoperator: "OEM worker - operates robots remotely",
   location_owner: "Property manager - assigns cleaning tasks",
   location_cleaner: "Cleaning worker - performs cleaning",
