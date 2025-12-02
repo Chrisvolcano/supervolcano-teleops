@@ -1,179 +1,154 @@
 /**
  * LOCATION STRUCTURE API
- * Fixed version - no orderBy to avoid index issues
- * Last updated: 2025-11-26
+ * Save/update location floor/room/target/action hierarchy
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { sql } from '@/lib/db/postgres';
+import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
-export async function GET(
+export const dynamic = 'force-dynamic';
+
+export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('[GET Structure] Starting request');
-
-    // -----------------------------------------------------------------------
-    // 1. AUTHENTICATION
-    // -----------------------------------------------------------------------
-    const authHeader = request.headers.get('authorization');
+    // Auth check
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error('[GET Structure] No authorization header');
-      return NextResponse.json(
-        { error: 'Unauthorized', hint: 'No authorization token provided' },
-        { status: 401 }
-      );
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+    
+    requireRole(claims, ['superadmin', 'admin', 'partner_admin', 'location_owner']);
 
-    const token = authHeader.split('Bearer ')[1];
+    const locationId = params.id;
+    const body = await request.json();
+    const { floors } = body;
 
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-      console.log('[GET Structure] Authenticated user:', decodedToken.uid);
-    } catch (error: any) {
-      console.error('[GET Structure] Token verification failed:', error.message);
-      return NextResponse.json(
-        { error: 'Unauthorized', hint: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+    console.log(`[Structure] Saving structure for location ${locationId}`);
+    console.log(`[Structure] Floors: ${floors.length}`);
 
-    const { id: locationId } = params;
-    console.log('[GET Structure] Fetching structure for location:', locationId);
+    // Save to Firestore (source of truth)
+    const batch = adminDb.batch();
 
-    // -----------------------------------------------------------------------
-    // 2. FETCH FLOORS (without orderBy to avoid index issues)
-    // -----------------------------------------------------------------------
-    let floorsSnapshot;
-    try {
-      floorsSnapshot = await adminDb
+    // Delete existing structure for this location
+    const existingFloorsSnap = await adminDb
+      .collection('locations')
+      .doc(locationId)
+      .collection('floors')
+      .get();
+    
+    existingFloorsSnap.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+
+    // Save new structure
+    for (const floor of floors) {
+      const floorRef = adminDb
+        .collection('locations')
+        .doc(locationId)
         .collection('floors')
-        .where('location_id', '==', locationId)
-        .get();
+        .doc(floor.id);
       
-      console.log('[GET Structure] Found floors:', floorsSnapshot.docs.length);
-    } catch (error: any) {
-      console.error('[GET Structure] Error fetching floors:', error);
-      throw new Error(`Failed to fetch floors: ${error.message}`);
-    }
-
-    // If no floors, return empty structure
-    if (floorsSnapshot.empty) {
-      console.log('[GET Structure] No floors found, returning empty structure');
-      return NextResponse.json({
-        success: true,
-        structure: { floors: [] },
+      batch.set(floorRef, {
+        name: floor.name,
+        sortOrder: floor.sortOrder,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
+
+      for (const room of floor.rooms) {
+        const roomRef = floorRef.collection('rooms').doc(room.id);
+        
+        batch.set(roomRef, {
+          name: room.name,
+          type: room.type,
+          icon: room.icon,
+          sortOrder: room.sortOrder,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        for (const target of room.targets) {
+          const targetRef = roomRef.collection('targets').doc(target.id);
+          
+          batch.set(targetRef, {
+            name: target.name,
+            icon: target.icon,
+            sortOrder: target.sortOrder,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+          for (const action of target.actions) {
+            const actionRef = targetRef.collection('actions').doc(action.id);
+            
+            batch.set(actionRef, {
+              name: action.name,
+              durationMinutes: action.durationMinutes,
+              sortOrder: action.sortOrder,
+              tools: action.tools || [],
+              instructions: action.instructions || '',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      }
     }
 
-    // -----------------------------------------------------------------------
-    // 3. BUILD HIERARCHY
-    // -----------------------------------------------------------------------
-    const floors = await Promise.all(
-      floorsSnapshot.docs.map(async (floorDoc) => {
-        try {
-          const floorData = floorDoc.data();
+    await batch.commit();
+    console.log(`[Structure] Saved to Firestore`);
 
-          // Fetch rooms
-          const roomsSnapshot = await adminDb
-            .collection('rooms')
-            .where('floor_id', '==', floorDoc.id)
-            .get();
+    // Also sync to SQL for Robot Intelligence queries
+    // (This is simplified - you may want to expand)
+    try {
+      for (const floor of floors) {
+        await sql.query(
+          `INSERT INTO location_floors (id, location_id, name, sort_order, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             sort_order = EXCLUDED.sort_order,
+             updated_at = NOW()`,
+          [floor.id, locationId, floor.name, floor.sortOrder]
+        );
 
-          const rooms = await Promise.all(
-            roomsSnapshot.docs.map(async (roomDoc) => {
-              const roomData = roomDoc.data();
-
-              // Fetch targets
-              const targetsSnapshot = await adminDb
-                .collection('targets')
-                .where('room_id', '==', roomDoc.id)
-                .get();
-
-              const targets = await Promise.all(
-                targetsSnapshot.docs.map(async (targetDoc) => {
-                  const targetData = targetDoc.data();
-
-                  // Fetch actions
-                  const actionsSnapshot = await adminDb
-                    .collection('actions')
-                    .where('target_id', '==', targetDoc.id)
-                    .get();
-
-                  const actions = await Promise.all(
-                    actionsSnapshot.docs.map(async (actionDoc) => {
-                      const actionData = actionDoc.data();
-
-                      // Fetch tools
-                      const toolsSnapshot = await adminDb
-                        .collection('tools')
-                        .where('action_id', '==', actionDoc.id)
-                        .get();
-
-                      const tools = toolsSnapshot.docs.map(toolDoc => ({
-                        id: toolDoc.id,
-                        ...toolDoc.data(),
-                      }));
-
-                      return {
-                        id: actionDoc.id,
-                        ...actionData,
-                        tools,
-                      };
-                    })
-                  );
-
-                  return {
-                    id: targetDoc.id,
-                    ...targetData,
-                    actions,
-                  };
-                })
-              );
-
-              return {
-                id: roomDoc.id,
-                ...roomData,
-                targets,
-              };
-            })
+        for (const room of floor.rooms) {
+          await sql.query(
+            `INSERT INTO location_rooms (id, location_id, floor_id, custom_name, sort_order, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+             ON CONFLICT (id) DO UPDATE SET
+               custom_name = EXCLUDED.custom_name,
+               sort_order = EXCLUDED.sort_order,
+               updated_at = NOW()`,
+            [room.id, locationId, floor.id, room.name, room.sortOrder]
           );
-
-          return {
-            id: floorDoc.id,
-            ...floorData,
-            rooms,
-          };
-        } catch (error: any) {
-          console.error('[GET Structure] Error building floor hierarchy:', error);
-          throw error;
         }
-      })
-    );
+      }
+      console.log(`[Structure] Synced to SQL`);
+    } catch (sqlError) {
+      console.error(`[Structure] SQL sync failed:`, sqlError);
+      // Don't fail the request - Firestore is source of truth
+    }
 
-    // Sort floors by floor_number client-side
-    floors.sort((a: any, b: any) => (a.floor_number || 0) - (b.floor_number || 0));
-
-    console.log('[GET Structure] Successfully built structure with', floors.length, 'floors');
-    
     return NextResponse.json({
       success: true,
-      structure: { floors },
+      message: 'Structure saved',
+      floors: floors.length,
     });
 
   } catch (error: any) {
-    console.error('[GET Structure] Error:', error);
-    console.error('[GET Structure] Stack:', error.stack);
-    
+    console.error('[Structure] Error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch structure',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      },
+      { error: error.message || 'Failed to save structure' },
       { status: 500 }
     );
   }

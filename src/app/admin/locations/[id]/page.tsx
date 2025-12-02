@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users, Film } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import LocationStructureTab from '@/components/admin/LocationStructureTab';
 import LocationTasksTab from '@/components/admin/LocationTasksTab';
 import LocationAssignmentsTab from '@/components/admin/LocationAssignmentsTab';
 import LocationMediaTab from '@/components/locations/LocationMediaTab';
+import { LocationWizard } from '@/components/location-builder/LocationWizard';
 
 type Tab = 'structure' | 'assignments' | 'tasks' | 'media' | 'settings';
 
@@ -21,6 +22,18 @@ export default function AdminLocationDetailPage() {
   const [location, setLocation] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<Tab>('structure');
   const [loading, setLoading] = useState(true);
+  const [showWizard, setShowWizard] = useState(false);
+
+  const hasExistingStructure = useMemo(() => {
+    return location?.floors?.length > 0 || location?.rooms?.length > 0;
+  }, [location]);
+
+  useEffect(() => {
+    if (location && !hasExistingStructure && !showWizard) {
+      setShowWizard(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, hasExistingStructure]);
 
   const loadLocation = useCallback(async () => {
     try {
@@ -158,9 +171,32 @@ export default function AdminLocationDetailPage() {
 
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {activeTab === 'structure' && (
-          <LocationStructureTab locationId={locationId} />
-        )}
+        {activeTab === 'structure' && showWizard ? (
+          <LocationWizard
+            locationId={locationId}
+            locationName={location.name}
+            locationAddress={location.address || 'No address'}
+            onComplete={() => {
+              setShowWizard(false);
+              loadLocation(); // Reload to show new structure
+            }}
+            onSwitchToManual={() => setShowWizard(false)}
+          />
+        ) : activeTab === 'structure' ? (
+          <>
+            {!hasExistingStructure && (
+              <div className="mb-4 text-center">
+                <button
+                  onClick={() => setShowWizard(true)}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Run setup wizard →
+                </button>
+              </div>
+            )}
+            <LocationStructureTab locationId={locationId} />
+          </>
+        ) : null}
         {activeTab === 'assignments' && (
           <LocationAssignmentsTab
             locationId={locationId}
