@@ -89,7 +89,7 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
         throw new Error(data.error || data.hint || 'Failed to load structure');
       }
 
-      setStructure(data.structure);
+      setStructure(data.floors);
       console.log('[LoadStructure] Loaded structure successfully');
 
     } catch (error: any) {
@@ -350,7 +350,7 @@ export default function LocationStructureTab({ locationId }: LocationStructureTa
         </button>
       </div>
 
-      {structure?.floors?.map((floor: any) => (
+      {structure?.map((floor: any) => (
         <FloorCard
           key={floor.id}
           floor={floor}
