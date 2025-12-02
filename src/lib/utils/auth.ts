@@ -4,7 +4,15 @@
  */
 
 import { adminAuth } from "@/lib/firebaseAdmin";
-import type { UserRole, UserClaims } from "@/lib/types";
+import type { UserRole } from "@/types/user.types";
+
+// UserClaims interface for authentication utilities
+export interface UserClaims {
+  role: UserRole;
+  partnerId?: string;
+  teleoperatorId?: string;
+  organizationId?: string;
+}
 
 /**
  * Get user claims from Firebase Auth token
@@ -55,20 +63,20 @@ export async function getUserClaims(token: string): Promise<UserClaims | null> {
  * Require specific role(s)
  * Throws error if user doesn't have required role
  */
-export function requireRole(claims: UserClaims | null, requiredRole: UserRole | UserRole[]): void {
+export function requireRole(claims: UserClaims | null, allowedRoles: UserRole | UserRole[]): void {
   if (!claims) {
     throw new Error("Unauthorized: No authentication claims");
   }
 
-  const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
   
   // Superadmin has access to everything
   if (claims.role === "superadmin") {
     return;
   }
   
-  if (!allowedRoles.includes(claims.role)) {
-    const rolesStr = allowedRoles.join(" or ");
+  if (!roles.includes(claims.role)) {
+    const rolesStr = roles.join(" or ");
     throw new Error(`Unauthorized: Requires ${rolesStr} role`);
   }
 }
