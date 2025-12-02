@@ -19,13 +19,15 @@ export function ReviewStep({ wizard, onComplete }: ReviewStepProps) {
   const stats = getStats();
 
   const handleComplete = async () => {
+    console.log('[ReviewStep] Complete Setup clicked');
     try {
+      console.log('[ReviewStep] Saving...');
       await handleSave();
-      // Navigate to completion step instead of calling onComplete directly
+      console.log('[ReviewStep] Save complete, navigating to completion');
       goToStep('completion');
+      console.log('[ReviewStep] goToStep called');
     } catch (error) {
-      console.error('Failed to save:', error);
-      // Could show error toast or message here
+      console.error('[ReviewStep] Failed to save:', error);
     }
   };
 
