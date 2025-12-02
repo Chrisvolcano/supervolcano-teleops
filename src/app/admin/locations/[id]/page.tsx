@@ -24,20 +24,11 @@ export default function AdminLocationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardCompleted, setWizardCompleted] = useState(false);
+  const [structureChecked, setStructureChecked] = useState(false);
 
   const hasExistingStructure = useMemo(() => {
     return location?.floors?.length > 0 || location?.rooms?.length > 0;
   }, [location]);
-
-  useEffect(() => {
-    // Don't re-open wizard if user already completed it
-    if (wizardCompleted) return;
-    
-    if (location && !hasExistingStructure && !showWizard) {
-      setShowWizard(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, hasExistingStructure, showWizard, wizardCompleted]);
 
   const loadLocation = useCallback(async () => {
     try {
@@ -65,12 +56,42 @@ export default function AdminLocationDetailPage() {
     }
   }, [loadLocation, locationId]);
 
-  if (loading) {
+  // Check structure exists before deciding to show wizard
+  useEffect(() => {
+    const checkStructure = async () => {
+      if (!location?.id) return;
+
+      try {
+        const token = await getIdToken();
+        if (!token) return;
+
+        const response = await fetch(`/api/admin/locations/${location.id}/structure`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await response.json();
+        console.log('[StructureCheck] hasStructure:', data.hasStructure);
+
+        // Only show wizard if structure is actually empty
+        if (!data.hasStructure && !wizardCompleted) {
+          setShowWizard(true);
+        }
+        setStructureChecked(true);
+      } catch (error) {
+        console.error('[StructureCheck] Error:', error);
+        setStructureChecked(true);
+      }
+    };
+
+    checkStructure();
+  }, [location?.id, wizardCompleted, getIdToken]);
+
+  if (loading || !structureChecked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
-          <p className="mt-4 text-gray-600">Loading location...</p>
+          <p className="mt-4 text-gray-500">Loading location...</p>
         </div>
       </div>
     );
