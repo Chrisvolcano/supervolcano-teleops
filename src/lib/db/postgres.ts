@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import { neon, Pool } from '@neondatabase/serverless';
 
 const databaseUrl = process.env.POSTGRES_URL 
   || process.env.svdb_POSTGRES_URL 
@@ -10,7 +10,11 @@ if (!databaseUrl) {
 
 console.log('[DB] Connecting to:', databaseUrl.split('@')[1]?.split('/')[0] || 'unknown host');
 
+// For tagged template literals (sql`SELECT ...`)
 const neonSql = neon(databaseUrl);
+
+// For raw query strings (sql.query("SELECT ...", [params]))
+const pool = new Pool({ connectionString: databaseUrl });
 
 export const sql = Object.assign(
   async (strings: TemplateStringsArray, ...values: any[]) => {
@@ -22,10 +26,10 @@ export const sql = Object.assign(
   },
   {
     query: async (queryText: string, params?: any[]) => {
-      const result = await neonSql(queryText, params || []);
+      const result = await pool.query(queryText, params);
       return {
-        rows: result,
-        rowCount: result.length,
+        rows: result.rows,
+        rowCount: result.rowCount || result.rows.length,
       };
     }
   }
