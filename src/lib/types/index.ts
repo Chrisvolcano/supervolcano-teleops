@@ -327,7 +327,7 @@ export interface TaskCompletion {
 // AUTH & PERMISSIONS
 // ============================================================================
 
-export type UserRole = "superadmin" | "admin" | "partner_admin" | "org_manager" | "teleoperator";
+export type UserRole = "superadmin" | "admin" | "partner_admin" | "org_manager" | "oem_teleoperator";
 
 export interface UserClaims {
   role: UserRole;
@@ -355,7 +355,7 @@ export type TimestampLike =
 // Legacy property types (renamed to locations in new system)
 export type PropertyStatus = "scheduled" | "unassigned";
 
-export type TaskAssignment = "teleoperator" | "human";
+export type TaskAssignment = "oem_teleoperator" | "human";
 
 export type TaskDifficulty = "easy" | "mid" | "high";
 

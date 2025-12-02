@@ -473,7 +473,7 @@ export default function OrgDashboardPage() {
           }
 
           // Load locations for teleoperators
-          if (userData.role === "teleoperator") {
+          if (userData.role === "oem_teleoperator") {
             const locationsResponse = await fetch(`/api/v1/locations?organizationId=${claims.organizationId}`, {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -552,7 +552,7 @@ export default function OrgDashboardPage() {
   }
 
   const isManager = currentUser?.role === "org_manager";
-  const isTeleoperator = currentUser?.role === "teleoperator";
+  const isTeleoperator = currentUser?.role === "oem_teleoperator";
 
   return (
     <div className="p-8">

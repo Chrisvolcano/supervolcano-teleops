@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TaskState, TASK_STATES } from "@/lib/taskMachine";
 
-export type TaskAssignment = "teleoperator" | "human";
+export type TaskAssignment = "oem_teleoperator" | "human";
 
 export type TaskTemplateOption = {
   id: string;
@@ -52,7 +52,7 @@ const defaultValues: TaskFormData = {
   type: "general",
   duration: 60,
   priority: "medium",
-  assignment: "teleoperator",
+  assignment: "oem_teleoperator",
   status: "scheduled",
   templateId: undefined,
 };
@@ -188,7 +188,7 @@ export function TaskForm({
                   handleChange("assignment", event.target.value as TaskAssignment)
                 }
               >
-                <option value="teleoperator">Teleoperator</option>
+                <option value="oem_teleoperator">Teleoperator</option>
                 <option value="human">Human Cleaner</option>
               </select>
             </div>

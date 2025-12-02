@@ -182,9 +182,9 @@ function normalize(id: string, data: Record<string, unknown>): SVTask {
         : undefined,
     name: typeof data.name === "string" ? data.name : "Untitled task",
     assignment:
-      data.assignment === "teleoperator" || data.assignment === "human"
+      data.assignment === "oem_teleoperator" || data.assignment === "human"
         ? (data.assignment as TaskAssignment)
-        : "teleoperator",
+        : "oem_teleoperator",
     status:
       data.status === "scheduled" ||
       data.status === "available" ||

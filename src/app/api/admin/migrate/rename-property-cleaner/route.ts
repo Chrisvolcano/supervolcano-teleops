@@ -18,7 +18,7 @@ export async function GET() {
     // Find all users with property_cleaner role
     const usersSnapshot = await adminDb
       .collection('users')
-      .where('role', '==', 'property_cleaner')
+      .where('role', '==', 'location_cleaner')
       .get();
 
     stats.usersAnalyzed = usersSnapshot.size;

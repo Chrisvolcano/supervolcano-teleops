@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export function OrgHeader() {
   const { user, claims, logout } = useAuth();
-  const role = (claims?.role as string | undefined) ?? "teleoperator";
+  const role = (claims?.role as string | undefined) ?? "oem_teleoperator";
   const organizationName = (claims?.organizationName as string | undefined) || "Organization";
 
   return (

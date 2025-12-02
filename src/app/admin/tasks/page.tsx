@@ -23,7 +23,7 @@ import { formatDateTime } from "@/lib/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const difficultyOptions = ["all", "easy", "mid", "high"] as const;
-const assignmentOptions = ["all", "teleoperator", "human"] as const;
+const assignmentOptions = ["all", "oem_teleoperator", "human"] as const;
 
 type DifficultyFilter = (typeof difficultyOptions)[number];
 type AssignmentFilter = (typeof assignmentOptions)[number];
@@ -42,7 +42,7 @@ export default function AdminTasksPage() {
         name: doc.name ?? doc.title ?? "Untitled task",
         locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         templateId: doc.templateId ?? undefined,
         partnerOrgId: doc.partnerOrgId ?? doc.partner_org_id ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
@@ -88,7 +88,7 @@ export default function AdminTasksPage() {
   );
 
   const teleopCompletedTasks = useMemo(
-    () => tasks.filter((task) => task.assignment === "teleoperator" && task.status === "completed"),
+    () => tasks.filter((task) => task.assignment === "oem_teleoperator" && task.status === "completed"),
     [tasks],
   );
 

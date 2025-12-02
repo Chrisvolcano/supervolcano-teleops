@@ -29,7 +29,7 @@ export default function LoginPage() {
     const role = claims?.role as string | undefined;
     if (role === "superadmin" || role === "partner_admin" || role === "admin") {
       return "/admin";
-    } else if (role === "org_manager" || role === "teleoperator") {
+    } else if (role === "org_manager" || role === "oem_teleoperator") {
       return "/org/dashboard";
     }
     return "/properties";

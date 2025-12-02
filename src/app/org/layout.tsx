@@ -60,7 +60,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
       const role = claims.role as string;
 
       // Check if user has organization access
-      if (role !== "org_manager" && role !== "teleoperator") {
+      if (role !== "org_manager" && role !== "oem_teleoperator") {
         // Redirect admins to admin portal
         if (role === "superadmin" || role === "admin" || role === "partner_admin") {
           router.push("/admin");
@@ -121,7 +121,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
   }
 
   const isManager = currentUser.role === "org_manager";
-  const isTeleoperator = currentUser.role === "teleoperator";
+  const isTeleoperator = currentUser.role === "oem_teleoperator";
 
   return (
     <ErrorBoundary>

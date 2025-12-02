@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     console.log("[api] GET /api/v1/locations - Claims:", { role: claims.role, partnerId: claims.partnerId });
 
     // Check permissions
-    requireRole(claims, ["partner_admin", "org_manager", "teleoperator"]); // partner_admin, org_manager, teleoperator, or superadmin can list
+    requireRole(claims, ["partner_admin", "org_manager", "oem_teleoperator"]); // partner_admin, org_manager, teleoperator, or superadmin can list
 
     // Get query params
     const { searchParams } = new URL(request.url);

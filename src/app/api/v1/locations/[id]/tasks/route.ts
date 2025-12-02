@@ -28,10 +28,10 @@ export async function GET(
     }
 
     // Allow org_manager, teleoperator, and admins
-    requireRole(claims, ["superadmin", "admin", "partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["superadmin", "admin", "partner_admin", "org_manager", "oem_teleoperator"]);
 
     // For org_manager and teleoperator, verify they have access to this location's organization
-    if (claims.role === "org_manager" || claims.role === "teleoperator") {
+    if (claims.role === "org_manager" || claims.role === "oem_teleoperator") {
       const { getLocation } = await import("@/lib/repositories/locations");
       const location = await getLocation(locationId);
       if (!location) {
@@ -118,7 +118,7 @@ export async function POST(
       );
     }
 
-    if (!["teleoperator", "human", "unassigned"].includes(assignmentType)) {
+    if (!["oem_teleoperator", "human", "unassigned"].includes(assignmentType)) {
       return NextResponse.json(
         { error: "Invalid assignment type" },
         { status: 400 },

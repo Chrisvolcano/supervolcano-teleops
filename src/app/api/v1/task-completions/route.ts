@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "oem_teleoperator"]);
 
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId");
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     if (teleoperatorId) {
       query = query.where("teleoperatorId", "==", teleoperatorId);
-    } else if (claims.role === "teleoperator" && claims.teleoperatorId) {
+    } else if (claims.role === "oem_teleoperator" && claims.teleoperatorId) {
       // Filter by current teleoperator if not specified
       query = query.where("teleoperatorId", "==", claims.teleoperatorId);
     }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only teleoperators can create completions
-    if (claims.role !== "teleoperator") {
+    if (claims.role !== "oem_teleoperator") {
       return NextResponse.json({ error: "Only teleoperators can mark tasks complete" }, { status: 403 });
     }
 

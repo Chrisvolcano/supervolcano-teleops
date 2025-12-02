@@ -110,7 +110,7 @@ export async function getAdminDashboardData(): Promise<{
         }
         return allTasks;
       }),
-      adminDb.collection('users').where('role', '==', 'teleoperator').get(),
+      adminDb.collection('users').where('role', '==', 'oem_teleoperator').get(),
       adminDb.collection('taskCompletions')
         .where('completedAt', '>=', admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
         .get(),

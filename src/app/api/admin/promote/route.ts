@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Validate organization-based roles
-  if ((role === "org_manager" || role === "teleoperator") && !organizationId) {
+  if ((role === "org_manager" || role === "oem_teleoperator") && !organizationId) {
     return NextResponse.json(
       { error: `Missing required field: organizationId (required for ${role} role)` },
       { status: 400 },

@@ -25,10 +25,10 @@ export async function GET(
     }
 
     // Allow org_manager, teleoperator, and admins
-    requireRole(claims, ["superadmin", "admin", "partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["superadmin", "admin", "partner_admin", "org_manager", "oem_teleoperator"]);
 
     // Verify user has access to this organization
-    if (claims.role === "org_manager" || claims.role === "teleoperator") {
+    if (claims.role === "org_manager" || claims.role === "oem_teleoperator") {
       if (claims.organizationId !== organizationId) {
         return NextResponse.json({ error: "Access denied to this organization" }, { status: 403 });
       }

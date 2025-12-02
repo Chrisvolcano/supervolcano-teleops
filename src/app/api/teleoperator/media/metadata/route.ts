@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       fileSize: fileSize || 0,
       mimeType: mimeType || 'video/mp4',
       durationSeconds: durationSeconds || null,
-      uploadedBy: 'teleoperator', // Mobile app upload
+      uploadedBy: 'oem_teleoperator', // Mobile app upload
       uploadedAt: new Date(),
       createdAt: new Date(),
       processingStatus: 'completed',

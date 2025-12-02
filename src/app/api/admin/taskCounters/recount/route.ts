@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       completedHuman: 0,
     };
 
-    if (data.assigned_to === "teleoperator") {
+    if (data.assigned_to === "oem_teleoperator") {
       entry.assignedTeleop += 1;
       if (data.status === "completed") {
         entry.completedTeleop += 1;

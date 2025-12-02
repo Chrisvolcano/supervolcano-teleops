@@ -56,7 +56,7 @@ export default function PropertiesPage() {
         ? [{ field: "partnerOrgId", value: partnerOrgId }]
         : []),
       ...(!isAdmin
-        ? [{ field: "assigned_to", value: "teleoperator" }]
+        ? [{ field: "assigned_to", value: "oem_teleoperator" }]
         : []),
     ],
     orderByField: { field: "updatedAt", direction: "desc" },
@@ -66,7 +66,7 @@ export default function PropertiesPage() {
         name: doc.name ?? doc.title ?? "Untitled task",
         locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         duration: doc.duration ?? undefined,
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
@@ -75,7 +75,7 @@ export default function PropertiesPage() {
       }) as PortalTask,
   });
 
-  const teleopTasks = useMemo(() => tasks.filter((task) => task.assignment === "teleoperator"), [tasks]);
+  const teleopTasks = useMemo(() => tasks.filter((task) => task.assignment === "oem_teleoperator"), [tasks]);
 
   const propertyIdsByTaskQuery = useMemo(() => {
     const query = searchValue.trim().toLowerCase();

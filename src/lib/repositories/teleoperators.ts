@@ -33,13 +33,13 @@ function generateRandomPassword(): string {
  */
 export async function createTeleoperator(
   data: Omit<Teleoperator, "teleoperatorId" | "uid" | "createdAt" | "tasksCompleted" | "hoursWorked"> & {
-    role?: "org_manager" | "teleoperator"; // Optional role, defaults to teleoperator
+    role?: "org_manager" | "oem_teleoperator"; // Optional role, defaults to teleoperator
   },
   createdBy: string,
 ): Promise<{ teleoperatorId: string; uid: string; password: string }> {
   const teleoperatorId = randomUUID();
   const now = new Date();
-  const role: UserRole = data.role || "teleoperator";
+  const role: UserRole = data.role || "oem_teleoperator";
   const tempPassword = generateRandomPassword();
 
   // Create Firebase Auth user first
@@ -62,7 +62,7 @@ export async function createTeleoperator(
     };
 
     // Only set teleoperatorId for teleoperators
-    if (role === "teleoperator") {
+    if (role === "oem_teleoperator") {
       customClaims.teleoperatorId = teleoperatorId;
     }
 
@@ -88,7 +88,7 @@ export async function createTeleoperator(
         organizationId: data.organizationId,
       };
 
-      if (role === "teleoperator") {
+      if (role === "oem_teleoperator") {
         customClaims.teleoperatorId = teleoperatorId;
       }
 
@@ -133,7 +133,7 @@ export async function createTeleoperator(
     role: role,
     partnerId: data.partnerOrgId,
     organizationId: data.organizationId,
-    teleoperatorId: role === "teleoperator" ? teleoperatorId : null,
+    teleoperatorId: role === "oem_teleoperator" ? teleoperatorId : null,
     createdAt: FieldValue.serverTimestamp(),
   });
 

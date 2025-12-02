@@ -64,8 +64,8 @@ export function TaskTemplatesTable({
                 </Badge>
               </TableCell>
               <TableCell>
-                <Badge variant={template.defaultAssignedTo === "teleoperator" ? "default" : "secondary"}>
-                  {template.defaultAssignedTo === "teleoperator" ? "Teleoperator" : "Human"}
+                <Badge variant={template.defaultAssignedTo === "oem_teleoperator" ? "default" : "secondary"}>
+                  {template.defaultAssignedTo === "oem_teleoperator" ? "Teleoperator" : "Human"}
                 </Badge>
               </TableCell>
               <TableCell className="text-center text-sm font-medium">

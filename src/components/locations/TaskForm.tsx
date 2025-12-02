@@ -153,7 +153,7 @@ export function TaskForm({
     if (formData.estimatedDuration <= 0) {
       newErrors.estimatedDuration = "Duration must be greater than 0";
     }
-    if (formData.assignmentType === "teleoperator" && !formData.assignedTeleoperatorId) {
+    if (formData.assignmentType === "oem_teleoperator" && !formData.assignedTeleoperatorId) {
       newErrors.assignedTeleoperatorId = "Please select a teleoperator";
     }
     if (formData.assignmentType === "human" && !formData.assignedHumanName?.trim()) {
@@ -180,7 +180,7 @@ export function TaskForm({
       setErrors({});
 
       // Set teleoperator name if teleoperator is selected
-      if (formData.assignmentType === "teleoperator" && formData.assignedTeleoperatorId) {
+      if (formData.assignmentType === "oem_teleoperator" && formData.assignedTeleoperatorId) {
         const teleoperator = teleoperators.find(
           (t) => t.teleoperatorId === formData.assignedTeleoperatorId,
         );
@@ -358,8 +358,8 @@ export function TaskForm({
                   <input
                     type="radio"
                     name="assignmentType"
-                    value="teleoperator"
-                    checked={formData.assignmentType === "teleoperator"}
+                    value="oem_teleoperator"
+                    checked={formData.assignmentType === "oem_teleoperator"}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -388,7 +388,7 @@ export function TaskForm({
                 </label>
               </div>
 
-              {formData.assignmentType === "teleoperator" && (
+              {formData.assignmentType === "oem_teleoperator" && (
                 <div>
                   <Label htmlFor="assignedTeleoperatorId">
                     Select Teleoperator <span className="text-red-500">*</span>

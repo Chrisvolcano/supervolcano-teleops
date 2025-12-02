@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     const claims = await getUserClaims(token);
-    if (!claims || claims.role !== "teleoperator") {
+    if (!claims || claims.role !== "oem_teleoperator") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

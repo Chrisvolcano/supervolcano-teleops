@@ -58,7 +58,7 @@ export function TaskSection({
   };
 
   const getAssignmentDisplay = () => {
-    if (task.assignmentType === "teleoperator" && task.assignedTeleoperatorName) {
+    if (task.assignmentType === "oem_teleoperator" && task.assignedTeleoperatorName) {
       return (
         <span className="font-medium">
           🤖 {task.assignedTeleoperatorName} <span className="text-gray-500">(Teleoperator)</span>

@@ -26,7 +26,7 @@ type TaskDoc = {
   locationId: string;
   partnerOrgId: string;
   status: TaskState;
-  assignment: "teleoperator" | "human";
+  assignment: "oem_teleoperator" | "human";
   duration?: number;
   scheduledAt?: string;
   assignedToUserId?: string | null;
@@ -70,7 +70,7 @@ export default function TaskDetailPage() {
         locationId: doc.locationId ?? doc.propertyId,
         partnerOrgId: doc.partnerOrgId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         duration: doc.duration ?? undefined,
         scheduledAt: doc.scheduledAt ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
@@ -169,8 +169,8 @@ export default function TaskDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold text-neutral-900">{task.name}</h1>
               <Badge>{task.status}</Badge>
-              <Badge variant={task.assignment === "teleoperator" ? "default" : "secondary"}>
-                {task.assignment === "teleoperator" ? "Teleoperator" : "Human"}
+              <Badge variant={task.assignment === "oem_teleoperator" ? "default" : "secondary"}>
+                {task.assignment === "oem_teleoperator" ? "Teleoperator" : "Human"}
               </Badge>
               {task.priority && <Badge variant="secondary">Priority: {task.priority}</Badge>}
             </div>
@@ -230,7 +230,7 @@ export default function TaskDetailPage() {
                 variant="outline"
                 disabled={
                   !task ||
-                  task.assignment !== "teleoperator" ||
+                  task.assignment !== "oem_teleoperator" ||
                   (!isAdmin && !["in_progress", "completed", "claimed"].includes(state))
                 }
                 onClick={() => transitionTask(state as TaskState)}

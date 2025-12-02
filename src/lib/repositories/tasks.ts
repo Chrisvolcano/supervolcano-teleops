@@ -172,7 +172,7 @@ export async function getTasksForTeleoperator(
     .collection(COLLECTION)
     .doc(locationId)
     .collection(SUBCOLLECTION)
-    .where("assignmentType", "==", "teleoperator")
+    .where("assignmentType", "==", "oem_teleoperator")
     .where("assignedTeleoperatorId", "==", teleoperatorId)
     .where("status", "==", "active")
     .orderBy("priority", "desc")

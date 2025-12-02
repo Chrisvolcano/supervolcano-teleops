@@ -116,7 +116,7 @@ export default function TeleoperatorLocationDetailPage() {
 
   useEffect(() => {
     if (user && claims) {
-      if (claims.role !== "teleoperator") {
+      if (claims.role !== "oem_teleoperator") {
         router.push("/no-access");
         return;
       }

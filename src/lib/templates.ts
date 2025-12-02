@@ -4,7 +4,7 @@ import { firestore } from "@/lib/firebaseClient";
 import type { TaskAssignment } from "@/components/TaskForm";
 
 function getAssignmentField(prefix: "assigned" | "completed", assignment: TaskAssignment) {
-  return assignment === "teleoperator"
+  return assignment === "oem_teleoperator"
     ? `stats.${prefix}Teleop`
     : `stats.${prefix}Human`;
 }

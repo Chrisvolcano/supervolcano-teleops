@@ -160,7 +160,7 @@ export default function PropertyDetailPage() {
     whereEqual: [
       { field: "locationId", value: propertyId },
       ...(!isAdmin
-        ? [{ field: "assigned_to", value: "teleoperator" }]
+        ? [{ field: "assigned_to", value: "oem_teleoperator" }]
         : []),
       ...(partnerOrgIdClaim && !isAdmin
         ? [{ field: "partnerOrgId", value: partnerOrgIdClaim }]
@@ -173,7 +173,7 @@ export default function PropertyDetailPage() {
         name: doc.name ?? doc.title ?? "Untitled task",
         locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         duration: doc.duration ?? undefined,
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,

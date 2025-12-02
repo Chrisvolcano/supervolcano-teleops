@@ -6,7 +6,7 @@
 
 export type TaskCategory = "cleaning" | "maintenance" | "inspection" | "delivery" | "security";
 export type TaskPriority = 1 | 2 | 3 | 4 | 5;
-export type TaskAssignmentType = "teleoperator" | "human" | "unassigned";
+export type TaskAssignmentType = "oem_teleoperator" | "human" | "unassigned";
 export type TaskStatus = "active" | "draft" | "archived";
 
 export interface Task {
@@ -20,7 +20,7 @@ export interface Task {
   
   // Assignment - CRITICAL
   assignmentType: TaskAssignmentType;
-  assignedTeleoperatorId?: string; // If assignmentType === 'teleoperator'
+  assignedTeleoperatorId?: string; // If assignmentType === 'oem_teleoperator'
   assignedTeleoperatorName?: string; // Denormalized for display
   assignedHumanName?: string; // If assignmentType === 'human'
   

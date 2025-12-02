@@ -42,7 +42,7 @@ export default function OperatorTasksPage() {
     enabled: Boolean(user),
     whereEqual: [
       ...(partnerOrgId && !isAdmin ? [{ field: "partnerOrgId", value: partnerOrgId }] : []),
-      ...(!isAdmin ? [{ field: "assigned_to", value: "teleoperator" }] : []),
+      ...(!isAdmin ? [{ field: "assigned_to", value: "oem_teleoperator" }] : []),
     ],
     orderByField: { field: "updatedAt", direction: "desc" },
     parse: (doc) =>
@@ -51,7 +51,7 @@ export default function OperatorTasksPage() {
         name: doc.name ?? doc.title ?? "Untitled task",
         locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         duration: doc.duration ?? undefined,
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,

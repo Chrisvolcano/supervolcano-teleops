@@ -51,7 +51,7 @@ export default function OrgTasksPage() {
           const allCompletions = dashboardData.data?.recentCompletions || [];
 
           // Filter based on role
-          if (userData?.role === "teleoperator") {
+          if (userData?.role === "oem_teleoperator") {
             // Teleoperators only see their own completions
             setCompletions(
               allCompletions.filter((c: any) => c.teleoperatorId === userData.teleoperatorId),

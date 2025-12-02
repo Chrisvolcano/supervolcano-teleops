@@ -50,7 +50,7 @@ export default function OrgLocationDetailPage() {
           setCurrentUser(userData);
 
           // Load today's session at this location (if exists) for teleoperators
-          if (userData.role === "teleoperator" && userData.teleoperatorId) {
+          if (userData.role === "oem_teleoperator" && userData.teleoperatorId) {
             const sessionResponse = await fetch(
               `/api/v1/sessions?today=true&teleoperatorId=${userData.teleoperatorId}&locationId=${locationId}`,
               {
@@ -224,7 +224,7 @@ export default function OrgLocationDetailPage() {
       const newCount = currentCount + 1;
 
       // Reload today's session and completions to show updated stats
-      if (userData.role === "teleoperator" && userData.teleoperatorId) {
+      if (userData.role === "oem_teleoperator" && userData.teleoperatorId) {
         const sessionResponse = await fetch(
           `/api/v1/sessions?today=true&teleoperatorId=${userData.teleoperatorId}&locationId=${locationId}`,
           {
@@ -370,7 +370,7 @@ export default function OrgLocationDetailPage() {
 
   if (!location) return null;
 
-  const isTeleoperator = currentUser?.role === "teleoperator";
+  const isTeleoperator = currentUser?.role === "oem_teleoperator";
 
   // Filter tasks based on completion status
   const allTasks = location.tasks || [];

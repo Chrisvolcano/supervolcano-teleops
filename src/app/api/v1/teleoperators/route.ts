@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         currentStatus: currentStatus || "offline",
         certifications: certifications || [],
         robotTypesQualified: robotTypesQualified || [],
-        role: role || "teleoperator", // Default to teleoperator if not specified
+        role: role || "oem_teleoperator", // Default to teleoperator if not specified
       },
       createdBy,
     );

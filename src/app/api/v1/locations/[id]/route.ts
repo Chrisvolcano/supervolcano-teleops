@@ -32,7 +32,7 @@ export async function GET(
     }
 
     // Check permissions
-    requireRole(claims, ["partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["partner_admin", "org_manager", "oem_teleoperator"]);
 
     const locationId = params.id;
     const location = await getLocation(locationId);
@@ -41,7 +41,7 @@ export async function GET(
     }
 
     // If org_manager or teleoperator, verify they have access to this location's organization
-    if (claims.role === "org_manager" || claims.role === "teleoperator") {
+    if (claims.role === "org_manager" || claims.role === "oem_teleoperator") {
       if (location.assignedOrganizationId !== claims.organizationId) {
         return NextResponse.json({ error: "Cannot view location for other organizations" }, { status: 403 });
       }

@@ -40,14 +40,14 @@ export function TaskTemplateForm({ open, onOpenChange, template, onSubmit, loadi
   const [name, setName] = useState(template?.name ?? "");
   const [difficulty, setDifficulty] = useState<TaskTemplate["difficulty"]>(template?.difficulty ?? "easy");
   const [defaultAssignedTo, setDefaultAssignedTo] = useState<TaskTemplate["defaultAssignedTo"]>(
-    template?.defaultAssignedTo ?? "teleoperator",
+    template?.defaultAssignedTo ?? "oem_teleoperator",
   );
   const [isActive, setIsActive] = useState(template?.isActive ?? true);
 
   useEffect(() => {
     setName(template?.name ?? "");
     setDifficulty(template?.difficulty ?? "easy");
-    setDefaultAssignedTo(template?.defaultAssignedTo ?? "teleoperator");
+    setDefaultAssignedTo(template?.defaultAssignedTo ?? "oem_teleoperator");
     setIsActive(template?.isActive ?? true);
   }, [template, open]);
 
@@ -95,7 +95,7 @@ export function TaskTemplateForm({ open, onOpenChange, template, onSubmit, loadi
           <div className="space-y-2">
             <Label>Default assignment</Label>
             <div className="flex flex-wrap gap-3">
-              {(["teleoperator", "human"] as const).map((assignment) => (
+              {(["oem_teleoperator", "human"] as const).map((assignment) => (
                 <label key={assignment} className="flex items-center gap-2 text-sm text-neutral-600">
                   <input
                     type="radio"
@@ -104,7 +104,7 @@ export function TaskTemplateForm({ open, onOpenChange, template, onSubmit, loadi
                     checked={defaultAssignedTo === assignment}
                     onChange={() => setDefaultAssignedTo(assignment)}
                   />
-                  {assignment === "teleoperator" ? "Teleoperator" : "Human"}
+                  {assignment === "oem_teleoperator" ? "Teleoperator" : "Human"}
                 </label>
               ))}
             </div>

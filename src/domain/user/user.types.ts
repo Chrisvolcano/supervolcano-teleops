@@ -16,10 +16,10 @@ export type UserRole =
   | "partner_admin" // OEM partner admin (legacy/alternative to partner_manager)
   | "partner_manager" // OEM company manager (assigns tests)
   | "org_manager" // Organization manager (legacy role)
-  | "oem_teleoperator" // OEM worker (operates robots remotely)
   // B2C: Property Management
   | "location_owner" // Property owner/manager (assigns cleaning)
-  | "location_cleaner"; // Cleaning worker (performs cleaning)
+  | "location_cleaner" // Cleaning worker (performs cleaning)
+  | "oem_teleoperator"; // OEM worker (operates robots remotely)
 
 // Legacy role removed - migration completed
 

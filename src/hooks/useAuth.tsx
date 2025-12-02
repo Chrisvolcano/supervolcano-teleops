@@ -113,7 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Redirect based on role
         if (role === "superadmin" || role === "partner_admin" || role === "admin") {
           router.replace("/admin");
-        } else if (role === "org_manager" || role === "teleoperator") {
+        } else if (role === "org_manager" || role === "oem_teleoperator") {
           router.replace("/org/dashboard");
         } else {
           // Fallback to properties for other roles or no role

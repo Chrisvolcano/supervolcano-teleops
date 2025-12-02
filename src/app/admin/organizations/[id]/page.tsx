@@ -25,7 +25,7 @@ type DashboardData = {
       completions: TaskCompletion[];
       avgDuration: number;
       successRate: number;
-      role?: "org_manager" | "teleoperator"; // Role from users collection
+      role?: "org_manager" | "oem_teleoperator"; // Role from users collection
     }
   >;
   locations: Array<{
@@ -87,7 +87,7 @@ export default function OrganizationDashboardPage() {
   const [teleoperatorForm, setTeleoperatorForm] = useState({
     email: "",
     displayName: "",
-    role: "teleoperator" as "org_manager" | "teleoperator",
+    role: "oem_teleoperator" as "org_manager" | "oem_teleoperator",
   });
 
   const [orgForm, setOrgForm] = useState({
@@ -229,7 +229,7 @@ export default function OrganizationDashboardPage() {
       );
       
       setShowAddTeleoperator(false);
-      setTeleoperatorForm({ email: "", displayName: "", role: "teleoperator" });
+      setTeleoperatorForm({ email: "", displayName: "", role: "oem_teleoperator" });
 
       // Reload data without changing tab
       await loadData();
@@ -749,8 +749,8 @@ function TeleoperatorsTab({
   organizationName: string;
   showAdd: boolean;
   setShowAdd: (show: boolean) => void;
-  teleoperatorForm: { email: string; displayName: string; role: "org_manager" | "teleoperator" };
-  setTeleoperatorForm: (form: { email: string; displayName: string; role: "org_manager" | "teleoperator" }) => void;
+  teleoperatorForm: { email: string; displayName: string; role: "org_manager" | "oem_teleoperator" };
+  setTeleoperatorForm: (form: { email: string; displayName: string; role: "org_manager" | "oem_teleoperator" }) => void;
   onAdd: () => Promise<void>;
   onDelete: (id: string, name: string) => Promise<void>;
   expandedTeleop: string | null;
@@ -785,7 +785,7 @@ function TeleoperatorsTab({
                     setTeleoperatorForm({ ...teleoperatorForm, role: e.target.value as any })
                   }
                 >
-                  <option value="teleoperator">Teleoperator</option>
+                  <option value="oem_teleoperator">Teleoperator</option>
                   <option value="org_manager">Organization Manager</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
@@ -822,7 +822,7 @@ function TeleoperatorsTab({
                   variant="outline"
                   onClick={() => {
                     setShowAdd(false);
-                    setTeleoperatorForm({ email: "", displayName: "", role: "teleoperator" });
+                    setTeleoperatorForm({ email: "", displayName: "", role: "oem_teleoperator" });
                   }}
                 >
                   Cancel
@@ -861,7 +861,7 @@ function TeleoperatorsTab({
                       >
                         {teleop.role === "org_manager" ? "👔 Manager" : "🤖 Teleoperator"}
                       </Badge>
-                      {teleop.role === "teleoperator" && (
+                      {teleop.role === "oem_teleoperator" && (
                         <Badge
                           variant={
                             teleop.currentStatus === "available"

@@ -13,7 +13,7 @@ export type TaskTemplate = {
   id: string;
   name: string;
   difficulty: "easy" | "mid" | "high";
-  defaultAssignedTo: "teleoperator" | "human";
+  defaultAssignedTo: "oem_teleoperator" | "human";
   stats: TaskTemplateStats;
   isActive: boolean;
 };
@@ -32,7 +32,7 @@ export function useTaskTemplates() {
         id: doc.id,
         name: doc.name ?? "Untitled template",
         difficulty: (doc.difficulty ?? "easy") as TaskTemplate["difficulty"],
-        defaultAssignedTo: (doc.defaultAssignedTo ?? "teleoperator") as TaskTemplate["defaultAssignedTo"],
+        defaultAssignedTo: (doc.defaultAssignedTo ?? "oem_teleoperator") as TaskTemplate["defaultAssignedTo"],
         stats: {
           assignedTeleop: doc.stats?.assignedTeleop ?? 0,
           completedTeleop: doc.stats?.completedTeleop ?? 0,

@@ -24,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "oem_teleoperator"]);
 
     const sessionId = params.id;
     const sessionDoc = await adminDb.collection("sessions").doc(sessionId).get();
@@ -36,7 +36,7 @@ export async function GET(
     const sessionData = sessionDoc.data();
 
     // Check access permissions
-    if (claims.role === "teleoperator") {
+    if (claims.role === "oem_teleoperator") {
       if (sessionData?.teleoperatorId !== claims.teleoperatorId) {
         return NextResponse.json({ error: "Cannot view other teleoperators' sessions" }, { status: 403 });
       }
@@ -70,7 +70,7 @@ export async function PATCH(
     }
 
     // Only teleoperators can update their own sessions
-    if (claims.role !== "teleoperator") {
+    if (claims.role !== "oem_teleoperator") {
       return NextResponse.json({ error: "Only teleoperators can update sessions" }, { status: 403 });
     }
 

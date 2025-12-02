@@ -32,14 +32,14 @@ export default function TeleoperatorLayout({
 
     // Check if user is a teleoperator
     const role = claims?.role as string | undefined;
-    if (role !== "teleoperator") {
+    if (role !== "oem_teleoperator") {
       router.push("/no-access");
       return;
     }
   }, [user, claims, loading, initializing, router, pathname]);
 
   // Show loading state while checking auth
-  if (initializing || loading || !user || claims?.role !== "teleoperator") {
+  if (initializing || loading || !user || claims?.role !== "oem_teleoperator") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

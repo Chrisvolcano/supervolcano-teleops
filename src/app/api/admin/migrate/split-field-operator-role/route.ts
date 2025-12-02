@@ -45,10 +45,10 @@ export async function GET() {
         if (orgId.startsWith("oem:")) {
           newRole = "oem_teleoperator";
         } else if (orgId.startsWith("owner:")) {
-          newRole = "property_cleaner";
+          newRole = "location_cleaner";
         } else {
           // Default to property_cleaner for backward compatibility
-          newRole = "property_cleaner";
+          newRole = "location_cleaner";
           console.warn(
             `  ⚠️  User ${userData.email} has ambiguous orgId: ${orgId}, defaulting to property_cleaner`,
           );

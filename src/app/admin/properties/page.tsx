@@ -216,7 +216,7 @@ export default function AdminPropertiesPage() {
         name: doc.name ?? doc.title ?? "Untitled task",
         locationId: doc.locationId ?? doc.propertyId,
         status: doc.status ?? doc.state ?? "scheduled",
-        assignment: doc.assigned_to ?? "teleoperator",
+        assignment: doc.assigned_to ?? "oem_teleoperator",
         duration: doc.duration ?? undefined,
         priority: doc.priority ?? undefined,
         assignedToUserId: doc.assignedToUserId ?? doc.assigneeId ?? null,
@@ -292,7 +292,7 @@ export default function AdminPropertiesPage() {
   // }, [filteredProperties.length]); // Only depend on length - removed selectedPropertyId to prevent loops
 
   const operatorTaskCount = useMemo(() => {
-    return tasks.filter((task) => task.assignment === "teleoperator").length;
+    return tasks.filter((task) => task.assignment === "oem_teleoperator").length;
   }, [tasks]);
 
   const resetPropertyForm = useCallback(() => {
@@ -1060,8 +1060,8 @@ export default function AdminPropertiesPage() {
                               <TableRow key={task.id}>
                                 <TableCell className="font-medium">{task.name}</TableCell>
                                 <TableCell>
-                                  <Badge variant={task.assignment === "teleoperator" ? "default" : "secondary"}>
-                                    {task.assignment === "teleoperator" ? "Teleoperator" : "Human"}
+                                  <Badge variant={task.assignment === "oem_teleoperator" ? "default" : "secondary"}>
+                                    {task.assignment === "oem_teleoperator" ? "Teleoperator" : "Human"}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>{task.status}</TableCell>

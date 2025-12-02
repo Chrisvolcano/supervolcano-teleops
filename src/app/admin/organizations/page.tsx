@@ -13,7 +13,7 @@ import type { Organization, OrganizationType } from '@/types/organization.types'
 import { OrganizationCard } from '@/components/admin/organizations/OrganizationCard';
 import { CreateOrganizationModal } from '@/components/admin/organizations/CreateOrganizationModal';
 
-type TabType = 'oem_partners' | 'location_owners';
+type TabType = 'oem_partners' | 'location_owner';
 
 export default function OrganizationsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('oem_partners');
@@ -86,9 +86,9 @@ export default function OrganizationsPage() {
               <span className="font-medium">OEM Partners</span>
             </button>
             <button
-              onClick={() => setActiveTab('location_owners')}
+              onClick={() => setActiveTab('location_owner')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeTab === 'location_owners'
+                activeTab === 'location_owner'
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}

@@ -32,7 +32,7 @@ export const taskCompletionSchema = z.object({
 export const userFormSchema = z.object({
   email: z.string().email('Invalid email address'),
   displayName: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
-  role: z.enum(['org_manager', 'teleoperator'])
+  role: z.enum(['org_manager', 'oem_teleoperator'])
 });
 
 export const organizationSchema = z.object({

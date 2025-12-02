@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "teleoperator"]);
+    requireRole(claims, ["superadmin", "partner_admin", "org_manager", "oem_teleoperator"]);
 
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get("organizationId");
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     if (teleoperatorId) {
       filters.teleoperatorId = teleoperatorId;
-    } else if (claims.role === "teleoperator" && claims.teleoperatorId) {
+    } else if (claims.role === "oem_teleoperator" && claims.teleoperatorId) {
       // If no teleoperator specified, filter by current user
       filters.teleoperatorId = claims.teleoperatorId;
     }

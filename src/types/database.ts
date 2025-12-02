@@ -50,7 +50,7 @@
  *   - Records videos and completes cleaning tasks
  *   - Mobile only
  */
-export type UserRole = 'admin' | 'superadmin' | 'partner_admin' | 'partner_manager' | 'org_manager' | 'location_owner' | 'oem_teleoperator' | 'location_cleaner';
+export type UserRole = 'admin' | 'superadmin' | 'partner_admin' | 'partner_manager' | 'org_manager' | 'location_owner' | 'location_cleaner' | 'oem_teleoperator';
 
 /**
  * User entity

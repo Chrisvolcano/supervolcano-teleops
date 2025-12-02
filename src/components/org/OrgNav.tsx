@@ -11,7 +11,7 @@ export function OrgNav() {
   const pathname = usePathname();
   const { claims, loading, initializing } = useAuth();
 
-  const role = (claims?.role as string | undefined) ?? "teleoperator";
+  const role = (claims?.role as string | undefined) ?? "oem_teleoperator";
   const isManager = role === "org_manager";
 
   if (loading || initializing) {

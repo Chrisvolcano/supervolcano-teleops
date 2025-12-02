@@ -68,7 +68,7 @@ export function TaskList({
   return (
     <div className={cn("space-y-3", className)}>
       {tasks.map((task) => {
-        const isTeleoperatorTask = task.assignment === "teleoperator";
+        const isTeleoperatorTask = task.assignment === "oem_teleoperator";
         const canStart =
           isTeleoperatorTask && task.status === "available" && onStartTask;
         const canComplete =
