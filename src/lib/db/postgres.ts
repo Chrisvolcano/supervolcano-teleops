@@ -1,6 +1,5 @@
 import { neon } from '@neondatabase/serverless';
 
-// Prioritize POSTGRES_URL, then svdb_POSTGRES_URL, then DATABASE_URL
 const databaseUrl = process.env.POSTGRES_URL 
   || process.env.svdb_POSTGRES_URL 
   || process.env.DATABASE_URL;
@@ -23,7 +22,7 @@ export const sql = Object.assign(
   },
   {
     query: async (queryText: string, params?: any[]) => {
-      const result = await neonSql.query(queryText, params);
+      const result = await neonSql(queryText, params || []);
       return {
         rows: result,
         rowCount: result.length,
