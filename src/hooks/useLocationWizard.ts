@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDebounce } from './useDebounce';
 import { RoomTemplate, getRoomTemplate, ROOM_TEMPLATES } from '@/lib/templates/location-templates';
 
-export type WizardStep = 'floors' | 'rooms' | 'targets' | 'actions' | 'review' | 'completion';
+export type WizardStep = 'floors' | 'rooms' | 'targets' | 'review' | 'completion';
 
 export interface FloorData {
   id: string;
@@ -460,7 +460,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   }, []);
 
   const goToNextStep = useCallback(() => {
-    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'actions', 'review'];
+    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
     if (currentIndex < steps.length - 1) {
       setState(prev => ({ ...prev, currentStep: steps[currentIndex + 1] }));
@@ -468,7 +468,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   }, [state.currentStep]);
 
   const goToPreviousStep = useCallback(() => {
-    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'actions', 'review'];
+    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
     if (currentIndex > 0) {
       setState(prev => ({ ...prev, currentStep: steps[currentIndex - 1] }));
