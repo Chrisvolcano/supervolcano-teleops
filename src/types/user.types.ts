@@ -5,10 +5,11 @@
  */
 
 export type UserRole = 
-  | 'admin' 
+  | 'admin'
   | 'superadmin'
-  | 'partner_manager' 
-  | 'location_owner' 
+  | 'partner_admin'
+  | 'partner_manager'
+  | 'location_owner'
   | 'oem_teleoperator'
   | 'location_cleaner';
 
