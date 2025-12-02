@@ -450,8 +450,8 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
       return;
     }
     
-    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
-    if (steps.includes(step)) {
+    const validSteps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
+    if (validSteps.includes(step)) {
       setState(prev => ({ ...prev, currentStep: step }));
     }
   }, []);
