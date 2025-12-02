@@ -444,7 +444,16 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   // ============================================
 
   const goToStep = useCallback((step: WizardStep) => {
-    setState(prev => ({ ...prev, currentStep: step }));
+    // Allow direct navigation to completion (it's outside normal flow)
+    if (step === 'completion') {
+      setState(prev => ({ ...prev, currentStep: 'completion' }));
+      return;
+    }
+    
+    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
+    if (steps.includes(step)) {
+      setState(prev => ({ ...prev, currentStep: step }));
+    }
   }, []);
 
   const goToNextStep = useCallback(() => {
