@@ -538,7 +538,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
             No structure configured
           </h3>
           <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-            Set up your location's floors, rooms, and cleaning targets to get started.
+            Set up floors, rooms, and cleaning targets for this location to get started.
           </p>
           <div className="flex items-center justify-center gap-4">
             {onRunWizard && (
