@@ -74,7 +74,9 @@ export function getOrganizationTypeForRole(
     case "superadmin":
       return "supervolcano";
 
+    case "partner_admin":
     case "partner_manager":
+    case "org_manager":
     case "oem_teleoperator":
       return "oem_partner";
 
