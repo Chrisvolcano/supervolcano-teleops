@@ -21,7 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL || 'https://your-api.vercel.app';
@@ -47,7 +47,12 @@ export default function LocationDetailScreen() {
       }
 
       // Fetch structure
-      const token = await user?.getIdToken();
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        console.error('[LocationDetail] No auth session');
+        return;
+      }
+      const token = await firebaseUser.getIdToken();
       const response = await fetch(
         `${API_URL}/api/admin/locations/${locationId}/structure`,
         {
