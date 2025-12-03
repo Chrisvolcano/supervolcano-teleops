@@ -5,7 +5,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
-import { getUserClaims, requireRole } from '@/lib/utils/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
@@ -17,16 +16,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify token to get uid and email
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (err) {
+      console.error('[API] Token verification failed:', err);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Allow owners and admins to create locations
-    requireRole(claims, ['location_owner', 'admin', 'superadmin']);
+    const uid = decodedToken.uid;
+    const email = decodedToken.email;
+    
+    // Fetch user profile from Firestore to get role
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    const userData = userDoc.data();
+    const role = userData?.role;
+    
+    console.log(`[API] User ${email} has role: ${role}`);
+    
+    // Allow owners and admins
+    const allowedRoles = ['location_owner', 'admin', 'superadmin'];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { name, address, addressData } = body;
@@ -35,14 +52,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and address required' }, { status: 400 });
     }
 
-    console.log(`[API] Creating location for user: ${decodedToken.uid}`);
+    console.log(`[API] Creating location for user: ${uid}`);
 
     const locationData = {
       name,
       address,
       addressData: addressData || {},
-      assignedOrganizationId: `owner:${decodedToken.uid}`,
-      createdBy: decodedToken.email || '',
+      assignedOrganizationId: `owner:${uid}`,
+      createdBy: email,
       status: 'active',
       hasStructure: false,
       createdAt: FieldValue.serverTimestamp(),
