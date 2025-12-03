@@ -7,8 +7,8 @@
  * Last updated: 2025-11-26
  */
 
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Building2 } from 'lucide-react';
 
 // ============================================================================
 // ADD FLOOR MODAL
@@ -17,25 +17,47 @@ import { X } from 'lucide-react';
 interface AddFloorModalProps {
   onSubmit: (name: string) => Promise<void>;
   onClose: () => void;
+  existingFloorNames?: string[]; // Add prop for client-side validation
 }
 
-export function AddFloorModal({ onSubmit, onClose }: AddFloorModalProps) {
+export function AddFloorModal({ onSubmit, onClose, existingFloorNames = [] }: AddFloorModalProps) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Reset form when modal opens (component mounts)
+  useEffect(() => {
+    setName('');
+    setError('');
+    setLoading(false);
+  }, [existingFloorNames]); // Reset when floor names change
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    
+    if (!trimmedName) {
       setError('Floor name is required');
       return;
+    }
+
+    // Client-side duplicate check (case-insensitive)
+    if (existingFloorNames.length > 0) {
+      const duplicate = existingFloorNames.find(
+        existing => existing.toLowerCase() === trimmedName.toLowerCase()
+      );
+      
+      if (duplicate) {
+        setError(`A floor named "${duplicate}" already exists`);
+        return;
+      }
     }
 
     try {
       setLoading(true);
       setError('');
-      await onSubmit(name.trim());
+      await onSubmit(trimmedName);
       // onSubmit will close the modal on success
     } catch (err: any) {
       setError(err.message || 'Failed to create floor');
@@ -45,11 +67,17 @@ export function AddFloorModal({ onSubmit, onClose }: AddFloorModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Add Floor</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-blue-600" />
+            Add Floor
+          </h2>
+          <button 
+            onClick={onClose} 
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={20} />
           </button>
         </div>
 
@@ -59,9 +87,23 @@ export function AddFloorModal({ onSubmit, onClose }: AddFloorModalProps) {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., First Floor, Ground Floor"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(''); // Clear error when user types
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmit(e as any);
+                }
+                if (e.key === 'Escape') {
+                  onClose();
+                }
+              }}
+              placeholder="e.g., Second Floor, Basement, Attic"
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${
+                error ? 'border-red-300 bg-red-50 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+              }`}
               autoFocus
               disabled={loading}
             />
@@ -85,9 +127,9 @@ export function AddFloorModal({ onSubmit, onClose }: AddFloorModalProps) {
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
             >
-              {loading ? 'Creating...' : 'Create Floor'}
+              {loading ? 'Creating...' : 'Add Floor'}
             </button>
           </div>
         </form>

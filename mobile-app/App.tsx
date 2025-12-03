@@ -9,6 +9,7 @@ import React, { ErrorInfo, Component } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { View, Text, StyleSheet } from 'react-native';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { GoProProvider } from './src/contexts/GoProContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 // Error Boundary Component
@@ -59,9 +60,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
+        <GoProProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </GoProProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

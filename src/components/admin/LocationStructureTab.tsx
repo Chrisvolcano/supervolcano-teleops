@@ -799,6 +799,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
         <AddFloorModal
           onSubmit={handleAddFloor}
           onClose={() => setShowAddFloorModal(false)}
+          existingFloorNames={structure?.map((f: any) => f.name) || []}
         />
       )}
 

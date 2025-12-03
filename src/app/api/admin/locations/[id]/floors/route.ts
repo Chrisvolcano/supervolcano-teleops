@@ -50,11 +50,12 @@ export async function GET(
       );
     }
     
-    // Query Firestore for floors
+    // Query Firestore for floors from location subcollection (matching structure API)
     const floorsSnapshot = await adminDb
+      .collection('locations')
+      .doc(locationId)
       .collection('floors')
-      .where('location_id', '==', locationId)
-      .orderBy('floor_number', 'asc')
+      .orderBy('sortOrder', 'asc')
       .get();
     
     const floors = floorsSnapshot.docs.map(doc => ({
@@ -114,9 +115,9 @@ export async function POST(
 
     const locationId = params.id;
     const body = await request.json();
-    const { name, floor_number, sort_order } = body;
+    const { name, sort_order } = body;
     
-    console.log('[POST Floor] Creating floor:', { locationId, name, floor_number, sort_order });
+    console.log('[POST Floor] Creating floor:', { locationId, name, sort_order });
     
     // -----------------------------------------------------------------------
     // 2. VALIDATE INPUT
@@ -140,10 +141,12 @@ export async function POST(
     
     // -----------------------------------------------------------------------
     // 3. CHECK FOR DUPLICATE FLOOR NAME (case-insensitive)
+    // Check in the location's floors subcollection (matching structure API)
     // -----------------------------------------------------------------------
     const existingFloorsSnapshot = await adminDb
+      .collection('locations')
+      .doc(locationId)
       .collection('floors')
-      .where('location_id', '==', locationId)
       .get();
     
     const normalizedName = trimmedName.toLowerCase();
@@ -153,10 +156,11 @@ export async function POST(
     });
     
     if (duplicateFloor) {
+      console.log('[POST Floor] Duplicate found:', duplicateFloor.data());
       return NextResponse.json(
         { 
           success: false,
-          error: 'A floor with this name already exists',
+          error: `A floor named "${duplicateFloor.data().name}" already exists`,
           hint: 'Floor names must be unique within a location'
         },
         { status: 400 }
@@ -164,33 +168,36 @@ export async function POST(
     }
     
     // -----------------------------------------------------------------------
-    // 4. DETERMINE FLOOR NUMBER (auto-increment if not provided)
+    // 4. DETERMINE SORT ORDER (auto-increment if not provided)
     // -----------------------------------------------------------------------
-    let floorNum = floor_number || sort_order;
+    let sortOrder = sort_order;
     
-    if (!floorNum) {
-      // Auto-assign next floor number
-      const maxFloor = existingFloorsSnapshot.docs.reduce((max, doc) => {
+    if (sortOrder === undefined) {
+      // Auto-assign next sort order
+      const maxSortOrder = existingFloorsSnapshot.docs.reduce((max, doc) => {
         const data = doc.data();
-        return Math.max(max, data.floor_number || 0);
-      }, 0);
-      floorNum = maxFloor + 1;
+        return Math.max(max, data.sortOrder || 0);
+      }, -1);
+      sortOrder = maxSortOrder + 1;
     }
     
     // -----------------------------------------------------------------------
-    // 5. CREATE FLOOR DOCUMENT IN FIRESTORE
+    // 5. CREATE FLOOR DOCUMENT IN FIRESTORE (in location subcollection)
     // -----------------------------------------------------------------------
     const newFloor = {
       name: trimmedName,
-      location_id: locationId,
-      floor_number: floorNum,
-      sort_order: floorNum, // For backward compatibility
-      created_by: userId, // FIXED: Use userId from decoded token
-      created_at: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp(),
+      sortOrder: sortOrder,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
     
-    const floorRef = await adminDb.collection('floors').add(newFloor);
+    const floorRef = await adminDb
+      .collection('locations')
+      .doc(locationId)
+      .collection('floors')
+      .doc();
+    
+    await floorRef.set(newFloor);
     
     console.log('[POST Floor] Created floor:', floorRef.id);
     
@@ -201,9 +208,10 @@ export async function POST(
       success: true,
       floor: {
         id: floorRef.id,
-        ...newFloor,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        name: trimmedName,
+        sortOrder: sortOrder,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     }, { status: 201 });
     
