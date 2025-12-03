@@ -4,11 +4,15 @@
  * Fallback to app.json extra fields for production builds
  */
 
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { initializeAuth, getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, enableNetwork } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+
+// Type declaration for getReactNativePersistence (may not be in types but exists at runtime)
+declare function getReactNativePersistence(storage: any): any;
 
 console.log('[Firebase] Initializing Firebase...');
 
@@ -42,7 +46,7 @@ if (missingKeys.length > 0) {
 }
 
 // Initialize Firebase (only once)
-let app;
+let app: FirebaseApp;
 try {
   if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
@@ -57,14 +61,27 @@ try {
   throw new Error(`Firebase initialization failed: ${error.message}`);
 }
 
-// Initialize Auth (Firebase Auth automatically persists on React Native)
-let auth;
+// Initialize Auth with AsyncStorage persistence
+let auth: Auth;
 try {
-  auth = getAuth(app);
-  console.log('[Firebase] ✅ Firebase Auth initialized (auto-persists on React Native)');
+  // Try to use initializeAuth with AsyncStorage persistence
+  // For Firebase v12, we need to dynamically access getReactNativePersistence
+  const { getReactNativePersistence: getRNPersistence } = require('firebase/auth');
+  auth = initializeAuth(app, {
+    persistence: getRNPersistence(AsyncStorage)
+  });
+  console.log('[Firebase] ✅ Firebase Auth initialized with AsyncStorage persistence');
 } catch (error: any) {
-  console.error('[Firebase] ❌ Failed to initialize Auth:', error);
-  throw error;
+  // Auth may already be initialized, use existing instance
+  if (error.code === 'auth/already-initialized') {
+    auth = getAuth(app);
+    console.log('[Firebase] ✅ Firebase Auth already initialized, using existing instance');
+  } else {
+    // If getReactNativePersistence doesn't exist, fall back to getAuth (auto-persists on RN)
+    console.warn('[Firebase] ⚠️ Could not use AsyncStorage persistence, using default getAuth:', error.message);
+    auth = getAuth(app);
+    console.log('[Firebase] ✅ Firebase Auth initialized with default persistence (auto-persists on React Native)');
+  }
 }
 
 // Initialize Storage
