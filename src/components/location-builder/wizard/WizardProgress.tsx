@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { WizardStep } from '@/hooks/useLocationWizard';
-import { Building2, LayoutGrid, Target, CheckCircle } from 'lucide-react';
+import { Building2, LayoutGrid, Target, Key, Package, Heart, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WizardProgressProps {
@@ -16,6 +16,9 @@ const STEPS: { key: WizardStep; label: string; icon: React.ElementType }[] = [
   { key: 'floors', label: 'Floors', icon: Building2 },
   { key: 'rooms', label: 'Rooms', icon: LayoutGrid },
   { key: 'targets', label: 'Targets', icon: Target },
+  { key: 'access', label: 'Access', icon: Key },
+  { key: 'storage', label: 'Storage', icon: Package },
+  { key: 'preferences', label: 'Preferences', icon: Heart },
   { key: 'review', label: 'Review', icon: CheckCircle },
 ];
 

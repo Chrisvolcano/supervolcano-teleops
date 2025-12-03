@@ -6,8 +6,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDebounce } from './useDebounce';
 import { RoomTemplate, getRoomTemplate, ROOM_TEMPLATES } from '@/lib/templates/location-templates';
+import { 
+  AccessInfo, 
+  StorageLocation, 
+  Preference, 
+  Restriction 
+} from '@/types/location-intelligence';
 
-export type WizardStep = 'floors' | 'rooms' | 'targets' | 'review' | 'completion';
+export type WizardStep = 'floors' | 'rooms' | 'targets' | 'access' | 'storage' | 'preferences' | 'review' | 'completion';
 
 export interface FloorData {
   id: string;
@@ -55,14 +61,29 @@ export interface WizardState {
   isSaving: boolean;
   lastSaved: Date | null;
   hasUnsavedChanges: boolean;
+  // Intelligence data
+  accessInfo: AccessInfo;
+  storageLocations: StorageLocation[];
+  preferences: Preference[];
+  restrictions: Restriction[];
 }
 
 interface UseLocationWizardProps {
   locationId: string;
   initialData?: {
     floors: FloorData[];
+    accessInfo?: AccessInfo;
+    storageLocations?: StorageLocation[];
+    preferences?: Preference[];
+    restrictions?: Restriction[];
   };
-  onSave: (data: { floors: FloorData[] }) => Promise<void>;
+  onSave: (data: { 
+    floors: FloorData[];
+    accessInfo?: AccessInfo;
+    storageLocations?: StorageLocation[];
+    preferences?: Preference[];
+    restrictions?: Restriction[];
+  }) => Promise<void>;
 }
 
 export function useLocationWizard({ locationId, initialData, onSave }: UseLocationWizardProps) {
@@ -75,6 +96,10 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
     isSaving: false,
     lastSaved: null,
     hasUnsavedChanges: false,
+    accessInfo: initialData?.accessInfo || {},
+    storageLocations: initialData?.storageLocations || [],
+    preferences: initialData?.preferences || [],
+    restrictions: initialData?.restrictions || [],
   });
 
   // Debounced save
@@ -94,7 +119,13 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
     setState(prev => ({ ...prev, isSaving: true }));
     
     try {
-      await onSave({ floors: state.floors });
+      await onSave({ 
+        floors: state.floors,
+        accessInfo: state.accessInfo,
+        storageLocations: state.storageLocations,
+        preferences: state.preferences,
+        restrictions: state.restrictions,
+      });
       setState(prev => ({
         ...prev,
         isSaving: false,
@@ -105,7 +136,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
       console.error('Failed to save:', error);
       setState(prev => ({ ...prev, isSaving: false }));
     }
-  }, [state.floors, state.isSaving, onSave]);
+  }, [state.floors, state.accessInfo, state.storageLocations, state.preferences, state.restrictions, state.isSaving, onSave]);
 
   // Generate unique ID
   const generateId = () => crypto.randomUUID();
@@ -453,7 +484,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
       return;
     }
     
-    const validSteps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
+    const validSteps: WizardStep[] = ['floors', 'rooms', 'targets', 'access', 'storage', 'preferences', 'review'];
     if (validSteps.includes(step)) {
       console.log('[Wizard] Setting step to:', step);
       setState(prev => ({ ...prev, currentStep: step }));
@@ -461,7 +492,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   }, []);
 
   const goToNextStep = useCallback(() => {
-    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
+    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'access', 'storage', 'preferences', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
     console.log('[Wizard] goToNextStep - current:', state.currentStep, 'index:', currentIndex);
     
@@ -473,7 +504,7 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
   }, [state.currentStep]);
 
   const goToPreviousStep = useCallback(() => {
-    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'review'];
+    const steps: WizardStep[] = ['floors', 'rooms', 'targets', 'access', 'storage', 'preferences', 'review'];
     const currentIndex = steps.indexOf(state.currentStep);
     console.log('[Wizard] goToPreviousStep - current:', state.currentStep, 'index:', currentIndex);
     
@@ -490,6 +521,26 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
 
   const setCurrentRoom = useCallback((index: number) => {
     setState(prev => ({ ...prev, currentRoomIndex: index }));
+  }, []);
+
+  // ============================================
+  // INTELLIGENCE OPERATIONS
+  // ============================================
+
+  const setAccessInfo = useCallback((accessInfo: AccessInfo) => {
+    setState(prev => ({ ...prev, accessInfo, hasUnsavedChanges: true }));
+  }, []);
+
+  const setStorageLocations = useCallback((storageLocations: StorageLocation[]) => {
+    setState(prev => ({ ...prev, storageLocations, hasUnsavedChanges: true }));
+  }, []);
+
+  const setPreferences = useCallback((preferences: Preference[]) => {
+    setState(prev => ({ ...prev, preferences, hasUnsavedChanges: true }));
+  }, []);
+
+  const setRestrictions = useCallback((restrictions: Restriction[]) => {
+    setState(prev => ({ ...prev, restrictions, hasUnsavedChanges: true }));
   }, []);
 
   // ============================================
@@ -544,6 +595,11 @@ export function useLocationWizard({ locationId, initialData, onSave }: UseLocati
     addAction,
     updateAction,
     removeAction,
+    // Intelligence operations
+    setAccessInfo,
+    setStorageLocations,
+    setPreferences,
+    setRestrictions,
     // Navigation
     goToStep,
     goToNextStep,

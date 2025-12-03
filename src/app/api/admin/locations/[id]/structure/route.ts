@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { sql } from '@/lib/db/postgres';
 
 export const dynamic = 'force-dynamic';
@@ -110,10 +111,19 @@ export async function GET(
 
     console.log(`[LoadStructure] Found ${floors.length} floors`);
 
+    // Also fetch location-level intelligence
+    const locationDoc = await adminDb.collection('locations').doc(locationId).get();
+    const locationData = locationDoc.data();
+
     return NextResponse.json({
       success: true,
       floors,
       hasStructure: floors.length > 0,
+      // Intelligence data
+      accessInfo: locationData?.accessInfo || null,
+      storageLocations: locationData?.storageLocations || [],
+      preferences: locationData?.preferences || [],
+      restrictions: locationData?.restrictions || [],
     });
 
   } catch (error: any) {
@@ -158,7 +168,7 @@ export async function POST(
 
     const locationId = params.id;
     const body = await request.json();
-    const { floors } = body;
+    const { floors, accessInfo, storageLocations, preferences, restrictions } = body;
 
     console.log(`[Structure] Saving structure for location ${locationId}`);
     console.log(`[Structure] Floors: ${floors.length}`);
@@ -252,6 +262,29 @@ export async function POST(
 
     await batch.commit();
     console.log(`[Structure] Saved to Firestore`);
+
+    // Also save intelligence data to location doc
+    const locationRef = adminDb.collection('locations').doc(locationId);
+    const updateData: any = {
+      hasStructure: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    
+    if (accessInfo !== undefined) {
+      updateData.accessInfo = accessInfo || null;
+    }
+    if (storageLocations !== undefined) {
+      updateData.storageLocations = storageLocations || [];
+    }
+    if (preferences !== undefined) {
+      updateData.preferences = preferences || [];
+    }
+    if (restrictions !== undefined) {
+      updateData.restrictions = restrictions || [];
+    }
+    
+    await locationRef.update(updateData);
+    console.log(`[Structure] Saved intelligence data to location doc`);
 
     // Also sync to SQL for Robot Intelligence queries
     // (This is simplified - you may want to expand)

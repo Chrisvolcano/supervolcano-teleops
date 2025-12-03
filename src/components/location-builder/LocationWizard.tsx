@@ -10,6 +10,9 @@ import { useLocationWizard, WizardStep } from '@/hooks/useLocationWizard';
 import { FloorStep } from './wizard/FloorStep';
 import { RoomStep } from './wizard/RoomStep';
 import { TargetStep } from './wizard/TargetStep';
+import AccessInfoStep from './wizard/AccessInfoStep';
+import StorageMapStep from './wizard/StorageMapStep';
+import PreferencesStep from './wizard/PreferencesStep';
 import { ReviewStep } from './wizard/ReviewStep';
 import { CompletionStep } from './wizard/CompletionStep';
 import { WizardProgress } from './wizard/WizardProgress';
@@ -70,6 +73,30 @@ export function LocationWizard({
         return <RoomStep wizard={wizard} />;
       case 'targets':
         return <TargetStep wizard={wizard} />;
+      case 'access':
+        return (
+          <AccessInfoStep
+            accessInfo={state.accessInfo}
+            onChange={wizard.setAccessInfo}
+          />
+        );
+      case 'storage':
+        return (
+          <StorageMapStep
+            storageLocations={state.storageLocations}
+            floors={state.floors}
+            onChange={wizard.setStorageLocations}
+          />
+        );
+      case 'preferences':
+        return (
+          <PreferencesStep
+            preferences={state.preferences}
+            restrictions={state.restrictions}
+            onPreferencesChange={wizard.setPreferences}
+            onRestrictionsChange={wizard.setRestrictions}
+          />
+        );
       case 'review':
         return <ReviewStep wizard={wizard} onComplete={() => wizard.goToStep('completion')} />;
       case 'completion':
