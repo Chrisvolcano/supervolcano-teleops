@@ -53,14 +53,27 @@ export default function LocationDetailScreen() {
         return;
       }
       const token = await firebaseUser.getIdToken();
-      const response = await fetch(
-        `${API_URL}/api/admin/locations/${locationId}/structure`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = await response.json();
+      
+      const url = `${process.env.EXPO_PUBLIC_API_BASE_URL || API_URL}/api/admin/locations/${locationId}/structure`;
+      console.log('[LocationDetail] Fetching structure from:', url);
+      
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      // Log raw response for debugging
+      const responseText = await response.text();
+      console.log('[LocationDetail] Response status:', response.status);
+      console.log('[LocationDetail] Response text:', responseText.substring(0, 200));
+      
+      if (!response.ok) {
+        console.error('[LocationDetail] API error:', response.status, responseText.substring(0, 100));
+        return;
+      }
+      
+      const data = JSON.parse(responseText);
       if (data.floors) {
+        console.log('[LocationDetail] Loaded structure with', data.floors.length, 'floors');
         setStructure(data.floors);
       }
     } catch (error) {

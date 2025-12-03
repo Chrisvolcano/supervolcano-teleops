@@ -167,22 +167,29 @@ export default function LocationWizardScreen() {
       }
       const token = await firebaseUser.getIdToken();
       
-      const response = await fetch(
-        `${API_URL}/api/admin/locations/${locationId}/structure`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ floors }),
-        }
-      );
-
+      const url = `${process.env.EXPO_PUBLIC_API_BASE_URL || API_URL}/api/admin/locations/${locationId}/structure`;
+      console.log('[Wizard] Saving to:', url);
+      console.log('[Wizard] Floors:', floors.length);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ floors }),
+      });
+      
+      // Log raw response for debugging
+      const responseText = await response.text();
+      console.log('[Wizard] Response status:', response.status);
+      console.log('[Wizard] Response text:', responseText.substring(0, 200));
+      
       if (!response.ok) {
-        throw new Error('Failed to save');
+        throw new Error(`API error: ${response.status} - ${responseText.substring(0, 100)}`);
       }
 
+      const data = JSON.parse(responseText);
       console.log('[Wizard] Structure saved successfully');
       
       // Navigate to location detail
