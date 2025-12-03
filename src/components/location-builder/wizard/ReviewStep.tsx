@@ -149,23 +149,7 @@ export function ReviewStep({ wizard, onComplete }: ReviewStepProps) {
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t border-gray-200">
-        <button
-          onClick={goToPreviousStep}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          Back
-        </button>
-        <button
-          onClick={handleComplete}
-          className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-        >
-          <Check className="w-5 h-5" />
-          Complete Setup
-        </button>
-      </div>
+      {/* Navigation is handled by LocationWizard parent component */}
     </div>
   );
 }

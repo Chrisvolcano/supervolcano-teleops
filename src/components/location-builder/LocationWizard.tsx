@@ -145,6 +145,43 @@ export function LocationWizard({
         {renderStep()}
       </div>
 
+      {/* Navigation Footer - appears for all steps except completion */}
+      {state.currentStep !== 'completion' && (
+        <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
+          <button
+            type="button"
+            onClick={wizard.goToPreviousStep}
+            disabled={state.currentStep === 'floors'}
+            className={`px-6 py-3 rounded-xl font-medium transition-all ${
+              state.currentStep === 'floors'
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            ← Back
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              if (state.currentStep === 'review') {
+                try {
+                  await wizard.handleSave();
+                  wizard.goToStep('completion');
+                } catch (error) {
+                  console.error('Failed to save:', error);
+                }
+              } else {
+                wizard.goToNextStep();
+              }
+            }}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all"
+          >
+            {state.currentStep === 'review' ? 'Complete Setup' : 'Continue →'}
+          </button>
+        </div>
+      )}
+
       {/* Stats summary - hide on completion */}
       {state.currentStep !== 'completion' && stats.floors > 0 && (
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
