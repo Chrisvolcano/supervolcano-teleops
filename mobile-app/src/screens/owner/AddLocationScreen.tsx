@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -173,6 +172,7 @@ export default function AddLocationScreen() {
           enablePoweredByContainer={false}
           debounce={300}
           minLength={3}
+          keyboardShouldPersistTaps="handled"
         />
       ) : (
         <View style={styles.apiKeyWarning}>
@@ -265,13 +265,9 @@ export default function AddLocationScreen() {
           <View style={[styles.progressDot, step === 'name' && styles.progressDotActive]} />
         </View>
         
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={styles.content}>
           {step === 'address' ? renderAddressStep() : renderNameStep()}
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -334,8 +330,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  contentContainer: {
     padding: 20,
   },
   stepContainer: {

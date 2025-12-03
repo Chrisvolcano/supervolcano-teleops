@@ -4,15 +4,12 @@
  * Fallback to app.json extra fields for production builds
  */
 
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { initializeAuth, getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, enableNetwork } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-
-// Type declaration for getReactNativePersistence (may not be in types but exists at runtime)
-declare function getReactNativePersistence(storage: any): any;
 
 console.log('[Firebase] Initializing Firebase...');
 
@@ -45,54 +42,31 @@ if (missingKeys.length > 0) {
   console.error('[Firebase] Config validation failed - app may not work correctly');
 }
 
-// Initialize Firebase (only once)
-let app: FirebaseApp;
-try {
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-    console.log('[Firebase] ✅ Firebase app initialized');
-    console.log('[Firebase] App name:', app.name);
-  } else {
-    app = getApps()[0];
-    console.log('[Firebase] ✅ Using existing Firebase app');
-  }
-} catch (error: any) {
-  console.error('[Firebase] ❌ Failed to initialize Firebase:', error);
-  throw new Error(`Firebase initialization failed: ${error.message}`);
-}
+// Initialize Firebase App
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+console.log('[Firebase] ✅ Firebase app initialized');
 
 // Initialize Auth with AsyncStorage persistence
 let auth: Auth;
 try {
-  // Try to use initializeAuth with AsyncStorage persistence
-  // For Firebase v12, we need to dynamically access getReactNativePersistence
-  const { getReactNativePersistence: getRNPersistence } = require('firebase/auth');
+  // Dynamically import getReactNativePersistence (may not be in TypeScript types but exists at runtime)
+  const { getReactNativePersistence } = require('firebase/auth') as { getReactNativePersistence: (storage: any) => any };
   auth = initializeAuth(app, {
-    persistence: getRNPersistence(AsyncStorage)
+    persistence: getReactNativePersistence(AsyncStorage)
   });
-  console.log('[Firebase] ✅ Firebase Auth initialized with AsyncStorage persistence');
+  console.log('[Firebase] ✅ Auth initialized with AsyncStorage persistence');
 } catch (error: any) {
-  // Auth may already be initialized, use existing instance
+  // If already initialized, get existing instance
   if (error.code === 'auth/already-initialized') {
     auth = getAuth(app);
-    console.log('[Firebase] ✅ Firebase Auth already initialized, using existing instance');
+    console.log('[Firebase] ✅ Using existing Auth instance');
   } else {
-    // If getReactNativePersistence doesn't exist, fall back to getAuth (auto-persists on RN)
+    // Fallback to default getAuth (still persists on React Native)
     console.warn('[Firebase] ⚠️ Could not use AsyncStorage persistence, using default getAuth:', error.message);
     auth = getAuth(app);
-    console.log('[Firebase] ✅ Firebase Auth initialized with default persistence (auto-persists on React Native)');
+    console.log('[Firebase] ✅ Auth initialized with default persistence');
   }
-}
-
-// Initialize Storage
-let storage;
-try {
-  storage = getStorage(app);
-  console.log('[Firebase] ✅ Firebase Storage initialized');
-  console.log('[Firebase] Storage bucket:', firebaseConfig.storageBucket);
-} catch (error: any) {
-  console.error('[Firebase] ❌ Failed to initialize Storage:', error);
-  throw error;
 }
 
 // Initialize Firestore
@@ -117,9 +91,20 @@ try {
   throw error;
 }
 
+// Initialize Storage
+let storage;
+try {
+  storage = getStorage(app);
+  console.log('[Firebase] ✅ Firebase Storage initialized');
+  console.log('[Firebase] Storage bucket:', firebaseConfig.storageBucket);
+} catch (error: any) {
+  console.error('[Firebase] ❌ Failed to initialize Storage:', error);
+  throw error;
+}
+
 export const db = firestore; // Alias for convenience
 
-export { app, auth, storage, firestore };
+export { app, auth, firestore, storage };
 
 console.log('[Firebase] ✅ Firebase fully initialized');
 console.log('[Firebase] ═══════════════════════════════════════');
