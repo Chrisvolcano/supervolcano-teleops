@@ -86,12 +86,18 @@ export default function AddLocationScreen() {
     
     try {
       console.log('[AddLocation] Creating location via API...');
+      
+      // Debug: check auth state
+      console.log('[AddLocation] auth.currentUser:', auth.currentUser?.email);
+      
       // Get token from Firebase auth directly
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {
+        console.error('[AddLocation] No currentUser - auth state:', auth);
         throw new Error('Not authenticated');
       }
       const token = await firebaseUser.getIdToken();
+      console.log('[AddLocation] Got token');
       
       const response = await fetch(
         `${API_BASE_URL}/api/locations`,
