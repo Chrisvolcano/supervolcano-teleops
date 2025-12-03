@@ -4,9 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { sql } from '@/lib/db/postgres';
-import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,16 +17,26 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Auth check
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const claims = await getUserClaims(token);
-    if (!claims) {
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (err) {
+      console.error('[LoadStructure] Token verification failed:', err);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+    const uid = decodedToken.uid;
+    
+    // Fetch user role from Firestore
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    const role = userDoc.data()?.role;
+    
+    console.log(`[LoadStructure] User ${decodedToken.email} has role: ${role}`);
     
     const locationId = params.id;
     console.log(`[LoadStructure] Fetching structure for location: ${locationId}`);
@@ -121,18 +130,31 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Auth check
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const claims = await getUserClaims(token);
-    if (!claims) {
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (err) {
+      console.error('[Structure] Token verification failed:', err);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+    const uid = decodedToken.uid;
     
-    requireRole(claims, ['superadmin', 'admin', 'partner_admin', 'location_owner']);
+    // Fetch user role from Firestore
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    const role = userDoc.data()?.role;
+    
+    const allowedRoles = ['location_owner', 'admin', 'superadmin', 'partner_admin'];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+    
+    console.log(`[Structure] User ${decodedToken.email} saving structure`);
 
     const locationId = params.id;
     const body = await request.json();
