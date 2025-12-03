@@ -16,6 +16,7 @@ import type { UserProfile } from '@/types/user.types';
 
 interface AuthContextType {
   user: UserProfile | null;
+  userProfile: UserProfile | null; // Alias for user (for consistency with web app)
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, userProfile: user, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

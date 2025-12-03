@@ -1,20 +1,15 @@
 /**
- * SUPERVOLCANO CAMERA APP
- * Flow: Splash → Login → Locations → Camera → Upload
- * Last updated: 2025-01-26
+ * SUPERVOLCANO MOBILE APP
+ * Dual-persona app: Owner and Cleaner flows
+ * Routes based on user role
+ * Last updated: 2025-12-02
  */
 
-import React, { useState, useEffect, ErrorInfo, Component } from 'react';
+import React, { ErrorInfo, Component } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { AuthProvider, useAuth } from './src/contexts/AuthContext';
-import SplashScreen from './src/components/SplashScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import LocationsScreen from './src/screens/LocationsScreen';
-import CameraScreen from './src/screens/CameraScreen';
-
-const Stack = createNativeStackNavigator();
+import { View, Text, StyleSheet } from 'react-native';
+import { AuthProvider } from './src/contexts/AuthContext';
+import AppNavigator from './src/navigation/AppNavigator';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -58,85 +53,21 @@ class ErrorBoundary extends Component<
   }
 }
 
-function AppNavigator() {
-  const { user, loading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
-
-  useEffect(() => {
-    console.log('[App] Auth state:', { user: user?.email, loading });
-  }, [user, loading]);
-
-  // Show splash screen initially
-  if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
-  }
-
-  // Show loading while checking auth
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      >
-        {!user ? (
-          // Not authenticated - show login
-          <Stack.Screen 
-            name="Login" 
-            component={LoginScreen}
-          />
-        ) : (
-          // Authenticated - show app screens
-          <>
-            <Stack.Screen 
-              name="Locations" 
-              component={LocationsScreen}
-            />
-            <Stack.Screen 
-              name="Camera" 
-              component={CameraScreen}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
 export default function App() {
   console.log('[App] Initializing...');
   
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AppNavigator />
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
       </AuthProvider>
     </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6b7280',
-  },
   errorContainer: {
     flex: 1,
     alignItems: 'center',

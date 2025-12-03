@@ -16,6 +16,7 @@ export type UserRole =
 export const MOBILE_ALLOWED_ROLES: UserRole[] = [
   'location_cleaner',
   'oem_teleoperator',
+  'location_owner',
 ];
 
 export interface UserProfile {

@@ -21,7 +21,7 @@ const USER_PROFILE_KEY = '@user_profile';
 export class AuthService {
   /**
    * Sign in with email and password
-   * Validates role is field worker (location_cleaner or oem_teleoperator)
+   * Validates role is allowed for mobile app (location_cleaner, oem_teleoperator, or location_owner)
    */
   static async signIn(email: string, password: string): Promise<UserProfile> {
     try {
@@ -45,13 +45,13 @@ export class AuthService {
       const userData = userDoc.data();
       console.log('[AuthService] User data:', JSON.stringify(userData));
       
-      // Validate role - must be a field worker role
-      const allowedRoles = ['location_cleaner', 'oem_teleoperator'];
+      // Validate role - must be an allowed mobile app role
+      const allowedRoles = ['location_cleaner', 'oem_teleoperator', 'location_owner'];
       if (!allowedRoles.includes(userData.role)) {
         console.error('[AuthService] Invalid role:', userData.role);
         await firebaseSignOut(auth);
-        Alert.alert('Access Denied', 'Only field workers can access the mobile app.');
-        throw new Error('Only field workers can access the mobile app. Please use the web portal.');
+        Alert.alert('Access Denied', 'Your role does not have access to the mobile app.');
+        throw new Error('Your role does not have access to the mobile app. Please use the web portal.');
       }
 
       // Validate has organization
@@ -105,7 +105,7 @@ export class AuthService {
       }
       
       // Show generic alert for unknown errors
-      if (!error.message?.includes('field workers')) {
+      if (!error.message?.includes('does not have access')) {
         Alert.alert('Login Error', error.message || 'Unknown error occurred');
       }
       

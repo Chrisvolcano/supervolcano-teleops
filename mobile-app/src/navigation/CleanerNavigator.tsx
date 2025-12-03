@@ -1,0 +1,33 @@
+/**
+ * CLEANER NAVIGATOR
+ * Navigation stack for cleaners/teleoperators
+ * (Existing cleaner flow)
+ */
+
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import LocationsScreen from '../screens/LocationsScreen';
+import CameraScreen from '../screens/CameraScreen';
+
+const Stack = createNativeStackNavigator();
+
+export default function CleanerNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen 
+        name="Locations" 
+        component={LocationsScreen}
+      />
+      <Stack.Screen 
+        name="Camera" 
+        component={CameraScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
