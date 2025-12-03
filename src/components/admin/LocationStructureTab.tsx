@@ -21,7 +21,12 @@ import {
   ArrowUp,
   ArrowDown,
   Lightbulb,
-  Sparkles
+  Sparkles,
+  Key,
+  Package,
+  Heart,
+  AlertOctagon,
+  Brain
 } from 'lucide-react';
 import { getAuth } from 'firebase/auth';
 import {
@@ -153,6 +158,12 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState<any>(null);
+  const [intelligence, setIntelligence] = useState<{
+    accessInfo: any;
+    storageLocations: any[];
+    preferences: any[];
+    restrictions: any[];
+  } | null>(null);
   
   // Expand/collapse state
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
@@ -299,6 +310,14 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
       }
 
       setStructure(data.floors);
+      
+      // Store intelligence data
+      setIntelligence({
+        accessInfo: data.accessInfo || null,
+        storageLocations: data.storageLocations || [],
+        preferences: data.preferences || [],
+        restrictions: data.restrictions || [],
+      });
 
     } catch (error: any) {
       console.error('[LoadStructure] Error:', error);
@@ -664,6 +683,98 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
           toggleRoom={toggleRoom}
         />
       ))}
+
+      {/* Intelligence Summary Section */}
+      {intelligence && (
+        (intelligence.accessInfo?.entryMethod || 
+         intelligence.storageLocations?.length > 0 || 
+         intelligence.preferences?.length > 0 || 
+         intelligence.restrictions?.length > 0) && (
+          <div className="mt-8 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600" />
+              Location Intelligence
+            </h3>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Access Info Card */}
+              {intelligence.accessInfo?.entryMethod && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
+                    <Key className="h-4 w-4" /> Access Info
+                  </h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>Entry: {intelligence.accessInfo.entryMethod}</li>
+                    {intelligence.accessInfo.alarmCode && <li>Alarm: Configured ✓</li>}
+                    {intelligence.accessInfo.wifiNetwork && <li>WiFi: {intelligence.accessInfo.wifiNetwork}</li>}
+                    {intelligence.accessInfo.emergencyContact?.name && (
+                      <li>Emergency: {intelligence.accessInfo.emergencyContact.name}</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Storage Map Card */}
+              {intelligence.storageLocations?.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-purple-900 flex items-center gap-2 mb-2">
+                    <Package className="h-4 w-4" /> Storage Map
+                  </h4>
+                  <ul className="text-sm text-purple-800 space-y-1">
+                    {intelligence.storageLocations.slice(0, 4).map((item: any) => (
+                      <li key={item.id}>• {item.itemType}: {item.location}</li>
+                    ))}
+                    {intelligence.storageLocations.length > 4 && (
+                      <li className="text-purple-600">+ {intelligence.storageLocations.length - 4} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Preferences Card */}
+              {intelligence.preferences?.length > 0 && (
+                <div className="bg-pink-50 border border-pink-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-pink-900 flex items-center gap-2 mb-2">
+                    <Heart className="h-4 w-4" /> Preferences
+                  </h4>
+                  <ul className="text-sm text-pink-800 space-y-1">
+                    {intelligence.preferences.slice(0, 3).map((pref: any) => (
+                      <li key={pref.id} className="flex items-start gap-1">
+                        {pref.priority === 'must' && <span className="text-red-500">⚠️</span>}
+                        {pref.description}
+                      </li>
+                    ))}
+                    {intelligence.preferences.length > 3 && (
+                      <li className="text-pink-600">+ {intelligence.preferences.length - 3} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Restrictions Card */}
+              {intelligence.restrictions?.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-red-900 flex items-center gap-2 mb-2">
+                    <AlertOctagon className="h-4 w-4" /> Restrictions
+                  </h4>
+                  <ul className="text-sm text-red-800 space-y-1">
+                    {intelligence.restrictions.slice(0, 3).map((r: any) => (
+                      <li key={r.id} className="flex items-start gap-1">
+                        {r.severity === 'critical' && <span>🛑</span>}
+                        {r.severity === 'warning' && <span>⚠️</span>}
+                        {r.description}
+                      </li>
+                    ))}
+                    {intelligence.restrictions.length > 3 && (
+                      <li className="text-red-600">+ {intelligence.restrictions.length - 3} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      )}
 
       {/* Wizard re-run hint */}
       {structure && structure.length > 0 && onRunWizard && (
