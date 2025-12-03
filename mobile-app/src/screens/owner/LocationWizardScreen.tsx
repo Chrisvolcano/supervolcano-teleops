@@ -20,6 +20,7 @@ import {
   ChevronRight, ChevronLeft, Plus, Minus
 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { auth } from '../../config/firebase';
 import { ROOM_TEMPLATES, getRoomTemplate } from '../../lib/templates/location-templates';
 import Constants from 'expo-constants';
 
@@ -160,7 +161,11 @@ export default function LocationWizardScreen() {
     setSaving(true);
     
     try {
-      const token = await user?.getIdToken();
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error('Not authenticated');
+      }
+      const token = await firebaseUser.getIdToken();
       
       const response = await fetch(
         `${API_URL}/api/admin/locations/${locationId}/structure`,
