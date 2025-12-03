@@ -21,7 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import { X, MapPin, Building2, ArrowRight, Check } from 'lucide-react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAuth } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import Constants from 'expo-constants';
 
 const GOOGLE_PLACES_API_KEY = Constants.expoConfig?.extra?.googlePlacesApiKey || process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
@@ -80,18 +80,18 @@ export default function AddLocationScreen() {
   };
 
   const handleCreate = async () => {
-    if (!addressData || !locationName.trim() || !user) return;
+    if (!addressData || !locationName.trim()) return;
     
     setSaving(true);
     
     try {
       console.log('[AddLocation] Creating location via API...');
-      const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
-      
-      if (!token) {
+      // Get token from Firebase auth directly
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
         throw new Error('Not authenticated');
       }
+      const token = await firebaseUser.getIdToken();
       
       const response = await fetch(
         `${API_BASE_URL}/api/locations`,
