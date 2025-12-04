@@ -198,6 +198,7 @@ export async function GET(request: NextRequest) {
           // AI classification fields
           aiRoomType: data.aiRoomType || null,
           aiActionTypes: data.aiActionTypes || [],
+          aiObjectLabels: data.aiObjectLabels || [],
           aiQualityScore: data.aiQualityScore || null,
           // Training workflow
           trainingStatus: data.trainingStatus || 'pending',  // pending | approved | rejected
