@@ -15,74 +15,85 @@ export const dynamic = 'force-dynamic';
 function isVideo(document: FirebaseFirestore.DocumentData): boolean {
   const type = document.type || document.mediaType || '';
   const mimeType = document.mimeType || document.contentType || '';
-  const fileName = document.fileName || '';
+  const fileName = document.fileName || document.name || '';
+  const videoUrl = document.videoUrl || document.url || document.storageUrl || '';
+  const storagePath = document.storagePath || '';
 
+  // Check explicit type fields
   if (type === 'video' || type === 'VIDEO') return true;
   if (mimeType?.startsWith?.('video/')) return true;
   
+  // Check file extension in fileName
   const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
   const lowerFileName = fileName.toLowerCase();
-  return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+  if (videoExtensions.some(ext => lowerFileName.endsWith(ext))) return true;
+
+  // Check URL for video extension (for mobile uploads without mediaType)
+  const lowerUrl = videoUrl.toLowerCase();
+  if (videoExtensions.some(ext => lowerUrl.includes(ext))) return true;
+
+  // Check storagePath for video extension or videos folder
+  const lowerPath = storagePath.toLowerCase();
+  if (lowerPath.startsWith('videos/') || videoExtensions.some(ext => lowerPath.endsWith(ext))) return true;
+
+  return false;
 }
 
 // Helper function to determine AI status
 function getAIStatus(document: FirebaseFirestore.DocumentData): 'pending' | 'processing' | 'completed' | 'failed' {
-  // Check for completed status (has annotations)
-  if (document.aiAnnotations || document.annotations) {
-    return 'completed';
-  }
-  
-  // Check for failed status (has error)
-  if (document.aiError || document.annotationError) {
-    return 'failed';
-  }
-  
-  // Check for processing status (has processing flag)
-  if (document.aiProcessingStarted || document.processing === true || document.aiStatus === 'processing') {
-    return 'processing';
-  }
-  
-  // Default to pending
+  if (document.aiAnnotations || document.annotations) return 'completed';
+  if (document.aiError || document.annotationError) return 'failed';
+  if (document.aiProcessingStarted || document.processing === true || document.aiStatus === 'processing') return 'processing';
   return 'pending';
 }
 
 // Helper function to parse Firestore timestamp in any format
 function parseFirestoreTimestamp(value: any): string | null {
   if (!value) return null;
-
-  // Firestore Timestamp object
-  if (value.toDate && typeof value.toDate === 'function') {
-    return value.toDate().toISOString();
-  }
-
-  // Serialized Firestore timestamp { _seconds, _nanoseconds }
-  if (value._seconds !== undefined) {
-    return new Date(value._seconds * 1000 + (value._nanoseconds || 0) / 1000000).toISOString();
-  }
-
-  // Unix timestamp (number)
+  if (value.toDate && typeof value.toDate === 'function') return value.toDate().toISOString();
+  if (value._seconds !== undefined) return new Date(value._seconds * 1000 + (value._nanoseconds || 0) / 1000000).toISOString();
   if (typeof value === 'number') {
     const parsed = new Date(value);
     return isNaN(parsed.getTime()) ? null : parsed.toISOString();
   }
-
-  // Already a string
   if (typeof value === 'string') {
     const parsed = new Date(value);
     return isNaN(parsed.getTime()) ? null : parsed.toISOString();
   }
-
-  // Date object
-  if (value instanceof Date) {
-    return isNaN(value.getTime()) ? null : value.toISOString();
-  }
-
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value.toISOString();
   return null;
+}
+
+// Extract filename from URL or storagePath
+function extractFileName(document: FirebaseFirestore.DocumentData): string {
+  // First check explicit fileName field
+  if (document.fileName) return document.fileName;
+  if (document.name) return document.name;
+  
+  // Extract from storagePath
+  if (document.storagePath) {
+    const parts = document.storagePath.split('/');
+    return parts[parts.length - 1] || 'unknown';
+  }
+  
+  // Extract from URL
+  const url = document.videoUrl || document.url || document.storageUrl || '';
+  if (url) {
+    try {
+      const urlPath = new URL(url).pathname;
+      const decoded = decodeURIComponent(urlPath);
+      const parts = decoded.split('/');
+      return parts[parts.length - 1]?.split('?')[0] || 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
+  
+  return 'unknown';
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -92,98 +103,62 @@ export async function GET(request: NextRequest) {
     await adminAuth.verifyIdToken(token);
     
     const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!claims) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     
     requireRole(claims, ['superadmin', 'admin', 'partner_admin']);
 
-    // Parse query params
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status') || searchParams.get('aiStatus') || '';
     const locationId = searchParams.get('locationId') || '';
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = parseInt(searchParams.get('limit') || '200');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Build Firestore query
     let query: FirebaseFirestore.Query = adminDb.collection('media');
 
-    // Filter by location if provided
     if (locationId) {
       query = query.where('locationId', '==', locationId);
     }
 
-    // Order by uploadedAt (descending) - use single orderBy
-    query = query.orderBy('uploadedAt', 'desc');
-
-    // Fetch all media (we'll filter videos and status in memory)
     let snapshot;
     try {
-      snapshot = await query.get();
-    } catch (error: any) {
-      // If orderBy fails, try without orderBy and sort in memory
-      console.warn('[API] OrderBy failed, fetching without orderBy:', error.message);
+      snapshot = await query.orderBy('uploadedAt', 'desc').get();
+    } catch {
       query = adminDb.collection('media');
-      if (locationId) {
-        query = query.where('locationId', '==', locationId);
-      }
+      if (locationId) query = query.where('locationId', '==', locationId);
       snapshot = await query.get();
     }
 
-    // First pass: Calculate stats from ALL videos (before any filtering)
-    const stats: any = { 
-      queued: 0, 
-      processing: 0, 
-      completed: 0, 
-      failed: 0,
-      // Training stats
-      pendingApproval: 0,
-      approved: 0,
-      rejected: 0,
+    const stats = { 
+      queued: 0, processing: 0, completed: 0, failed: 0,
+      pendingApproval: 0, approved: 0, rejected: 0,
     };
     const allVideoDocs: Array<{ doc: FirebaseFirestore.QueryDocumentSnapshot; aiStatus: string }> = [];
 
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
-      
-      // Skip if not a video
       if (!isVideo(data)) return;
 
       const aiStatus = getAIStatus(data);
-      
-      // Update stats from ALL videos (before status filtering)
       stats[aiStatus === 'pending' ? 'queued' : aiStatus as keyof typeof stats]++;
       
-      // Training status stats (only for completed videos)
       if (aiStatus === 'completed') {
         const trainingStatus = data.trainingStatus || 'pending';
-        if (trainingStatus === 'approved') {
-          stats.approved++;
-        } else if (trainingStatus === 'rejected') {
-          stats.rejected++;
-        } else {
-          stats.pendingApproval++;
-        }
+        if (trainingStatus === 'approved') stats.approved++;
+        else if (trainingStatus === 'rejected') stats.rejected++;
+        else stats.pendingApproval++;
       }
       
       allVideoDocs.push({ doc, aiStatus });
     });
 
-    // Second pass: Filter by status and build video objects
-    const allVideos: any[] = allVideoDocs
-      .filter(({ aiStatus }) => {
-        // Apply status filter if provided
-        if (statusFilter && statusFilter !== 'all') {
-          return aiStatus === statusFilter;
-        }
-        return true;
-      })
+    const allVideos = allVideoDocs
+      .filter(({ aiStatus }) => !statusFilter || statusFilter === 'all' || aiStatus === statusFilter)
       .map(({ doc, aiStatus }) => {
         const data = doc.data();
         return {
           id: doc.id,
-          fileName: data.fileName || data.name || 'unknown',
-          url: data.storageUrl || data.url || data.videoUrl || '',
+          fileName: extractFileName(data),
+          url: data.videoUrl || data.storageUrl || data.url || '',
           thumbnailUrl: data.thumbnailUrl || data.thumbnail || null,
           locationId: data.locationId || null,
           roomId: data.roomId || null,
@@ -195,46 +170,37 @@ export async function GET(request: NextRequest) {
           aiError: data.aiError || data.annotationError || null,
           duration: data.durationSeconds || data.duration || null,
           size: data.fileSize || data.size || null,
-          // AI classification fields
           aiRoomType: data.aiRoomType || null,
           aiActionTypes: data.aiActionTypes || [],
           aiObjectLabels: data.aiObjectLabels || [],
           aiQualityScore: data.aiQualityScore || null,
-          // Training workflow
-          trainingStatus: data.trainingStatus || 'pending',  // pending | approved | rejected
+          trainingStatus: data.trainingStatus || 'pending',
         };
       });
 
-    // Sort by uploadedAt (newest first)
     allVideos.sort((a, b) => {
       const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
       const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
       return dateB - dateA;
     });
 
-    // Apply pagination
     const paginatedVideos = allVideos.slice(offset, offset + limit);
 
-    // Fetch location names for all unique location IDs
     const locationIds = [...new Set(paginatedVideos.map(v => v.locationId).filter(Boolean))];
     const locationMap = new Map<string, string>();
 
-    // Fetch each location document individually (more reliable than 'in' query)
     await Promise.all(
-      locationIds.map(async (locationId) => {
+      locationIds.map(async (locId) => {
         try {
-          const locationDoc = await adminDb.collection('locations').doc(locationId).get();
+          const locationDoc = await adminDb.collection('locations').doc(locId).get();
           if (locationDoc.exists) {
-            const data = locationDoc.data();
-            locationMap.set(locationId, data?.name || data?.address || locationId);
+            const locData = locationDoc.data();
+            locationMap.set(locId, locData?.name || locData?.address || locId);
           }
-        } catch (error) {
-          console.error(`Failed to fetch location ${locationId}:`, error);
-        }
+        } catch {}
       })
     );
 
-    // Add location names to videos
     const videosWithLocations = paginatedVideos.map(video => ({
       ...video,
       locationName: video.locationId ? locationMap.get(video.locationId) || null : null,
@@ -252,9 +218,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('[API] Videos list error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch videos' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to fetch videos' }, { status: 500 });
   }
 }
