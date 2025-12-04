@@ -120,16 +120,18 @@ class GoogleVideoAIService {
 
     try {
       // Map feature names to API enums
-      const featureMap: Record<string, string> = {
-        'LABEL': 'LABEL_DETECTION',
-        'OBJECT': 'OBJECT_TRACKING',
-        'TEXT': 'TEXT_DETECTION',
-        'SHOT': 'SHOT_CHANGE_DETECTION',
+      const featureMap: Record<string, number> = {
+        'LABEL': 1,        // LABEL_DETECTION
+        'OBJECT': 9,       // OBJECT_TRACKING  
+        'TEXT': 7,         // TEXT_DETECTION
+        'SHOT': 4,         // SHOT_CHANGE_DETECTION
       };
 
-      const requestFeatures = features.map(f => featureMap[f] as Feature).filter(Boolean) as Feature[];
+      const requestFeatures = features
+        .map(f => featureMap[f])
+        .filter((f): f is number => f !== undefined);
 
-      const request: IAnnotateVideoRequest = {
+      const request = {
         inputUri: videoUri,
         features: requestFeatures,
       };
@@ -190,16 +192,20 @@ class GoogleVideoAIService {
     const startTime = Date.now();
 
     try {
-      const featureMap: Record<string, string> = {
-        'LABEL': 'LABEL_DETECTION',
-        'OBJECT': 'OBJECT_TRACKING',
-        'TEXT': 'TEXT_DETECTION',
-        'SHOT': 'SHOT_CHANGE_DETECTION',
+      const featureMap: Record<string, number> = {
+        'LABEL': 1,        // LABEL_DETECTION
+        'OBJECT': 9,       // OBJECT_TRACKING  
+        'TEXT': 7,         // TEXT_DETECTION
+        'SHOT': 4,         // SHOT_CHANGE_DETECTION
       };
 
-      const request: IAnnotateVideoRequest = {
+      const requestFeatures = features
+        .map(f => featureMap[f])
+        .filter((f): f is number => f !== undefined);
+
+      const request = {
         inputContent: videoBuffer.toString('base64'),
-        features: features.map(f => featureMap[f] as Feature).filter(Boolean) as Feature[],
+        features: requestFeatures,
       };
 
       const [operation] = await this.client.annotateVideo(request);
