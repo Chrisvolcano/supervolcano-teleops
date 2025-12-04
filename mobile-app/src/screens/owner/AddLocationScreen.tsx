@@ -22,6 +22,8 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../config/firebase';
 import Constants from 'expo-constants';
+import UseCurrentLocation from '../../components/UseCurrentLocation';
+import { AddressResult } from '../../services/location.service';
 
 const GOOGLE_PLACES_API_KEY = Constants.expoConfig?.extra?.googlePlacesApiKey || process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_BASE_URL || 'https://your-api.vercel.app';
@@ -47,6 +49,7 @@ export default function AddLocationScreen() {
   const [saving, setSaving] = useState(false);
   
   const nameInputRef = useRef<TextInput>(null);
+  const googlePlacesRef = useRef<any>(null);
 
   const handleAddressSelect = (data: any, details: any) => {
     console.log('[AddLocation] Address selected:', data.description);
@@ -76,6 +79,59 @@ export default function AddLocationScreen() {
     }
     
     setTimeout(() => nameInputRef.current?.focus(), 300);
+  };
+
+  const handleLocationFound = (address: AddressResult) => {
+    console.log('[AddLocation] Location found:', address);
+    
+    // Create a data structure that matches GooglePlacesAutocomplete format
+    const addressComponents: any[] = [];
+    
+    if (address.streetNumber) {
+      addressComponents.push({ long_name: address.streetNumber, types: ['street_number'] });
+    }
+    if (address.street) {
+      addressComponents.push({ long_name: address.street, types: ['route'] });
+    }
+    if (address.city) {
+      addressComponents.push({ long_name: address.city, types: ['locality'] });
+    }
+    if (address.region) {
+      addressComponents.push({ long_name: address.region, types: ['administrative_area_level_1'] });
+    }
+    if (address.postalCode) {
+      addressComponents.push({ long_name: address.postalCode, types: ['postal_code'] });
+    }
+    if (address.country) {
+      addressComponents.push({ long_name: address.country, types: ['country'] });
+    }
+    
+    const mockData = {
+      description: address.formattedAddress,
+    };
+    
+    const mockDetails = {
+      address_components: addressComponents,
+      geometry: {
+        location: {
+          lat: address.latitude,
+          lng: address.longitude,
+        },
+      },
+    };
+    
+    // Set the address using the same handler as GooglePlacesAutocomplete
+    handleAddressSelect(mockData, mockDetails);
+    
+    // Also set the text in the GooglePlacesAutocomplete field if ref is available
+    if (googlePlacesRef.current) {
+      // Try to set the text using the component's method
+      try {
+        googlePlacesRef.current.setAddressText?.(address.formattedAddress);
+      } catch (e) {
+        console.log('[AddLocation] Could not set autocomplete text directly');
+      }
+    }
   };
 
   const handleCreate = async () => {
@@ -152,28 +208,41 @@ export default function AddLocationScreen() {
       </Text>
       
       {GOOGLE_PLACES_API_KEY ? (
-        <GooglePlacesAutocomplete
-          placeholder="Search address..."
-          onPress={handleAddressSelect}
-          fetchDetails={true}
-          query={{
-            key: GOOGLE_PLACES_API_KEY,
-            language: 'en',
-            types: 'address',
-          }}
-          styles={{
-            container: styles.autocompleteContainer,
-            textInput: styles.autocompleteInput,
-            listView: styles.autocompleteList,
-            row: styles.autocompleteRow,
-            description: styles.autocompleteDescription,
-            separator: styles.autocompleteSeparator,
-          }}
-          enablePoweredByContainer={false}
-          debounce={300}
-          minLength={3}
-          keyboardShouldPersistTaps="handled"
-        />
+        <>
+          <GooglePlacesAutocomplete
+            ref={googlePlacesRef}
+            placeholder="Search address..."
+            onPress={handleAddressSelect}
+            fetchDetails={true}
+            query={{
+              key: GOOGLE_PLACES_API_KEY,
+              language: 'en',
+              types: 'address',
+            }}
+            styles={{
+              container: styles.autocompleteContainer,
+              textInput: styles.autocompleteInput,
+              listView: styles.autocompleteList,
+              row: styles.autocompleteRow,
+              description: styles.autocompleteDescription,
+              separator: styles.autocompleteSeparator,
+            }}
+            enablePoweredByContainer={false}
+            debounce={300}
+            minLength={3}
+            keyboardShouldPersistTaps="handled"
+          />
+          
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
+          
+          {/* Use Current Location Button */}
+          <UseCurrentLocation onAddressFound={handleLocationFound} />
+        </>
       ) : (
         <View style={styles.apiKeyWarning}>
           <Text style={styles.apiKeyWarningText}>
@@ -442,6 +511,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
 });
 

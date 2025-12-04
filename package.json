@@ -26,6 +26,7 @@
     "db:schema": "tsx scripts/run-schema.ts"
   },
   "dependencies": {
+    "@google-cloud/video-intelligence": "^6.2.1",
     "@heroicons/react": "^2.2.0",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -23,6 +23,7 @@
         "NSMicrophoneUsageDescription": "This app needs microphone access to record videos with audio.",
         "NSBluetoothAlwaysUsageDescription": "SuperVolcano uses Bluetooth to connect to your GoPro camera for automatic recording",
         "NSBluetoothPeripheralUsageDescription": "SuperVolcano uses Bluetooth to connect to your GoPro camera",
+        "NSLocationWhenInUseUsageDescription": "SuperVolcano uses your location to auto-fill your property address",
         "UIBackgroundModes": ["bluetooth-central", "fetch", "processing"],
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -40,7 +41,8 @@
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.BLUETOOTH_SCAN",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "plugins": [
@@ -56,6 +58,12 @@
           "isBackgroundEnabled": true,
           "modes": ["peripheral", "central"],
           "bluetoothAlwaysPermission": "Allow SuperVolcano Camera to connect to your GoPro camera"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SuperVolcano uses your location to auto-fill your property address"
         }
       ]
     ],

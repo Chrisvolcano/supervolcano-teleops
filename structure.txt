@@ -1,0 +1,312 @@
+.
+├── ARCHITECTURE.md
+├── CHECK_DEPLOYMENT.md
+├── check-deployment.sh
+├── check-vercel-deployment.md
+├── CREATE_FIRESTORE_DATABASE.md
+├── database
+│   ├── migrations
+│   │   ├── add-structure-fields.sql
+│   │   ├── create-location-assignments.sql
+│   │   ├── create-spatial-taxonomy.sql
+│   │   ├── create-taxonomy-tables.sql
+│   │   ├── fix-media-id-standalone.sql
+│   │   ├── fix-media-id-type.sql
+│   │   ├── fix-media-schema.sql
+│   │   ├── verify-location-assignments.sql
+│   │   └── verify-spatial-taxonomy.sql
+│   └── schema.sql
+├── database 2
+│   ├── migration_jobs_tasks_fixed.sql
+│   ├── migration_jobs_tasks.sql
+│   ├── migrations
+│   │   ├── add-structure-fields.sql
+│   │   ├── create-location-assignments.sql
+│   │   ├── create-spatial-taxonomy.sql
+│   │   ├── create-taxonomy-tables.sql
+│   │   ├── fix-media-id-standalone.sql
+│   │   ├── fix-media-id-type.sql
+│   │   ├── fix-media-schema.sql
+│   │   ├── verify-location-assignments.sql
+│   │   └── verify-spatial-taxonomy.sql
+│   └── schema.sql
+├── DATABASE_SCHEMA.md
+├── DEBUG_NETWORK.md
+├── DEMO_GUIDE.md
+├── DEPLOY_INSTRUCTIONS.md
+├── DEPLOY_NOW.md
+├── DEPLOY_TO_VERCEL.md
+├── DEPLOYMENT_CHECKLIST.md
+├── DEV_SETUP.md
+├── dev.log
+├── DIAGNOSIS_REQUIRED.md
+├── DIAGNOSTIC_STEPS.md
+├── DIRECT_UPLOAD_SETUP.md
+├── docs
+│   ├── API_KEY.txt
+│   ├── DEMO_SCRIPT.md
+│   ├── EMAIL_TEMPLATE.md
+│   ├── examples
+│   │   ├── example.js
+│   │   ├── example.py
+│   │   └── test.sh
+│   ├── README.md
+│   ├── ROBOT_API.md
+│   ├── SuperVolcano_Robot_API.postman_collection.json
+│   ├── TEST_ACCOUNTS.md
+│   └── TROUBLESHOOTING.md
+├── eslint.config.mjs
+├── FIELD_OPERATOR_REFACTOR_STATUS.md
+├── FIND_WRITE_REQUEST.md
+├── FIREBASE_CHECK_GUIDE.md
+├── FIREBASE_STORAGE_RULES_COMPLETE.txt
+├── FIREBASE_STORAGE_RULES_TEMPORARY.md
+├── FIREBASE_STORAGE_RULES.md
+├── FIREBASE_TEST.md
+├── firebase.json
+├── FIRESTORE_API_CHECK.md
+├── firestore.indexes.json
+├── FIX_MEDIA_ID_TYPE.md
+├── FIX_MEDIA_SCHEMA.md
+├── FIX_TEST_CLEANER_INSTRUCTIONS.md
+├── GOOGLE_MAPS_SETUP.md
+├── HANDOFF_DOCUMENT.md
+├── IMPLEMENTATION_CHECKLIST.md
+├── JOBS_TASKS_MIGRATION.md
+├── lib
+│   ├── firebaseAdmin.ts
+│   └── firebaseClient.ts
+├── MEDIA_ID_FIX_INSTRUCTIONS.md
+├── MEDIA_SYNC_DEBUG.md
+├── MIGRATION_INSTRUCTIONS.md
+├── MOBILE_UI_GUIDE.md
+├── mobile-app
+│   ├── android
+│   │   ├── app
+│   │   ├── build.gradle
+│   │   ├── gradle
+│   │   ├── gradle.properties
+│   │   ├── gradlew
+│   │   ├── gradlew.bat
+│   │   └── settings.gradle
+│   ├── app.json
+│   ├── App.tsx
+│   ├── assets
+│   │   ├── adaptive-icon.png
+│   │   ├── favicon.png
+│   │   ├── icon.png
+│   │   ├── splash-icon.png
+│   │   └── splash.png
+│   ├── babel.config.js
+│   ├── BUILD_TESTFLIGHT.md
+│   ├── DEBUG_FIRESTORE.md
+│   ├── DEBUG_UPLOAD.md
+│   ├── EAS_SETUP_GUIDE.md
+│   ├── eas.json
+│   ├── FIREBASE_STORAGE_RULES.md
+│   ├── FIRESTORE_RULES_FIX.md
+│   ├── firestore.rules
+│   ├── FIX_WORKLETS_ERROR.md
+│   ├── GOPRO_IMPLEMENTATION_STATUS.md
+│   ├── GOPRO_INTEGRATION.md
+│   ├── IMPLEMENTATION_SUMMARY.md
+│   ├── index.ts
+│   ├── ios
+│   │   ├── build
+│   │   ├── Podfile
+│   │   ├── Podfile.lock
+│   │   ├── Podfile.properties.json
+│   │   ├── Pods
+│   │   ├── SuperVolcanoCamera
+│   │   ├── SuperVolcanoCamera.xcodeproj
+│   │   └── SuperVolcanoCamera.xcworkspace
+│   ├── MOBILE_APP_STATUS.md
+│   ├── OWNER_FLOW_COMPLETE.md
+│   ├── OWNER_FLOW_IMPLEMENTATION.md
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   ├── scripts
+│   │   ├── install-and-commit.sh
+│   │   └── README.md
+│   ├── SETUP.md
+│   ├── SPLASH_SCREEN_INTEGRATION.md
+│   ├── src
+│   │   ├── components
+│   │   ├── config
+│   │   ├── constants
+│   │   ├── contexts
+│   │   ├── hooks
+│   │   ├── lib
+│   │   ├── navigation
+│   │   ├── screens
+│   │   ├── services
+│   │   └── types
+│   ├── TROUBLESHOOTING.md
+│   ├── tsconfig.json
+│   └── UPDATE_ENV_LOCAL.md
+├── next-env.d.ts
+├── next.config.mjs
+├── ORGANIZATIONS_IMPLEMENTATION_SUMMARY.md
+├── package-lock 2.json
+├── package-lock.json
+├── package.json
+├── PARTNER_ID_CLEANUP_SUMMARY.md
+├── PERFORMANCE_OPTIMIZATIONS.md
+├── POST_MIGRATION_CHECKLIST.md
+├── postcss.config.cjs
+├── public
+├── quick-deployment-check.sh
+├── README.md
+├── ROBOT_INTELLIGENCE_SETUP.md
+├── RUN_MIGRATION.md
+├── run-migration.sh
+├── scripts
+│   ├── add-vercel-env.sh
+│   ├── assign-manager-to-org.ts
+│   ├── audit-partner-id-usage.ts
+│   ├── audit-roles.ts
+│   ├── check-db-state.ts
+│   ├── check-locations.ts
+│   ├── create-cleaner-test.ts
+│   ├── create-org-manager.ts
+│   ├── create-test-cleaner.ts
+│   ├── create-test-teleoperator.ts
+│   ├── deploy-rules.ts
+│   ├── deploy-vercel.sh
+│   ├── find-org-fields.ts
+│   ├── fix-roles.ts
+│   ├── list-users.ts
+│   ├── migrate-to-locations.ts
+│   ├── migrate-to-organizations.ts
+│   ├── MIGRATION_README.md
+│   ├── reset-teleoperator-password.ts
+│   ├── run-migration-chunked.ts
+│   ├── run-migration-fixed.ts
+│   ├── run-migration-step-by-step.ts
+│   ├── run-migration.ts
+│   ├── run-schema.ts
+│   ├── set-admin-role.ts
+│   ├── setup-test-data.ts
+│   ├── show-rules.ts
+│   ├── update-all-passwords.ts
+│   ├── update-storage-rules.md
+│   ├── update-test-cleaner-fields.ts
+│   ├── verify-cleaner-account.ts
+│   └── verify-test-cleaner.ts
+├── SECURITY_AUDIT.md
+├── src
+│   ├── app
+│   │   ├── (operator)
+│   │   ├── admin
+│   │   ├── api
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── login
+│   │   ├── no-access
+│   │   ├── org
+│   │   ├── page.tsx
+│   │   ├── providers.tsx
+│   │   └── teleoperator
+│   ├── components
+│   │   ├── admin
+│   │   ├── animations
+│   │   ├── common
+│   │   ├── ImageUploader.tsx
+│   │   ├── location-builder
+│   │   ├── locations
+│   │   ├── MobileNav.tsx
+│   │   ├── operator
+│   │   ├── org
+│   │   ├── PropertyCard.tsx
+│   │   ├── SessionHUD.tsx
+│   │   ├── SplashScreen.tsx
+│   │   ├── SplashScreenExample.tsx
+│   │   ├── SuccessToast.tsx
+│   │   ├── TaskForm.tsx
+│   │   ├── TaskList.tsx
+│   │   ├── teleoperator
+│   │   └── ui
+│   ├── constants
+│   │   ├── roomTargetMap.ts
+│   │   └── taskHierarchy.ts
+│   ├── domain
+│   │   └── user
+│   ├── firebase
+│   │   ├── firestore.rules
+│   │   └── storage.rules
+│   ├── hooks
+│   │   ├── useAuth.tsx
+│   │   ├── useCollection.ts
+│   │   ├── useDebounce.ts
+│   │   ├── useDoc.ts
+│   │   ├── useLocationBuilder.ts
+│   │   ├── useLocationWizard.ts
+│   │   ├── useOrganizations.ts
+│   │   ├── useProperties.ts
+│   │   ├── useSaveTask.ts
+│   │   ├── useSessions.ts
+│   │   ├── useTaskTemplates.ts
+│   │   ├── useTemplateUsage.ts
+│   │   ├── useUsers.ts
+│   │   └── useUserUpdate.ts
+│   ├── lib
+│   │   ├── apiAuth.ts
+│   │   ├── auth
+│   │   ├── authClient.ts
+│   │   ├── constants
+│   │   ├── db
+│   │   ├── firebase
+│   │   ├── firebaseAdmin.ts
+│   │   ├── firebaseClient.ts
+│   │   ├── format.ts
+│   │   ├── hooks
+│   │   ├── metrics.ts
+│   │   ├── repositories
+│   │   ├── scripts
+│   │   ├── services
+│   │   ├── taskMachine.ts
+│   │   ├── taxonomy.ts
+│   │   ├── templates
+│   │   ├── templates.ts
+│   │   ├── types
+│   │   ├── types.ts
+│   │   ├── utils
+│   │   ├── utils.ts
+│   │   └── validation
+│   ├── services
+│   │   ├── auth.service.ts
+│   │   ├── firebase-to-sql-sync.service.ts
+│   │   ├── organizations.service.ts
+│   │   └── users.service.ts
+│   ├── types
+│   │   ├── assignment.types.ts
+│   │   ├── database.ts
+│   │   ├── firebase-admin.ts
+│   │   ├── location-builder.types.ts
+│   │   ├── location-intelligence.ts
+│   │   ├── location.types.ts
+│   │   ├── organization.types.ts
+│   │   ├── task.ts
+│   │   └── user.types.ts
+│   └── utils
+│       ├── location-validation.ts
+│       └── permissions.ts
+├── STORAGE_RULES_FIX.md
+├── storage-cors.json
+├── structure.txt
+├── SYNC_FIX_SUMMARY.md
+├── SYSTEM_AUDIT_SUMMARY.md
+├── tailwind.config.ts
+├── TAXONOMY_SYSTEM.md
+├── TEST_CHECKLIST.md
+├── TESTING_CHECKLIST.md
+├── TROUBLESHOOTING_HANDOFF.md
+├── tsconfig.json
+├── tsconfig.tsbuildinfo
+├── VERCEL_ENV_SETUP.md
+├── vercel.json
+├── verify-migration-results.md
+└── verify-migration.sh
+
+73 directories, 237 files

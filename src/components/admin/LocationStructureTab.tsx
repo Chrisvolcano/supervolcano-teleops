@@ -26,7 +26,8 @@ import {
   Package,
   Heart,
   AlertOctagon,
-  Brain
+  Brain,
+  X
 } from 'lucide-react';
 import { getAuth } from 'firebase/auth';
 import {
@@ -175,6 +176,11 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   const [showAddTargetModal, setShowAddTargetModal] = useState(false);
   const [showAddActionModal, setShowAddActionModal] = useState(false);
   const [showAddToolModal, setShowAddToolModal] = useState(false);
+  
+  // Inline Add Floor state
+  const [isAddingFloor, setIsAddingFloor] = useState(false);
+  const [newFloorName, setNewFloorName] = useState('');
+  const [addFloorError, setAddFloorError] = useState<string | null>(null);
   
   // Context for nested operations
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
@@ -332,7 +338,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId]);
 
-  // Floor handler
+  // Floor handler (for modal)
   async function handleAddFloor(name: string) {
     try {
       setLoading(true);
@@ -364,6 +370,75 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
       setLoading(false);
     }
   }
+
+  // Inline Add Floor handler
+  const handleInlineAddFloor = async () => {
+    const trimmedName = newFloorName.trim();
+    
+    console.log('[AddFloor] Input:', newFloorName);
+    console.log('[AddFloor] Trimmed:', trimmedName);
+    console.log('[AddFloor] Existing floors:', structure?.map((f: any) => f.name) || []);
+    
+    if (!trimmedName) {
+      setAddFloorError('Please enter a floor name');
+      return;
+    }
+    
+    // Case-insensitive duplicate check
+    const existingFloors = structure || [];
+    const duplicate = existingFloors.find(
+      (f: any) => f.name && f.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    console.log('[AddFloor] Duplicate found?', duplicate);
+    
+    if (duplicate) {
+      setAddFloorError(`A floor named "${duplicate.name}" already exists`);
+      return;
+    }
+    
+    // Clear any previous error
+    setAddFloorError(null);
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await getAuthToken();
+      
+      const response = await fetch(`/api/admin/locations/${locationId}/floors`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create floor');
+      }
+      
+      // Reset form and reload structure
+      setNewFloorName('');
+      setIsAddingFloor(false);
+      setAddFloorError(null);
+      await loadStructure();
+    } catch (error: any) {
+      console.error('[AddFloor] Error:', error);
+      setAddFloorError(error.message || 'Failed to create floor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelAddFloor = () => {
+    setIsAddingFloor(false);
+    setNewFloorName('');
+    setAddFloorError(null);
+  };
 
   // Room handler
   async function handleAddRoom(name: string, roomType: string) {
@@ -625,27 +700,23 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
         </div>
       )}
 
-      {/* Controls */}
+      {/* Toolbar */}
       {structure && structure.length > 0 && (
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => setShowAddFloorModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Floor
-          </button>
-          
-          <div className="flex items-center gap-2">
+          <div className="text-sm text-gray-500">
+            {structure.length} floor{structure.length !== 1 ? 's' : ''}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
             <button
               onClick={expandAll}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
             >
               Expand All
             </button>
+            <span className="text-gray-300">|</span>
             <button
               onClick={collapseAll}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
             >
               Collapse All
             </button>
@@ -654,7 +725,8 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
       )}
 
       {/* Floor list */}
-      {structure?.map((floor: any, floorIndex: number) => (
+      <div className="space-y-2">
+        {structure?.map((floor: any, floorIndex: number) => (
         <FloorCard
           key={floor.id}
           floor={floor}
@@ -682,7 +754,62 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
           expandedRooms={expandedRooms}
           toggleRoom={toggleRoom}
         />
-      ))}
+        ))}
+
+        {/* Add Floor - Inline Form */}
+        {isAddingFloor ? (
+          <div className="border-2 border-blue-200 bg-blue-50 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 text-blue-500" />
+              <input
+                type="text"
+                value={newFloorName}
+                onChange={(e) => {
+                  setNewFloorName(e.target.value);
+                  setAddFloorError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleInlineAddFloor();
+                  if (e.key === 'Escape') cancelAddFloor();
+                }}
+                placeholder="Enter floor name (e.g., Second Floor, Basement)"
+                className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                autoFocus
+                disabled={loading}
+              />
+              <button
+                onClick={handleInlineAddFloor}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+              >
+                Add
+              </button>
+              <button
+                onClick={cancelAddFloor}
+                disabled={loading}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {addFloorError && (
+              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                <span>⚠️</span> {addFloorError}
+              </p>
+            )}
+          </div>
+        ) : (
+          structure && structure.length > 0 && (
+            <button
+              onClick={() => setIsAddingFloor(true)}
+              className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="h-5 w-5" />
+              Add Floor
+            </button>
+          )
+        )}
+      </div>
 
       {/* Intelligence Summary Section */}
       {intelligence && (

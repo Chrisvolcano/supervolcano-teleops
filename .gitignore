@@ -23,3 +23,5 @@ logs
 # macOS
 .DS_Store
 .vercel
+mobile-app/android/
+mobile-app/ios/build/

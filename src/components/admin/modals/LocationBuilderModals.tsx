@@ -25,38 +25,44 @@ export function AddFloorModal({ onSubmit, onClose, existingFloorNames = [] }: Ad
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Reset form when modal opens (component mounts)
+  // Reset form when modal opens
   useEffect(() => {
     setName('');
     setError('');
     setLoading(false);
-  }, [existingFloorNames]); // Reset when floor names change
+  }, []); // Only reset on mount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const trimmedName = name.trim();
     
+    console.log('[AddFloorModal] Input:', name);
+    console.log('[AddFloorModal] Trimmed:', trimmedName);
+    console.log('[AddFloorModal] Existing floors:', existingFloorNames);
+    
     if (!trimmedName) {
-      setError('Floor name is required');
+      setError('Please enter a floor name');
       return;
     }
 
-    // Client-side duplicate check (case-insensitive)
-    if (existingFloorNames.length > 0) {
-      const duplicate = existingFloorNames.find(
-        existing => existing.toLowerCase() === trimmedName.toLowerCase()
-      );
-      
-      if (duplicate) {
-        setError(`A floor named "${duplicate}" already exists`);
-        return;
-      }
+    // Client-side duplicate check (case-insensitive) - use current prop value
+    const duplicate = existingFloorNames.find(
+      existing => existing && existing.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    console.log('[AddFloorModal] Duplicate found?', duplicate);
+    
+    if (duplicate) {
+      setError(`A floor named "${duplicate}" already exists`);
+      return;
     }
+
+    // Clear any previous error
+    setError('');
 
     try {
       setLoading(true);
-      setError('');
       await onSubmit(trimmedName);
       // onSubmit will close the modal on success
     } catch (err: any) {
