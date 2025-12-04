@@ -279,46 +279,44 @@ export default function MediaLibraryPage() {
       {/* Video Preview Modal */}
       {selectedVideo && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto"
           onClick={() => setSelectedVideo(null)}
         >
           <div 
-            className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-lg max-w-3xl w-full my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-lg truncate flex-1 mr-4">
-                {selectedVideo.fileName || selectedVideo.id}
-              </h3>
+              <h3 className="font-semibold text-lg truncate pr-4">{selectedVideo.fileName || selectedVideo.id}</h3>
               <button 
                 onClick={() => setSelectedVideo(null)}
-                className="p-2 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 rounded-full flex-shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             {/* Video Player */}
-            <div className="bg-black aspect-video flex-shrink-0">
+            <div className="bg-black flex items-center justify-center">
               {selectedVideo.url ? (
                 <video 
                   src={selectedVideo.url} 
                   controls 
                   autoPlay
-                  className="w-full h-full"
+                  className="max-w-full max-h-[60vh] object-contain"
                 >
                   Your browser does not support video playback.
                 </video>
               ) : (
-                <div className="flex items-center justify-center h-full text-white">
+                <div className="flex items-center justify-center h-48 text-white">
                   No video URL available
                 </div>
               )}
             </div>
             
             {/* Metadata */}
-            <div className="p-4 space-y-2 text-sm overflow-y-auto flex-1">
+            <div className="p-4 space-y-3 text-sm border-t">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-gray-500">Location:</span>{' '}
@@ -330,20 +328,16 @@ export default function MediaLibraryPage() {
                 </div>
                 <div>
                   <span className="text-gray-500">Duration:</span>{' '}
-                  <span className="font-medium">
-                    {selectedVideo.duration ? formatDuration(selectedVideo.duration) : 'Unknown'}
-                  </span>
+                  <span className="font-medium">{selectedVideo.duration ? `${Math.round(selectedVideo.duration)}s` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Size:</span>{' '}
-                  <span className="font-medium">
-                    {selectedVideo.size ? formatFileSize(selectedVideo.size) : 'Unknown'}
-                  </span>
+                  <span className="font-medium">{selectedVideo.size ? `${(selectedVideo.size / 1024 / 1024).toFixed(1)} MB` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Uploaded:</span>{' '}
                   <span className="font-medium">
-                    {selectedVideo.uploadedAt ? new Date(selectedVideo.uploadedAt).toLocaleString() : 'Unknown'}
+                    {selectedVideo.uploadedAt ? new Date(selectedVideo.uploadedAt).toLocaleString() : '—'}
                   </span>
                 </div>
                 <div>
@@ -353,18 +347,18 @@ export default function MediaLibraryPage() {
               </div>
               
               {selectedVideo.aiError && (
-                <div className="mt-4 pt-4 border-t">
+                <div className="pt-3 border-t">
                   <span className="text-red-600 font-medium block mb-2">AI Processing Error:</span>
-                  <pre className="bg-red-50 p-2 rounded text-xs overflow-auto max-h-40 text-red-700">
+                  <pre className="bg-red-50 p-3 rounded text-xs overflow-auto max-h-40 text-red-700">
                     {selectedVideo.aiError}
                   </pre>
                 </div>
               )}
 
               {selectedVideo.aiAnnotations && (
-                <div className="mt-4 pt-4 border-t">
+                <div className="pt-3 border-t">
                   <span className="text-gray-500 block mb-2">AI Annotations:</span>
-                  <pre className="bg-gray-50 p-2 rounded text-xs overflow-auto max-h-40">
+                  <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
                     {JSON.stringify(selectedVideo.aiAnnotations, null, 2)}
                   </pre>
                 </div>
