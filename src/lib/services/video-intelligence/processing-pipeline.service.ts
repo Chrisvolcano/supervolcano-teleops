@@ -12,6 +12,7 @@
 import { sql } from '@/lib/db/postgres';
 import { googleVideoAI, VideoAnnotations } from './google-video-ai.service';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { filterRelevantLabels } from './label-filters';
 
 // Room type classification based on labels
 const ROOM_TYPE_MAPPINGS: Record<string, string[]> = {
@@ -158,6 +159,7 @@ class VideoProcessingPipeline {
       await mediaRef.update({
         aiStatus: 'processing',
         aiProcessingStarted: new Date(),
+        aiError: null, // Clear any previous errors
       });
 
       // Get annotations from Google Cloud Video AI
@@ -167,13 +169,20 @@ class VideoProcessingPipeline {
         throw new Error(result.error || 'No annotations returned');
       }
 
-      // Extract all labels
-      const allLabels = result.annotations.labels.map(l => l.description.toLowerCase());
-      const allObjects = result.annotations.objects.map(o => o.description.toLowerCase());
+      // Extract raw labels
+      const rawLabels = result.annotations.labels.map(l => l.description.toLowerCase());
+      const rawObjects = result.annotations.objects.map(o => o.description.toLowerCase());
 
-      // Derive classifications
-      const roomType = this.classifyRoomType([...allLabels, ...allObjects]);
-      const actionTypes = this.classifyActionTypes(allLabels);
+      // Filter to only relevant labels
+      const filteredLabels = filterRelevantLabels(rawLabels);
+      const filteredObjects = filterRelevantLabels(rawObjects);
+      const combinedFiltered = [...new Set([...filteredLabels, ...filteredObjects])];
+
+      console.log(`[Pipeline] Raw: ${rawObjects.length} objects, Filtered: ${filteredObjects.length}`);
+
+      // Derive classifications using filtered labels
+      const roomType = this.classifyRoomType(combinedFiltered);
+      const actionTypes = this.classifyActionTypes(filteredLabels);
       const qualityScore = this.calculateQualityScore(result.annotations);
       const duration = this.estimateDuration(result.annotations);
 
@@ -184,9 +193,12 @@ class VideoProcessingPipeline {
         aiProcessedAt: new Date(),
         aiRoomType: roomType,
         aiActionTypes: actionTypes,
-        aiObjectLabels: [...new Set(allObjects)].slice(0, 20),
+        aiObjectLabels: filteredObjects.slice(0, 20), // Store filtered objects only
         aiQualityScore: qualityScore,
         aiDuration: duration,
+        // Debug fields
+        aiRawLabelCount: rawObjects.length,
+        aiFilteredLabelCount: filteredObjects.length,
         // Training workflow status
         trainingStatus: 'pending',  // pending | approved | rejected
       });

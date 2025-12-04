@@ -5,11 +5,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 import { videoProcessingPipeline } from '@/lib/services/video-intelligence/processing-pipeline.service';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,9 +36,24 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'process_single':
+      case 'reanalyze':
         if (!mediaId) {
           return NextResponse.json({ error: 'mediaId required' }, { status: 400 });
         }
+        
+        // For reanalyze, reset the status first
+        if (action === 'reanalyze') {
+          await adminDb.collection('media').doc(mediaId).update({
+            aiStatus: 'pending',
+            aiError: null,
+            aiAnnotations: null,
+            aiObjectLabels: null,
+            aiRoomType: null,
+            aiActionTypes: null,
+            aiQualityScore: null,
+          });
+        }
+        
         await videoProcessingPipeline.queueVideo(mediaId, 10); // High priority
         const result = await videoProcessingPipeline.processNext();
         return NextResponse.json({ 

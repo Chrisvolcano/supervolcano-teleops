@@ -52,6 +52,7 @@ export default function MediaLibraryPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [objectsExpanded, setObjectsExpanded] = useState(false);
 
   const fetchMedia = useCallback(async () => {
     if (!user) return;
@@ -83,7 +84,10 @@ export default function MediaLibraryPage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedVideoIndex === null) return;
-      if (e.key === 'Escape') setSelectedVideoIndex(null);
+      if (e.key === 'Escape') {
+        setSelectedVideoIndex(null);
+        setObjectsExpanded(false);
+      }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateModal(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); navigateModal(1); }
       else if ((e.key === 'a' || e.key === 'A') && media[selectedVideoIndex]?.aiStatus === 'completed') {
@@ -100,10 +104,18 @@ export default function MediaLibraryPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedVideoIndex, media, deleteLoading]);
 
+  // Reset objectsExpanded when selectedVideoIndex changes
+  useEffect(() => {
+    setObjectsExpanded(false);
+  }, [selectedVideoIndex]);
+
   const navigateModal = (direction: number) => {
     if (selectedVideoIndex === null) return;
     const newIndex = selectedVideoIndex + direction;
-    if (newIndex >= 0 && newIndex < media.length) setSelectedVideoIndex(newIndex);
+    if (newIndex >= 0 && newIndex < media.length) {
+      setSelectedVideoIndex(newIndex);
+      setObjectsExpanded(false); // Reset expansion when navigating
+    }
   };
 
   const toggleSelection = (id: string, event: React.MouseEvent) => {
@@ -151,6 +163,29 @@ export default function MediaLibraryPage() {
       setError(err.message);
     } finally {
       setAnalyzeLoading(false);
+    }
+  };
+
+  const handleReanalyze = async (mediaId: string) => {
+    if (!user || singleActionLoading) return;
+    setSingleActionLoading(true);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/videos/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mediaId, action: 'reanalyze' }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Re-analyze failed');
+      }
+      await fetchMedia();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSingleActionLoading(false);
     }
   };
 
@@ -493,12 +528,52 @@ export default function MediaLibraryPage() {
               {/* AI Analysis Results - Show when completed */}
               {selectedVideo.aiStatus === 'completed' && (
                 <div className="border-t pt-4 mt-4">
-                  <h3 className="font-medium mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" />AI Analysis</h3>
+                  <h3 className="font-medium mb-3 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      AI Analysis
+                    </span>
+                    <button
+                      onClick={() => handleReanalyze(selectedVideo.id)}
+                      disabled={singleActionLoading}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${singleActionLoading ? 'animate-spin' : ''}`} />
+                      Re-analyze
+                    </button>
+                  </h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div><div className="text-gray-500 mb-1">Quality Score</div>{renderStars(selectedVideo.aiQualityScore)}</div>
                     <div><div className="text-gray-500 mb-1">Room Type</div><div className="font-medium capitalize">{selectedVideo.aiRoomType?.replace(/_/g, ' ') || 'Unknown'}</div></div>
                     {selectedVideo.aiActionTypes?.length > 0 && <div><div className="text-gray-500 mb-1">Actions</div><div className="font-medium capitalize">{selectedVideo.aiActionTypes.join(', ')}</div></div>}
-                    {selectedVideo.aiObjectLabels?.length > 0 && <div className="col-span-2"><div className="text-gray-500 mb-1">Objects</div><div className="flex flex-wrap gap-1">{selectedVideo.aiObjectLabels.slice(0, 12).map((l, i) => <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs">{l}</span>)}{selectedVideo.aiObjectLabels.length > 12 && <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">+{selectedVideo.aiObjectLabels.length - 12} more</span>}</div></div>}
+                    {selectedVideo.aiObjectLabels?.length > 0 && (
+                      <div className="col-span-2">
+                        <div className="text-gray-500 mb-1 flex items-center justify-between">
+                          <span>Objects ({selectedVideo.aiObjectLabels.length})</span>
+                          {selectedVideo.aiObjectLabels.length > 8 && (
+                            <button 
+                              onClick={() => setObjectsExpanded(!objectsExpanded)}
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              {objectsExpanded ? 'Show less' : 'Show all'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(objectsExpanded ? selectedVideo.aiObjectLabels : selectedVideo.aiObjectLabels.slice(0, 8)).map((label, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs">{label}</span>
+                          ))}
+                          {!objectsExpanded && selectedVideo.aiObjectLabels.length > 8 && (
+                            <button 
+                              onClick={() => setObjectsExpanded(true)}
+                              className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500 hover:bg-gray-200"
+                            >
+                              +{selectedVideo.aiObjectLabels.length - 8} more
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
