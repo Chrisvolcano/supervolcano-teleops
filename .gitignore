@@ -25,3 +25,4 @@ logs
 .vercel
 mobile-app/android/
 mobile-app/ios/build/
+.env*.local
