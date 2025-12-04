@@ -373,7 +373,7 @@ export default function MediaLibraryPage() {
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <button onClick={() => navigateModal(-1)} disabled={selectedVideoIndex === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Previous"><ChevronLeft className="w-5 h-5" /></button>
-                <span className="text-sm text-gray-500">{selectedVideoIndex + 1} of {media.length}</span>
+                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {media.length}</span>
                 <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === media.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex items-center gap-2">
