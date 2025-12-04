@@ -9,7 +9,9 @@ import LocationStructureTab from '@/components/admin/LocationStructureTab';
 import LocationTasksTab from '@/components/admin/LocationTasksTab';
 import LocationAssignmentsTab from '@/components/admin/LocationAssignmentsTab';
 import LocationMediaTab from '@/components/locations/LocationMediaTab';
+import LocationReferenceMedia from '@/components/admin/LocationReferenceMedia';
 import { LocationWizard } from '@/components/location-builder/LocationWizard';
+import type { ReferenceMediaItem } from '@/types/location-intelligence';
 
 type Tab = 'structure' | 'assignments' | 'tasks' | 'media' | 'settings';
 
@@ -244,9 +246,22 @@ export default function AdminLocationDetailPage() {
           <LocationMediaTab locationId={locationId} />
         )}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Location Settings</h2>
-            <p className="text-gray-600">Settings coming soon...</p>
+          <div className="space-y-6">
+            <LocationReferenceMedia
+              locationId={locationId}
+              referenceMedia={location?.intelligence?.referenceMedia || []}
+              rooms={
+                location?.floors
+                  ? location.floors.flatMap((floor: any) =>
+                      (floor.rooms || []).map((room: any) => ({
+                        id: room.id,
+                        name: `${room.name} (${floor.name})`,
+                      }))
+                    )
+                  : []
+              }
+              onUpdate={loadLocation}
+            />
           </div>
         )}
       </div>

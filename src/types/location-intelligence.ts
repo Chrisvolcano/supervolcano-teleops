@@ -82,6 +82,27 @@ export interface ChangeRecord {
 }
 
 // ============================================
+// REFERENCE MEDIA
+// ============================================
+
+export interface ReferenceMediaItem {
+  id: string;                          // Unique ID (use crypto.randomUUID() or Firestore auto-id)
+  url: string;                         // Firebase Storage URL
+  thumbnailUrl?: string;               // For videos, if available
+  fileName: string;                    // Original file name
+  type: 'photo' | 'video';            // Media type
+  mediaType: 'how_to' | 'reference' | 'location'; // What kind of reference is this?
+                                       // how_to = "How to do something"
+                                       // reference = "What it should look like when done"
+                                       // location = "Where something is stored"
+  description: string;                 // Human-provided context
+  roomId?: string;                     // Links to location's room structure (optional)
+  roomName?: string;                   // Denormalized for display
+  createdAt: string;                   // ISO timestamp
+  createdBy?: string;                  // User email who added it
+}
+
+// ============================================
 // COMBINED INTELLIGENCE
 // ============================================
 
@@ -90,6 +111,7 @@ export interface LocationIntelligence {
   storageLocations?: StorageLocation[];
   preferences?: Preference[];
   restrictions?: Restriction[];
+  referenceMedia?: ReferenceMediaItem[];  // NEW
   changeHistory?: ChangeRecord[];
 }
 
