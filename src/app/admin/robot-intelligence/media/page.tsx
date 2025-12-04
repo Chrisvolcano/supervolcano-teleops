@@ -53,6 +53,7 @@ export default function MediaLibraryPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [objectsExpanded, setObjectsExpanded] = useState(false);
+  const [reanalyzingId, setReanalyzingId] = useState<string | null>(null);
 
   const fetchMedia = useCallback(async () => {
     if (!user) return;
@@ -167,8 +168,8 @@ export default function MediaLibraryPage() {
   };
 
   const handleReanalyze = async (mediaId: string) => {
-    if (!user || singleActionLoading) return;
-    setSingleActionLoading(true);
+    if (!user || reanalyzingId) return;
+    setReanalyzingId(mediaId);
     setError(null);
     try {
       const token = await user.getIdToken();
@@ -181,11 +182,49 @@ export default function MediaLibraryPage() {
         const result = await response.json();
         throw new Error(result.error || 'Re-analyze failed');
       }
+      // Refresh to get updated data
       await fetchMedia();
+      
+      // Poll for completion (check every 2 seconds, max 30 times = 60 seconds)
+      let attempts = 0;
+      const maxAttempts = 30;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        // Fetch fresh data
+        try {
+          const token = await user.getIdToken();
+          const params = new URLSearchParams();
+          if (filter && filter !== 'all') params.append('status', filter);
+          params.append('limit', '200');
+          
+          const response = await fetch(`/api/admin/videos?${params}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const updatedVideo = data.videos?.find((v: VideoItem) => v.id === mediaId);
+            
+            if (updatedVideo && (updatedVideo.aiStatus === 'completed' || updatedVideo.aiStatus === 'failed')) {
+              clearInterval(pollInterval);
+              setReanalyzingId(null);
+              await fetchMedia(); // Final refresh to update UI
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setReanalyzingId(null);
+        }
+      }, 2000);
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setSingleActionLoading(false);
+      setReanalyzingId(null);
     }
   };
 
@@ -525,8 +564,18 @@ export default function MediaLibraryPage() {
                 </div>
               )}
 
-              {/* AI Analysis Results - Show when completed */}
-              {selectedVideo.aiStatus === 'completed' && (
+              {/* AI Analysis Results - Show when completed or reanalyzing */}
+              {reanalyzingId === selectedVideo.id ? (
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-center gap-3 py-8">
+                    <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
+                    <div>
+                      <div className="font-medium">Re-analyzing video...</div>
+                      <div className="text-sm text-gray-500">This may take 1-2 minutes</div>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedVideo.aiStatus === 'completed' ? (
                 <div className="border-t pt-4 mt-4">
                   <h3 className="font-medium mb-3 flex items-center justify-between">
                     <span className="flex items-center gap-2">
@@ -535,11 +584,11 @@ export default function MediaLibraryPage() {
                     </span>
                     <button
                       onClick={() => handleReanalyze(selectedVideo.id)}
-                      disabled={singleActionLoading}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      disabled={reanalyzingId === selectedVideo.id}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
                     >
-                      <RefreshCw className={`w-3 h-3 ${singleActionLoading ? 'animate-spin' : ''}`} />
-                      Re-analyze
+                      <RefreshCw className={`w-3 h-3 ${reanalyzingId === selectedVideo.id ? 'animate-spin' : ''}`} />
+                      {reanalyzingId === selectedVideo.id ? 'Processing...' : 'Re-analyze'}
                     </button>
                   </h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -576,7 +625,7 @@ export default function MediaLibraryPage() {
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Training Corpus Section - Show when completed */}
               {selectedVideo.aiStatus === 'completed' && (

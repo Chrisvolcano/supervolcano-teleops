@@ -173,9 +173,9 @@ class VideoProcessingPipeline {
       const rawLabels = result.annotations.labels.map(l => l.description.toLowerCase());
       const rawObjects = result.annotations.objects.map(o => o.description.toLowerCase());
 
-      // Filter to only relevant labels
+      // Filter to only relevant labels and deduplicate
       const filteredLabels = filterRelevantLabels(rawLabels);
-      const filteredObjects = filterRelevantLabels(rawObjects);
+      const filteredObjects = [...new Set(filterRelevantLabels(rawObjects))]; // Deduplicate here
       const combinedFiltered = [...new Set([...filteredLabels, ...filteredObjects])];
 
       console.log(`[Pipeline] Raw: ${rawObjects.length} objects, Filtered: ${filteredObjects.length}`);
@@ -193,7 +193,7 @@ class VideoProcessingPipeline {
         aiProcessedAt: new Date(),
         aiRoomType: roomType,
         aiActionTypes: actionTypes,
-        aiObjectLabels: filteredObjects.slice(0, 20), // Store filtered objects only
+        aiObjectLabels: [...new Set(filteredObjects)].slice(0, 30), // Deduplicate and store filtered objects only
         aiQualityScore: qualityScore,
         aiDuration: duration,
         // Debug fields
