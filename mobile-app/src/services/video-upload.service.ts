@@ -7,7 +7,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { storage, db } from '@/config/firebase';
 import { Audio, Video } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { VideoUpload } from '@/types/user.types';
 
 export interface UploadProgress {
