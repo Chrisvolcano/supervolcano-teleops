@@ -105,13 +105,14 @@ export class VideoUploadService {
         status: 'uploading',
         uploadedAt: new Date(),
         storagePath,
-        // Add proper metadata fields
+        // Core type fields - include both for compatibility
+        type: 'video',
         mediaType: 'video',
         mimeType: metadata.mimeType,
         fileName: filename,
         durationSeconds: metadata.durationSeconds,
         fileSize: metadata.fileSize,
-        // AI processing fields (initialized)
+        // AI processing fields
         aiStatus: 'pending',
         trainingStatus: 'pending',
       });
@@ -153,7 +154,9 @@ export class VideoUploadService {
             // Update Firestore with completed status
             await updateDoc(doc(db, 'media', videoDoc.id), {
               status: 'completed',
-              videoUrl: downloadURL,
+              url: downloadURL,        // Primary field for web
+              videoUrl: downloadURL,   // Keep for backwards compatibility
+              storageUrl: downloadURL, // Also used by web
               // Confirm fileSize from actual blob
               fileSize: blob.size,
             });
