@@ -254,7 +254,7 @@ export default function TrainingLibraryPage() {
         >
           <option value="">All Room Types</option>
           {roomTypes.map(room => (
-            <option key={room} value={room}>
+            <option key={room} value={room || ""}>
               {room?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </option>
           ))}

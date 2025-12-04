@@ -17,14 +17,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.supervolcano.camera",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to record videos at work locations.",
         "NSMicrophoneUsageDescription": "This app needs microphone access to record videos with audio.",
         "NSBluetoothAlwaysUsageDescription": "SuperVolcano uses Bluetooth to connect to your GoPro camera for automatic recording",
         "NSBluetoothPeripheralUsageDescription": "SuperVolcano uses Bluetooth to connect to your GoPro camera",
         "NSLocationWhenInUseUsageDescription": "SuperVolcano uses your location to auto-fill your property address",
-        "UIBackgroundModes": ["bluetooth-central", "fetch", "processing"],
+        "UIBackgroundModes": [
+          "bluetooth-central",
+          "fetch",
+          "processing"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -56,7 +60,10 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["peripheral", "central"],
+          "modes": [
+            "peripheral",
+            "central"
+          ],
           "bluetoothAlwaysPermission": "Allow SuperVolcano Camera to connect to your GoPro camera"
         }
       ],
