@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/lib/providers/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database
