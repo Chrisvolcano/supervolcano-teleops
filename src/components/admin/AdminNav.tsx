@@ -11,6 +11,8 @@ import {
   MapPin,
   UserCheck,
   Database,
+  Film,
+  GraduationCap,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -22,6 +24,8 @@ const NAV_ITEMS = [
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Locations", href: "/admin/locations", icon: MapPin },
   { label: "Robot Intelligence", href: "/admin/robot-intelligence", icon: Database },
+  { label: "Media Library", href: "/admin/robot-intelligence/media", icon: Film },
+  { label: "Training Library", href: "/admin/robot-intelligence/training", icon: GraduationCap },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 

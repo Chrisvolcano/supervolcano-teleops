@@ -25,7 +25,11 @@ import {
   ChevronDown,
   Settings,
   AlertTriangle,
+  Film,
+  GraduationCap,
+  ArrowRight,
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface Task {
   id: string;
@@ -213,6 +217,37 @@ export default function RobotIntelligencePage() {
 
   return (
     <div className="space-y-6">
+      {/* Video Intelligence Navigation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <Link 
+          href="/admin/robot-intelligence/media"
+          className="block p-6 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all"
+        >
+          <Film className="w-10 h-10 text-blue-500 mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Media Library</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            View all uploaded videos, manage AI processing queue, and review annotation results.
+          </p>
+          <span className="text-blue-600 text-sm font-medium flex items-center gap-1">
+            Open Media Library <ArrowRight className="w-4 h-4" />
+          </span>
+        </Link>
+        
+        <Link 
+          href="/admin/robot-intelligence/training"
+          className="block p-6 bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all"
+        >
+          <GraduationCap className="w-10 h-10 text-green-500 mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Training Library</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            Curate anonymized training corpus, feature high-quality videos, and manage robot learning data.
+          </p>
+          <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+            Open Training Library <ArrowRight className="w-4 h-4" />
+          </span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
