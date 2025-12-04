@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Film, Play, Clock, CheckCircle, XCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { Film, Play, Clock, CheckCircle, XCircle, RefreshCw, Loader2, X } from 'lucide-react';
 
 interface MediaItem {
   id: string;
-  storage_url: string;
-  location_id: string;
-  location_name?: string;
-  location_address?: string;
-  ai_status: 'pending' | 'processing' | 'completed' | 'failed';
-  ai_annotations?: Record<string, unknown>;
-  created_at: string;
-  duration_seconds?: number;
-  file_size_bytes?: number;
+  url: string;
+  fileName: string;
+  locationId?: string;
+  locationName?: string;
+  aiStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  aiAnnotations?: Record<string, unknown>;
+  uploadedAt: string | null;
+  duration?: number;
+  size?: number;
+  aiError?: string | null;
 }
 
 interface QueueStats {
@@ -32,6 +33,7 @@ export default function MediaLibraryPage() {
   const [processing, setProcessing] = useState(false);
   const [filter, setFilter] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<MediaItem | null>(null);
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -41,7 +43,7 @@ export default function MediaLibraryPage() {
       
       const params = new URLSearchParams();
       if (filter && filter !== 'all') {
-        params.set('aiStatus', filter);
+        params.set('status', filter);
       }
       
       const response = await fetch(`/api/admin/videos?${params}`, {
@@ -234,39 +236,141 @@ export default function MediaLibraryPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {media.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
+                <tr 
+                  key={item.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedVideo(item)}
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-10 bg-gray-200 rounded flex items-center justify-center">
                         <Film className="w-5 h-5 text-gray-400" />
                       </div>
                       <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
-                        {item.id.slice(0, 8)}...
+                        {item.fileName || item.id.slice(0, 8) + '...'}
                       </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {item.location_name || item.location_id?.slice(0, 8) || '-'}
+                    {item.locationName || item.locationId?.slice(0, 8) || '-'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {formatDuration(item.duration_seconds)}
+                    {formatDuration(item.duration)}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {formatFileSize(item.file_size_bytes)}
+                    {formatFileSize(item.size)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {getStatusIcon(item.ai_status)}
-                      <span className="text-sm capitalize">{item.ai_status}</span>
+                      {getStatusIcon(item.aiStatus)}
+                      <span className="text-sm capitalize">{item.aiStatus}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(item.created_at).toLocaleDateString()}
+                    {item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString() : '-'}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Video Preview Modal */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg truncate flex-1 mr-4">
+                {selectedVideo.fileName || selectedVideo.id}
+              </h3>
+              <button 
+                onClick={() => setSelectedVideo(null)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Video Player */}
+            <div className="bg-black aspect-video flex-shrink-0">
+              {selectedVideo.url ? (
+                <video 
+                  src={selectedVideo.url} 
+                  controls 
+                  autoPlay
+                  className="w-full h-full"
+                >
+                  Your browser does not support video playback.
+                </video>
+              ) : (
+                <div className="flex items-center justify-center h-full text-white">
+                  No video URL available
+                </div>
+              )}
+            </div>
+            
+            {/* Metadata */}
+            <div className="p-4 space-y-2 text-sm overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-gray-500">Location:</span>{' '}
+                  <span className="font-medium">{selectedVideo.locationName || selectedVideo.locationId || 'Unknown'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">AI Status:</span>{' '}
+                  <span className="font-medium capitalize">{selectedVideo.aiStatus}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Duration:</span>{' '}
+                  <span className="font-medium">
+                    {selectedVideo.duration ? formatDuration(selectedVideo.duration) : 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Size:</span>{' '}
+                  <span className="font-medium">
+                    {selectedVideo.size ? formatFileSize(selectedVideo.size) : 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Uploaded:</span>{' '}
+                  <span className="font-medium">
+                    {selectedVideo.uploadedAt ? new Date(selectedVideo.uploadedAt).toLocaleString() : 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Video ID:</span>{' '}
+                  <span className="font-medium font-mono text-xs">{selectedVideo.id}</span>
+                </div>
+              </div>
+              
+              {selectedVideo.aiError && (
+                <div className="mt-4 pt-4 border-t">
+                  <span className="text-red-600 font-medium block mb-2">AI Processing Error:</span>
+                  <pre className="bg-red-50 p-2 rounded text-xs overflow-auto max-h-40 text-red-700">
+                    {selectedVideo.aiError}
+                  </pre>
+                </div>
+              )}
+
+              {selectedVideo.aiAnnotations && (
+                <div className="mt-4 pt-4 border-t">
+                  <span className="text-gray-500 block mb-2">AI Annotations:</span>
+                  <pre className="bg-gray-50 p-2 rounded text-xs overflow-auto max-h-40">
+                    {JSON.stringify(selectedVideo.aiAnnotations, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

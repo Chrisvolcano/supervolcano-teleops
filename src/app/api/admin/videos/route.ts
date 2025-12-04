@@ -46,12 +46,37 @@ function getAIStatus(document: FirebaseFirestore.DocumentData): 'pending' | 'pro
   return 'pending';
 }
 
-// Helper function to format date
-function formatDate(date: any): string | null {
-  if (!date) return null;
-  if (date.toDate) return date.toDate().toISOString();
-  if (date instanceof Date) return date.toISOString();
-  if (typeof date === 'string') return date;
+// Helper function to parse Firestore timestamp in any format
+function parseFirestoreTimestamp(value: any): string | null {
+  if (!value) return null;
+
+  // Firestore Timestamp object
+  if (value.toDate && typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+
+  // Serialized Firestore timestamp { _seconds, _nanoseconds }
+  if (value._seconds !== undefined) {
+    return new Date(value._seconds * 1000 + (value._nanoseconds || 0) / 1000000).toISOString();
+  }
+
+  // Unix timestamp (number)
+  if (typeof value === 'number') {
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  // Already a string
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  // Date object
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
   return null;
 }
 
@@ -143,7 +168,7 @@ export async function GET(request: NextRequest) {
           roomId: data.roomId || null,
           targetId: data.targetId || null,
           actionId: data.actionId || null,
-          uploadedAt: formatDate(data.uploadedAt || data.createdAt),
+          uploadedAt: parseFirestoreTimestamp(data.uploadedAt) || parseFirestoreTimestamp(data.createdAt) || parseFirestoreTimestamp(data.timestamp),
           aiStatus,
           aiAnnotations: data.aiAnnotations || data.annotations || null,
           aiError: data.aiError || data.annotationError || null,
