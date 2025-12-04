@@ -21,26 +21,34 @@ export async function GET(request: NextRequest) {
     
     const breakdown = {
       total: snapshot.size,
-      byType: {} as Record<string, number>,
       byMediaType: {} as Record<string, number>,
       byMimeType: {} as Record<string, number>,
       byExtension: {} as Record<string, number>,
-      samples: [] as any[],
+      // Show documents that have no mediaType set
+      unknownDocs: [] as any[],
     };
 
-    snapshot.docs.forEach((doc, i) => {
+    snapshot.docs.forEach((doc) => {
       const data = doc.data();
-      const type = data.type || 'no_type';
-      breakdown.byType[type] = (breakdown.byType[type] || 0) + 1;
+      
       const mediaType = data.mediaType || 'no_mediaType';
       breakdown.byMediaType[mediaType] = (breakdown.byMediaType[mediaType] || 0) + 1;
+      
       const mimeType = data.mimeType || data.contentType || 'no_mimeType';
       breakdown.byMimeType[mimeType] = (breakdown.byMimeType[mimeType] || 0) + 1;
+      
       const fileName = data.fileName || data.name || '';
       const ext = fileName.split('.').pop()?.toLowerCase() || 'no_ext';
       breakdown.byExtension[ext] = (breakdown.byExtension[ext] || 0) + 1;
-      if (i < 5) {
-        breakdown.samples.push({ id: doc.id, type: data.type, mediaType: data.mediaType, mimeType: data.mimeType, fileName: data.fileName });
+      
+      // Collect docs that have no mediaType - show ALL their fields
+      if (!data.mediaType) {
+        breakdown.unknownDocs.push({
+          id: doc.id,
+          allFields: Object.keys(data),
+          url: data.url || data.storageUrl || data.videoUrl || 'NO_URL',
+          uploadedAt: data.uploadedAt || data.createdAt || 'NO_DATE',
+        });
       }
     });
 
