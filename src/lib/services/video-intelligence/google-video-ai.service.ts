@@ -3,6 +3,8 @@
  * 
  * Handles video annotation using Google Cloud Video Intelligence API.
  * Free tier: 1,000 minutes/month per feature.
+ * 
+ * Supports large videos by using GCS URIs (Firebase Storage = GCS bucket)
  */
 
 import { VideoIntelligenceServiceClient, protos } from '@google-cloud/video-intelligence';
@@ -69,6 +71,56 @@ class GoogleVideoAIService {
     }
   }
 
+  /**
+   * Convert Firebase Storage URL to GCS URI
+   * Firebase Storage URLs: https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?token=...
+   * GCS URI: gs://BUCKET/PATH
+   */
+  private firebaseUrlToGcsUri(firebaseUrl: string): string | null {
+    try {
+      // Pattern 1: firebasestorage.googleapis.com format
+      // https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?...
+      const googleapisMatch = firebaseUrl.match(
+        /https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\/([^?]+)/
+      );
+      if (googleapisMatch) {
+        const bucket = googleapisMatch[1];
+        const path = decodeURIComponent(googleapisMatch[2]);
+        return `gs://${bucket}/${path}`;
+      }
+
+      // Pattern 2: storage.googleapis.com format
+      // https://storage.googleapis.com/BUCKET/PATH
+      const storageMatch = firebaseUrl.match(
+        /https:\/\/storage\.googleapis\.com\/([^/]+)\/(.+)/
+      );
+      if (storageMatch) {
+        const bucket = storageMatch[1];
+        const path = storageMatch[2].split('?')[0]; // Remove query params
+        return `gs://${bucket}/${path}`;
+      }
+
+      // Pattern 3: Firebase Storage new format
+      // https://BUCKET.firebasestorage.app/o/PATH?...
+      const newFormatMatch = firebaseUrl.match(
+        /https:\/\/([^.]+\.firebasestorage\.app)\/o\/([^?]+)/
+      );
+      if (newFormatMatch) {
+        const bucket = newFormatMatch[1];
+        const path = decodeURIComponent(newFormatMatch[2]);
+        return `gs://${bucket}/${path}`;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[VideoAI] Failed to parse Firebase URL:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Download video for base64 processing (fallback for small videos)
+   */
   private async downloadVideo(url: string): Promise<Buffer> {
     console.log(`[VideoAI] Downloading video...`);
     const response = await fetch(url);
@@ -94,18 +146,6 @@ class GoogleVideoAIService {
     const startTime = Date.now();
 
     try {
-      // Download video from Firebase Storage URL
-      const videoBuffer = await this.downloadVideo(videoUrl);
-      
-      // Check 20MB limit
-      const maxSize = 20 * 1024 * 1024;
-      if (videoBuffer.length > maxSize) {
-        return { 
-          success: false, 
-          error: `Video too large (${Math.round(videoBuffer.length / 1024 / 1024)}MB). Max 20MB.` 
-        };
-      }
-
       const featureMap: Record<string, number> = {
         'LABEL': 1, 'OBJECT': 9, 'TEXT': 7, 'SHOT': 4,
       };
@@ -114,14 +154,49 @@ class GoogleVideoAIService {
         .map(f => featureMap[f])
         .filter((f): f is number => f !== undefined);
 
+      // Try to convert Firebase URL to GCS URI (no size limit)
+      const gcsUri = this.firebaseUrlToGcsUri(videoUrl);
+      
+      let request: any;
+      
+      if (gcsUri) {
+        // Use GCS URI - NO SIZE LIMIT
+        console.log(`[VideoAI] Using GCS URI: ${gcsUri}`);
+        request = {
+          inputUri: gcsUri,
+          features: requestFeatures,
+        };
+      } else if (videoUrl.startsWith('gs://')) {
+        // Already a GCS URI
+        console.log(`[VideoAI] Using provided GCS URI: ${videoUrl}`);
+        request = {
+          inputUri: videoUrl,
+          features: requestFeatures,
+        };
+      } else {
+        // Fallback: download and use base64 (20MB limit)
+        console.log(`[VideoAI] Falling back to base64 download...`);
+        const videoBuffer = await this.downloadVideo(videoUrl);
+        
+        const maxSize = 20 * 1024 * 1024;
+        if (videoBuffer.length > maxSize) {
+          return { 
+            success: false, 
+            error: `Video too large (${Math.round(videoBuffer.length / 1024 / 1024)}MB). Could not convert to GCS URI.` 
+          };
+        }
+        
+        request = {
+          inputContent: videoBuffer.toString('base64'),
+          features: requestFeatures,
+        };
+      }
+
       console.log(`[VideoAI] Starting annotation with features: ${features.join(', ')}`);
 
-      const [operation] = await this.client.annotateVideo({
-        inputContent: videoBuffer.toString('base64'),
-        features: requestFeatures,
-      });
+      const [operation] = await this.client.annotateVideo(request);
 
-      console.log('[VideoAI] Waiting for annotation (this may take 1-3 minutes)...');
+      console.log('[VideoAI] Waiting for annotation (may take 1-5 minutes for longer videos)...');
       const [response] = await operation.promise();
 
       const results = response.annotationResults?.[0];
