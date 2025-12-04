@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
 import { getUserClaims } from '@/lib/utils/auth';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +9,7 @@ export const dynamic = 'force-dynamic';
  * 
  * Get all locations assigned to a specific user (cleaner)
  * Used by mobile app to filter location list
+ * Queries Firestore assignments collection (source of truth)
  */
 export async function GET(
   request: NextRequest,
@@ -39,29 +39,86 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
-    // Get all active assignments for this user
-    const assignmentsResult = await sql`
-      SELECT 
-        location_id,
-        location_name,
-        assigned_at
-      FROM location_assignments
-      WHERE user_id = ${userId}
-        AND is_active = true
-      ORDER BY assigned_at DESC
-    `;
+    // Query Firestore assignments collection for active assignments
+    const assignmentsSnapshot = await adminDb
+      .collection('assignments')
+      .where('user_id', '==', userId)
+      .where('status', '==', 'active')
+      .get();
     
-    const assignments = Array.isArray(assignmentsResult)
-      ? assignmentsResult
-      : (assignmentsResult as any)?.rows || [];
+    const assignmentDocs = assignmentsSnapshot.docs;
     
-    // Extract just the location IDs for easy filtering
-    const locationIds = assignments.map((a: any) => a.location_id);
+    if (assignmentDocs.length === 0) {
+      return NextResponse.json({
+        success: true,
+        locationIds: [],
+        assignments: [],
+        count: 0,
+      });
+    }
+    
+    // Extract location IDs
+    const locationIds = assignmentDocs.map((doc) => {
+      const data = doc.data();
+      return data.location_id || data.locationId;
+    }).filter(Boolean);
+    
+    // Batch fetch location details (Firestore 'in' query limit is 30)
+    const locationMap = new Map<string, any>();
+    
+    // Fetch locations in batches of 30
+    for (let i = 0; i < locationIds.length; i += 30) {
+      const batch = locationIds.slice(i, i + 30);
+      
+      // Fetch each location individually (more reliable than 'in' query)
+      await Promise.all(
+        batch.map(async (locationId) => {
+          try {
+            const locationDoc = await adminDb.collection('locations').doc(locationId).get();
+            if (locationDoc.exists) {
+              const locationData = locationDoc.data();
+              locationMap.set(locationId, {
+                location_id: locationId,
+                location_name: locationData?.name || locationData?.address || locationId,
+                location_address: locationData?.address || null,
+              });
+            }
+          } catch (error) {
+            console.error(`Failed to fetch location ${locationId}:`, error);
+          }
+        })
+      );
+    }
+    
+    // Build assignments array with location details
+    const assignments = assignmentDocs.map((doc) => {
+      const data = doc.data();
+      const locationId = data.location_id || data.locationId;
+      const locationInfo = locationMap.get(locationId) || {
+        location_id: locationId,
+        location_name: locationId,
+        location_address: null,
+      };
+      
+      return {
+        location_id: locationId,
+        location_name: locationInfo.location_name,
+        location_address: locationInfo.location_address,
+        assigned_at: data.assigned_at?.toDate?.()?.toISOString() || data.created_at?.toDate?.()?.toISOString() || null,
+      };
+    });
+    
+    // Sort by assigned_at (newest first)
+    assignments.sort((a, b) => {
+      const dateA = a.assigned_at ? new Date(a.assigned_at).getTime() : 0;
+      const dateB = b.assigned_at ? new Date(b.assigned_at).getTime() : 0;
+      return dateB - dateA;
+    });
     
     return NextResponse.json({
       success: true,
       locationIds,
-      assignments, // Include full details for display
+      assignments,
       count: locationIds.length,
     });
     
@@ -73,5 +130,3 @@ export async function GET(
     );
   }
 }
-
-

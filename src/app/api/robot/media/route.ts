@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Get Media (Videos/Images)
  * GET /api/robot/media
+ * Queries Firestore media collection (source of truth)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -26,69 +27,72 @@ export async function GET(request: NextRequest) {
     const jobId = searchParams.get('job_id');
     const fileType = searchParams.get('file_type');
 
-    // Build query
-    const conditions = ['1=1'];
-    const params: any[] = [];
-    let paramIndex = 1;
+    // Build Firestore query
+    let query: FirebaseFirestore.Query = adminDb.collection('media');
 
     if (locationId) {
-      conditions.push(`location_id = $${paramIndex++}`);
-      params.push(locationId);
+      query = query.where('locationId', '==', locationId);
     }
 
     if (jobId) {
-      conditions.push(`job_id = $${paramIndex++}`);
-      params.push(jobId);
+      query = query.where('taskId', '==', jobId);
     }
 
+    // Order by uploadedAt (descending)
+    try {
+      query = query.orderBy('uploadedAt', 'desc');
+    } catch (error) {
+      // If orderBy fails (no index), fetch without orderBy and sort in memory
+      console.warn('[Robot Media API] OrderBy failed, fetching without orderBy');
+    }
+
+    // Fetch media
+    const snapshot = await query.get();
+
+    // Filter and map results
+    let allMedia = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        job_id: data.taskId || data.jobId || null,
+        location_id: data.locationId || null,
+        storage_url: data.storageUrl || data.url || data.videoUrl || null,
+        thumbnail_url: data.thumbnailUrl || data.thumbnail || null,
+        file_type: data.fileType || data.mimeType || data.mediaType || null,
+        duration_seconds: data.durationSeconds || data.duration || null,
+        uploaded_at: data.uploadedAt?.toDate?.()?.toISOString() || data.createdAt?.toDate?.()?.toISOString() || null,
+        uploaded_by: data.uploadedBy || data.uploaded_by || null,
+      };
+    });
+
+    // Filter by file type if provided
     if (fileType) {
-      conditions.push(`file_type = $${paramIndex++}`);
-      params.push(fileType);
+      allMedia = allMedia.filter((m) => {
+        const mimeType = m.file_type?.toLowerCase() || '';
+        if (fileType.toLowerCase() === 'video') {
+          return mimeType.startsWith('video/') || m.file_type === 'video';
+        }
+        if (fileType.toLowerCase() === 'image') {
+          return mimeType.startsWith('image/') || m.file_type === 'image';
+        }
+        return mimeType.includes(fileType.toLowerCase());
+      });
     }
 
-    params.push(limit);
-    params.push(offset);
+    // Sort by uploadedAt (newest first)
+    allMedia.sort((a, b) => {
+      const dateA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+      const dateB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+      return dateB - dateA;
+    });
 
-    const query = `
-      SELECT 
-        id,
-        job_id,
-        location_id,
-        storage_url,
-        thumbnail_url,
-        file_type,
-        duration_seconds,
-        uploaded_at,
-        uploaded_by
-      FROM media
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY uploaded_at DESC
-      LIMIT $${paramIndex++}
-      OFFSET $${paramIndex}
-    `;
-
-    const result = await sql.query(query, params);
-
-    // Get total count
-    const countResult = await sql.query(
-      `SELECT COUNT(*) as total FROM media WHERE ${conditions.join(' AND ')}`,
-      params.slice(0, -2)
-    );
-    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+    // Apply pagination
+    const total = allMedia.length;
+    const paginatedMedia = allMedia.slice(offset, offset + limit);
 
     return NextResponse.json({
       success: true,
-      media: result.rows.map((row: any) => ({
-        id: row.id,
-        job_id: row.job_id,
-        location_id: row.location_id,
-        storage_url: row.storage_url,
-        thumbnail_url: row.thumbnail_url,
-        file_type: row.file_type,
-        duration_seconds: row.duration_seconds,
-        uploaded_at: row.uploaded_at ? new Date(row.uploaded_at).toISOString() : null,
-        uploaded_by: row.uploaded_by,
-      })),
+      media: paginatedMedia,
       total,
       limit,
       offset,
@@ -101,4 +105,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

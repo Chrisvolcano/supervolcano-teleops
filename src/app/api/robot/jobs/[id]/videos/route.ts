@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Get Videos for a Job
+ * Get Videos for a Job (Task)
  * GET /api/robot/jobs/{id}/videos
+ * 
+ * Note: "Jobs" in SQL are synced from Firestore "tasks"
+ * This endpoint queries Firestore directly (source of truth)
  */
 export async function GET(
   request: NextRequest,
@@ -23,63 +26,108 @@ export async function GET(
 
     const jobId = params.id;
 
-    // Verify job exists
-    const jobResult = await sql.query(
-      'SELECT id, title FROM jobs WHERE id = $1',
-      [jobId]
-    );
+    // Verify job (task) exists in Firestore
+    // Check both root tasks collection and location subcollections
+    let taskDoc = await adminDb.collection('tasks').doc(jobId).get();
+    let taskTitle = null;
 
-    if (jobResult.rows.length === 0) {
+    if (taskDoc.exists) {
+      const taskData = taskDoc.data();
+      taskTitle = taskData?.title || taskData?.name || null;
+    } else {
+      // Try to find in location subcollections (legacy structure)
+      const locationsSnapshot = await adminDb.collection('locations').limit(100).get();
+      
+      for (const locDoc of locationsSnapshot.docs) {
+        const taskRef = locDoc.ref.collection('tasks').doc(jobId);
+        taskDoc = await taskRef.get();
+        if (taskDoc.exists) {
+          const taskData = taskDoc.data();
+          taskTitle = taskData?.title || taskData?.name || null;
+          break;
+        }
+      }
+    }
+
+    if (!taskDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Job not found' },
         { status: 404 }
       );
     }
 
-    // Get all videos for tasks in this job
-    const videosQuery = `
-      SELECT 
-        m.id,
-        m.storage_url,
-        m.thumbnail_url,
-        m.duration_seconds,
-        m.file_size_bytes,
-        m.media_type,
-        m.uploaded_at,
-        m.uploaded_by,
-        t.id as task_id,
-        t.title as task_title,
-        tm.media_role,
-        tm.time_offset_seconds
-      FROM jobs j
-      JOIN tasks t ON j.id = t.job_id
-      JOIN task_media tm ON t.id = tm.task_id
-      JOIN media m ON tm.media_id = m.id
-      WHERE j.id = $1
-        AND m.media_type = 'video'
-      ORDER BY t.sequence_order ASC, tm.time_offset_seconds ASC
-    `;
+    // Get all videos for this job/task from Firestore
+    // Media is linked to tasks via taskId field
+    let mediaQuery: FirebaseFirestore.Query = adminDb
+      .collection('media')
+      .where('taskId', '==', jobId);
 
-    const videosResult = await sql.query(videosQuery, [jobId]);
+    // Also check for jobId field (some media might use jobId instead of taskId)
+    const mediaSnapshot = await mediaQuery.get();
+
+    // If no results with taskId, try jobId
+    let videos: any[] = [];
+    
+    if (mediaSnapshot.empty) {
+      const jobIdQuery = await adminDb
+        .collection('media')
+        .where('jobId', '==', jobId)
+        .get();
+      
+      jobIdQuery.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.mediaType === 'video' || data.mimeType?.startsWith('video/')) {
+          videos.push({
+            id: doc.id,
+            storage_url: data.storageUrl || data.url || data.videoUrl || null,
+            thumbnail_url: data.thumbnailUrl || data.thumbnail || null,
+            duration_seconds: data.durationSeconds || data.duration || null,
+            file_size_bytes: data.fileSize || data.size || null,
+            media_type: data.mediaType || data.mimeType || 'video',
+            uploaded_at: data.uploadedAt?.toDate?.()?.toISOString() || data.createdAt?.toDate?.()?.toISOString() || null,
+            uploaded_by: data.uploadedBy || data.uploaded_by || null,
+            task_id: jobId,
+            task_title: taskTitle,
+            media_role: 'instruction', // Default
+            time_offset_seconds: null,
+          });
+        }
+      });
+    } else {
+      mediaSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.mediaType === 'video' || data.mimeType?.startsWith('video/')) {
+          videos.push({
+            id: doc.id,
+            storage_url: data.storageUrl || data.url || data.videoUrl || null,
+            thumbnail_url: data.thumbnailUrl || data.thumbnail || null,
+            duration_seconds: data.durationSeconds || data.duration || null,
+            file_size_bytes: data.fileSize || data.size || null,
+            media_type: data.mediaType || data.mimeType || 'video',
+            uploaded_at: data.uploadedAt?.toDate?.()?.toISOString() || data.createdAt?.toDate?.()?.toISOString() || null,
+            uploaded_by: data.uploadedBy || data.uploaded_by || null,
+            task_id: jobId,
+            task_title: taskTitle,
+            media_role: 'instruction', // Default
+            time_offset_seconds: null,
+          });
+        }
+      });
+    }
+
+    // Sort by uploaded_at (newest first)
+    videos.sort((a, b) => {
+      const dateA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+      const dateB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+      return dateB - dateA;
+    });
 
     return NextResponse.json({
       success: true,
       job_id: jobId,
-      job_title: jobResult.rows[0].title,
-      videos: videosResult.rows.map((row: any) => ({
-        id: row.id,
-        storage_url: row.storage_url,
-        thumbnail_url: row.thumbnail_url || null,
-        duration_seconds: row.duration_seconds || null,
-        file_size_bytes: row.file_size_bytes || null,
-        uploaded_at: row.uploaded_at ? new Date(row.uploaded_at).toISOString() : null,
-        uploaded_by: row.uploaded_by || null,
-        task_id: row.task_id,
-        task_title: row.task_title || null,
-        media_role: row.media_role || 'instruction',
-        time_offset_seconds: row.time_offset_seconds || null,
-      })),
-      total: videosResult.rows.length,
+      job_title: taskTitle || 'Unnamed Job',
+      videos,
+      total: videos.length,
     });
   } catch (error: any) {
     console.error('Robot job videos API error:', error);
@@ -93,4 +141,3 @@ export async function GET(
     );
   }
 }
-

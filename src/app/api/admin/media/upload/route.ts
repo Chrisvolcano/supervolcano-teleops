@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db/postgres';
-import { adminStorage } from '@/lib/firebaseAdmin';
+import { adminStorage, adminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const jobId = formData.get('jobId') as string; // Changed from taskId - media is linked to jobs
+    const jobId = formData.get('jobId') as string;
     const locationId = formData.get('locationId') as string;
     const mediaType = formData.get('mediaType') as string;
     
@@ -73,36 +72,49 @@ export async function POST(request: NextRequest) {
     await fileUpload.makePublic();
     const storageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
     
-    // Get organization ID from location
-    const locationResult = await sql`
-      SELECT organization_id FROM locations WHERE id = ${locationId}
-    `;
+    // Get location to determine organization ID
+    let organizationId = null;
+    try {
+      const locationDoc = await adminDb.collection('locations').doc(locationId).get();
+      if (locationDoc.exists) {
+        const locationData = locationDoc.data();
+        organizationId = locationData?.assignedOrganizationId || locationData?.partnerOrgId || null;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch location for organization ID:', error);
+    }
     
-    const organizationId = locationResult[0]?.organization_id || null;
+    // Save to Firestore media collection (source of truth)
+    const mediaRef = adminDb.collection('media').doc();
+    const now = new Date();
     
-    // Save to SQL database (media table uses job_id after migration)
-    const result = await sql`
-      INSERT INTO media (
-        id, organization_id, location_id, job_id,
-        media_type, storage_url, uploaded_by, uploaded_at, synced_at
-      ) VALUES (
-        gen_random_uuid(),
-        ${organizationId},
-        ${locationId},
-        ${jobId},
-        ${mediaType || 'image'},
-        ${storageUrl},
-        ${(claims as any).email || 'admin'},
-        NOW(),
-        NOW()
-      )
-      RETURNING id
-    `;
+    await mediaRef.set({
+      id: mediaRef.id,
+      locationId,
+      taskId: jobId, // Firestore uses taskId, but this may be a job ID
+      jobId: jobId, // Also store as jobId for compatibility
+      mediaType: mediaType || (file.type?.startsWith('video/') ? 'video' : 'image'),
+      storageUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      uploadedBy: (claims as any)?.email || 'admin',
+      uploadedAt: now,
+      createdAt: now,
+      organizationId: organizationId, // Store for reference
+      processingStatus: 'completed',
+      aiProcessed: false,
+    });
+    
+    console.log(`Media uploaded to Firestore: ${mediaRef.id} for job ${jobId}`);
+    
+    // Note: Sync service will handle Firestore → SQL replication if needed for analytics
     
     return NextResponse.json({
       success: true,
-      id: result[0].id,
-      url: storageUrl
+      id: mediaRef.id,
+      url: storageUrl,
+      fileName: file.name,
     });
   } catch (error: any) {
     console.error('Media upload error:', error);
@@ -124,4 +136,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
