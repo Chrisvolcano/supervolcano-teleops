@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
-  ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database
+  ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles
 } from 'lucide-react';
 
 interface VideoItem {
@@ -17,6 +17,7 @@ interface VideoItem {
   uploadedAt: string | null;
   aiStatus: 'pending' | 'processing' | 'completed' | 'failed';
   aiAnnotations: any | null;
+  aiError: string | null;
   duration: number | null;
   size: number | null;
   aiRoomType: string | null;
@@ -50,6 +51,7 @@ export default function MediaLibraryPage() {
   const [singleActionLoading, setSingleActionLoading] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
 
   const fetchMedia = useCallback(async () => {
     if (!user) return;
@@ -124,6 +126,33 @@ export default function MediaLibraryPage() {
   const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedId(null); };
   const allSelected = media.length > 0 && media.every(v => selectedIds.has(v.id));
   const someSelected = selectedIds.size > 0;
+
+  const handleAnalyze = async (mediaId: string) => {
+    if (!user || analyzeLoading) return;
+    setAnalyzeLoading(true);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/videos/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mediaId, action: 'process_single' }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Analysis failed');
+      }
+      if (!result.success) {
+        throw new Error(result.error || 'Analysis did not complete');
+      }
+      // Refresh to get updated status
+      await fetchMedia();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
 
   const handleSingleAction = async (mediaId: string, action: 'approve' | 'reject') => {
     if (!user || singleActionLoading) return;
@@ -390,6 +419,78 @@ export default function MediaLibraryPage() {
                 <div><div className="text-gray-500">AI Status</div><div className="font-medium flex items-center gap-1">{getStatusIcon(selectedVideo.aiStatus)}<span className="capitalize">{selectedVideo.aiStatus}</span></div></div>
                 <div><div className="text-gray-500">Training</div><div>{getTrainingBadge(selectedVideo.trainingStatus)}</div></div>
               </div>
+
+              {/* Analyze Section - Show when pending */}
+              {selectedVideo.aiStatus === 'pending' && (
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-slate-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-slate-900">Ready for AI Analysis</div>
+                        <div className="text-sm text-slate-500">Extract labels, detect actions, and score quality</div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleAnalyze(selectedVideo.id)} 
+                      disabled={analyzeLoading}
+                      className="px-5 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {analyzeLoading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Analyze
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Section - Show when processing */}
+              {selectedVideo.aiStatus === 'processing' && (
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                    <div>
+                      <div className="font-medium text-blue-900">Analysis in Progress</div>
+                      <div className="text-sm text-blue-600">This may take a few moments...</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Failed Section - Show when failed */}
+              {selectedVideo.aiStatus === 'failed' && (
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="w-5 h-5 text-red-600" />
+                      <div>
+                        <div className="font-medium text-red-900">Analysis Failed</div>
+                        <div className="text-sm text-red-600">{selectedVideo.aiError || 'An error occurred during processing'}</div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleAnalyze(selectedVideo.id)} 
+                      disabled={analyzeLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm disabled:opacity-50"
+                    >
+                      {analyzeLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Analysis Results - Show when completed */}
               {selectedVideo.aiStatus === 'completed' && (
                 <div className="border-t pt-4 mt-4">
                   <h3 className="font-medium mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" />AI Analysis</h3>
@@ -401,6 +502,8 @@ export default function MediaLibraryPage() {
                   </div>
                 </div>
               )}
+
+              {/* Training Corpus Section - Show when completed */}
               {selectedVideo.aiStatus === 'completed' && (
                 <div className="border-t pt-4 mt-4">
                   <h3 className="font-medium mb-3 flex items-center gap-2"><Database className="w-4 h-4 text-blue-500" />Training Corpus</h3>
@@ -415,6 +518,7 @@ export default function MediaLibraryPage() {
                   {selectedVideo.trainingStatus === 'rejected' && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2"><XCircle className="w-4 h-4" />Rejected from training corpus</div>}
                 </div>
               )}
+
               <div className="text-xs text-gray-400 border-t pt-3 mt-4">Keyboard: ← → navigate • A approve • R reject • Del delete • Esc close</div>
             </div>
           </div>
