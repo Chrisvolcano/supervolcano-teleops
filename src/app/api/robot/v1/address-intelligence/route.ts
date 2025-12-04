@@ -153,7 +153,6 @@ export async function GET(request: NextRequest) {
     const completenessScore = calculateCompleteness({
       accessInfo,
       storageMap: allStorageItems,
-      storageLocations: allStorageItems,
       preferences,
       restrictions,
       referenceMedia
