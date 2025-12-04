@@ -131,7 +131,16 @@ export async function GET(request: NextRequest) {
     }
 
     // First pass: Calculate stats from ALL videos (before any filtering)
-    const stats = { queued: 0, processing: 0, completed: 0, failed: 0 };
+    const stats: any = { 
+      queued: 0, 
+      processing: 0, 
+      completed: 0, 
+      failed: 0,
+      // Training stats
+      pendingApproval: 0,
+      approved: 0,
+      rejected: 0,
+    };
     const allVideoDocs: Array<{ doc: FirebaseFirestore.QueryDocumentSnapshot; aiStatus: string }> = [];
 
     snapshot.docs.forEach((doc) => {
@@ -144,6 +153,18 @@ export async function GET(request: NextRequest) {
       
       // Update stats from ALL videos (before status filtering)
       stats[aiStatus === 'pending' ? 'queued' : aiStatus as keyof typeof stats]++;
+      
+      // Training status stats (only for completed videos)
+      if (aiStatus === 'completed') {
+        const trainingStatus = data.trainingStatus || 'pending';
+        if (trainingStatus === 'approved') {
+          stats.approved++;
+        } else if (trainingStatus === 'rejected') {
+          stats.rejected++;
+        } else {
+          stats.pendingApproval++;
+        }
+      }
       
       allVideoDocs.push({ doc, aiStatus });
     });
@@ -174,6 +195,12 @@ export async function GET(request: NextRequest) {
           aiError: data.aiError || data.annotationError || null,
           duration: data.durationSeconds || data.duration || null,
           size: data.fileSize || data.size || null,
+          // AI classification fields
+          aiRoomType: data.aiRoomType || null,
+          aiActionTypes: data.aiActionTypes || [],
+          aiQualityScore: data.aiQualityScore || null,
+          // Training workflow
+          trainingStatus: data.trainingStatus || 'pending',  // pending | approved | rejected
         };
       });
 

@@ -5,13 +5,13 @@
  * 1. Video uploaded to Firebase Storage
  * 2. Add to processing queue
  * 3. Process with Google Cloud Video AI
- * 4. Store annotations in PostgreSQL (media table)
- * 5. Derive training entry (anonymized)
+ * 4. Store annotations in Firestore (source of truth)
+ * 5. Explicit approval required to sync to training_videos (anonymized)
  */
 
 import { sql } from '@/lib/db/postgres';
 import { googleVideoAI, VideoAnnotations } from './google-video-ai.service';
-import { adminStorage, adminDb } from '@/lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 // Room type classification based on labels
 const ROOM_TYPE_MAPPINGS: Record<string, string[]> = {
@@ -43,17 +43,6 @@ export interface ProcessingQueueItem {
   lastError?: string;
 }
 
-export interface DerivedTrainingEntry {
-  sourceMediaId: string;
-  videoUrl: string;
-  roomType: string | null;
-  actionTypes: string[];
-  objectLabels: string[];
-  techniqueTags: string[];
-  durationSeconds: number | null;
-  qualityScore: number;
-}
-
 class VideoProcessingPipeline {
   /**
    * Add a video to the processing queue
@@ -81,6 +70,7 @@ class VideoProcessingPipeline {
 
   /**
    * Process next video in queue
+   * Reads from Firestore (source of truth)
    */
   async processNext(): Promise<{ processed: boolean; mediaId?: string; error?: string }> {
     // Get next queued item (use sql.query for raw query with FOR UPDATE SKIP LOCKED)
@@ -110,21 +100,22 @@ class VideoProcessingPipeline {
     const mediaId = queueItem.media_id;
 
     try {
-      // Get media record
-      const mediaResult = await sql`
-        SELECT * FROM media WHERE id = ${mediaId}
-      `;
+      // ✅ Get media record from FIRESTORE (not PostgreSQL)
+      const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
 
-      const mediaRows = Array.isArray(mediaResult) ? mediaResult : mediaResult.rows;
-
-      if (!mediaRows || mediaRows.length === 0) {
-        throw new Error(`Media record not found: ${mediaId}`);
+      if (!mediaDoc.exists) {
+        throw new Error(`Media not found in Firestore: ${mediaId}`);
       }
 
-      const media = mediaRows[0];
+      const media = mediaDoc.data()!;
+      const storageUrl = media.url || media.storageUrl || media.downloadUrl || media.videoUrl;
+
+      if (!storageUrl) {
+        throw new Error(`No storage URL for media: ${mediaId}`);
+      }
 
       // Process the video
-      const processResult = await this.processVideo(mediaId, media.storage_url);
+      const processResult = await this.processVideo(mediaId, storageUrl);
 
       if (processResult.success) {
         // Mark queue item as completed
@@ -152,6 +143,7 @@ class VideoProcessingPipeline {
 
   /**
    * Process a single video
+   * Writes results to Firestore (source of truth)
    */
   async processVideo(
     mediaId: string,
@@ -159,13 +151,14 @@ class VideoProcessingPipeline {
   ): Promise<{ success: boolean; error?: string }> {
     console.log(`[Pipeline] Processing video ${mediaId}`);
 
+    const mediaRef = adminDb.collection('media').doc(mediaId);
+
     try {
-      // Update media status
-      await sql`
-        UPDATE media 
-        SET ai_status = 'processing' 
-        WHERE id = ${mediaId}
-      `;
+      // ✅ Update status in FIRESTORE
+      await mediaRef.update({
+        aiStatus: 'processing',
+        aiProcessingStarted: new Date(),
+      });
 
       // Get annotations from Google Cloud Video AI
       const result = await googleVideoAI.annotateVideo(storageUrl, ['LABEL', 'OBJECT', 'TEXT']);
@@ -174,93 +167,137 @@ class VideoProcessingPipeline {
         throw new Error(result.error || 'No annotations returned');
       }
 
-      // Store annotations in media table
-      await sql`
-        UPDATE media
-        SET 
-          ai_status = 'completed',
-          ai_annotations = ${JSON.stringify(result.annotations)}::jsonb,
-          ai_processed_at = CURRENT_TIMESTAMP
-        WHERE id = ${mediaId}
-      `;
+      // Extract all labels
+      const allLabels = result.annotations.labels.map(l => l.description.toLowerCase());
+      const allObjects = result.annotations.objects.map(o => o.description.toLowerCase());
 
-      // Derive and store training entry
-      await this.deriveTrainingEntry(mediaId, storageUrl, result.annotations);
+      // Derive classifications
+      const roomType = this.classifyRoomType([...allLabels, ...allObjects]);
+      const actionTypes = this.classifyActionTypes(allLabels);
+      const qualityScore = this.calculateQualityScore(result.annotations);
+      const duration = this.estimateDuration(result.annotations);
+
+      // ✅ Store results in FIRESTORE (source of truth)
+      await mediaRef.update({
+        aiStatus: 'completed',
+        aiAnnotations: result.annotations,
+        aiProcessedAt: new Date(),
+        aiRoomType: roomType,
+        aiActionTypes: actionTypes,
+        aiObjectLabels: [...new Set(allObjects)].slice(0, 20),
+        aiQualityScore: qualityScore,
+        aiDuration: duration,
+        // Training workflow status
+        trainingStatus: 'pending',  // pending | approved | rejected
+      });
+
+      // ❌ REMOVED: Auto-sync to training_videos
+      // This only happens on explicit approval now
 
       console.log(`[Pipeline] Successfully processed video ${mediaId}`);
       return { success: true };
     } catch (error: any) {
       console.error(`[Pipeline] Processing failed for ${mediaId}:`, error.message);
 
-      await sql`
-        UPDATE media
-        SET 
-          ai_status = 'failed',
-          ai_error = ${error.message}
-        WHERE id = ${mediaId}
-      `;
+      await mediaRef.update({
+        aiStatus: 'failed',
+        aiError: error.message,
+        aiFailedAt: new Date(),
+      }).catch(() => {});
 
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Derive anonymized training entry from processed video
+   * Sync approved video to PostgreSQL training_videos (ANONYMIZED)
+   * Called only when admin explicitly approves for training
    */
-  private async deriveTrainingEntry(
-    mediaId: string,
-    videoUrl: string,
-    annotations: VideoAnnotations
-  ): Promise<void> {
-    // Extract all labels
-    const allLabels = annotations.labels.map(l => l.description.toLowerCase());
-    const allObjects = annotations.objects.map(o => o.description.toLowerCase());
+  async syncToTrainingCorpus(mediaId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get the processed media from Firestore
+      const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
+      
+      if (!mediaDoc.exists) {
+        throw new Error('Media not found');
+      }
+      
+      const media = mediaDoc.data()!;
+      
+      if (media.aiStatus !== 'completed') {
+        throw new Error('Video must be processed before approval');
+      }
+      
+      const videoUrl = media.url || media.storageUrl || media.downloadUrl || media.videoUrl;
+      
+      if (!videoUrl) {
+        throw new Error('Video URL not found');
+      }
+      
+      // ✅ Insert into PostgreSQL training_videos (ANONYMIZED - no locationId)
+      await sql`
+        INSERT INTO training_videos (
+          source_media_id,
+          video_url,
+          room_type,
+          action_types,
+          object_labels,
+          technique_tags,
+          duration_seconds,
+          quality_score,
+          is_featured
+        ) VALUES (
+          ${mediaId},
+          ${videoUrl},
+          ${media.aiRoomType || null},
+          ${media.aiActionTypes || []},
+          ${media.aiObjectLabels || []},
+          ${[]},
+          ${media.aiDuration || null},
+          ${media.aiQualityScore || 0},
+          ${false}
+        )
+        ON CONFLICT (source_media_id) DO UPDATE SET
+          room_type = EXCLUDED.room_type,
+          action_types = EXCLUDED.action_types,
+          object_labels = EXCLUDED.object_labels,
+          quality_score = EXCLUDED.quality_score,
+          updated_at = CURRENT_TIMESTAMP
+      `;
+      
+      // ✅ Update Firestore to reflect approval
+      await adminDb.collection('media').doc(mediaId).update({
+        trainingStatus: 'approved',
+        trainingApprovedAt: new Date(),
+      });
+      
+      console.log(`[Pipeline] Video ${mediaId} approved and synced to training corpus`);
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[Pipeline] Failed to sync ${mediaId} to training:`, error.message);
+      return { success: false, error: error.message };
+    }
+  }
 
-    // Classify room type
-    const roomType = this.classifyRoomType([...allLabels, ...allObjects]);
-
-    // Classify action types
-    const actionTypes = this.classifyActionTypes(allLabels);
-
-    // Get unique object labels (cleaned up)
-    const objectLabels = [...new Set(allObjects)].slice(0, 20); // Limit to 20
-
-    // Calculate quality score based on annotation richness
-    const qualityScore = this.calculateQualityScore(annotations);
-
-    // Get video duration from annotations (approximate from shots or segments)
-    const durationSeconds = this.estimateDuration(annotations);
-
-    // Insert training entry (NO location_id, NO session_id = anonymized)
-    await sql`
-      INSERT INTO training_videos (
-        source_media_id,
-        video_url,
-        room_type,
-        action_types,
-        object_labels,
-        technique_tags,
-        duration_seconds,
-        quality_score
-      ) VALUES (
-        ${mediaId},
-        ${videoUrl},
-        ${roomType},
-        ${actionTypes},
-        ${objectLabels},
-        ${[]},
-        ${durationSeconds},
-        ${qualityScore}
-      )
-      ON CONFLICT (source_media_id) DO UPDATE SET
-        room_type = ${roomType},
-        action_types = ${actionTypes},
-        object_labels = ${objectLabels},
-        quality_score = ${qualityScore},
-        updated_at = CURRENT_TIMESTAMP
-    `;
-
-    console.log(`[Pipeline] Created training entry for ${mediaId}: room=${roomType}, quality=${qualityScore.toFixed(2)}`);
+  /**
+   * Reject a video from training corpus
+   */
+  async rejectFromTraining(mediaId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await adminDb.collection('media').doc(mediaId).update({
+        trainingStatus: 'rejected',
+        trainingRejectedAt: new Date(),
+      });
+      
+      // Remove from PostgreSQL if it was previously approved
+      await sql`
+        DELETE FROM training_videos WHERE source_media_id = ${mediaId}
+      `.catch(() => {}); // Ignore errors if not in table
+      
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 
   /**
@@ -353,32 +390,58 @@ class VideoProcessingPipeline {
 
   /**
    * Get queue statistics
+   * Now includes training approval stats from Firestore
    */
   async getQueueStats(): Promise<{
     queued: number;
     processing: number;
     completed: number;
     failed: number;
+    // Training corpus stats
+    pendingApproval: number;
+    approved: number;
+    rejected: number;
   }> {
-    const result = await sql`
-      SELECT 
-        status,
-        COUNT(*)::int as count
+    // Queue stats from PostgreSQL
+    const queueResult = await sql`
+      SELECT status, COUNT(*)::int as count
       FROM video_processing_queue
       GROUP BY status
     `;
-
-    const rows = Array.isArray(result) ? result : result.rows;
-    const stats = { queued: 0, processing: 0, completed: 0, failed: 0 };
     
-    for (const row of rows) {
-      const status = row.status as keyof typeof stats;
-      if (status in stats) {
-        stats[status] = Number(row.count) || 0;
+    const queueRows = Array.isArray(queueResult) ? queueResult : queueResult.rows;
+    const stats: any = { queued: 0, processing: 0, completed: 0, failed: 0 };
+    
+    for (const row of queueRows || []) {
+      if (row.status in stats) {
+        stats[row.status] = Number(row.count) || 0;
       }
     }
-
-    return stats;
+    
+    // Training approval stats from Firestore
+    const mediaSnap = await adminDb.collection('media')
+      .where('aiStatus', '==', 'completed')
+      .get();
+    
+    let pendingApproval = 0;
+    let approved = 0;
+    let rejected = 0;
+    
+    mediaSnap.docs.forEach(doc => {
+      const data = doc.data();
+      switch (data.trainingStatus) {
+        case 'approved': approved++; break;
+        case 'rejected': rejected++; break;
+        default: pendingApproval++;
+      }
+    });
+    
+    return {
+      ...stats,
+      pendingApproval,
+      approved,
+      rejected,
+    };
   }
 
   /**
@@ -434,4 +497,3 @@ class VideoProcessingPipeline {
 
 // Export singleton
 export const videoProcessingPipeline = new VideoProcessingPipeline();
-
