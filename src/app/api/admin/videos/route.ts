@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           aiStatus,
           aiAnnotations: data.aiAnnotations || data.annotations || null,
           aiError: data.aiError || data.annotationError || null,
-          duration: data.durationSeconds || data.duration || null,
+          duration: data.durationSeconds || data.duration || data.videoDuration || null,
           size: data.fileSize || data.size || null,
           aiRoomType: data.aiRoomType || null,
           aiActionTypes: data.aiActionTypes || [],
