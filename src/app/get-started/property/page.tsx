@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebaseClient';
-import { MapPin } from 'lucide-react';
+import AddressAutocomplete, { type AddressData } from '@/components/admin/AddressAutocomplete';
 
 export default function PropertyPage() {
   const router = useRouter();
@@ -25,12 +25,21 @@ export default function PropertyPage() {
 
   const [formData, setFormData] = useState({
     address: '',
+    addressData: null as AddressData | null,
     unit: '',
     propertyType: 'home',
     bedrooms: '',
     bathrooms: '',
     name: '',
   });
+
+  const handleAddressChange = (addressData: AddressData) => {
+    setFormData({
+      ...formData,
+      address: addressData.fullAddress,
+      addressData,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +49,7 @@ export default function PropertyPage() {
     setError('');
 
     try {
-      const locationRef = await addDoc(collection(db, 'locations'), {
+      const locationData: any = {
         ownerId: user.uid,
         organizationId: `owner:${user.uid}`,
         address: formData.address,
@@ -51,7 +60,19 @@ export default function PropertyPage() {
         bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
         createdAt: new Date(),
         status: 'setup',
-      });
+        source: 'web_onboarding',
+      };
+
+      // Add coordinates if available from autocomplete
+      if (formData.addressData?.coordinates) {
+        locationData.coordinates = {
+          lat: formData.addressData.coordinates.lat,
+          lng: formData.addressData.coordinates.lng,
+        };
+        locationData.placeId = formData.addressData.placeId || null;
+      }
+
+      const locationRef = await addDoc(collection(db, 'locations'), locationData);
 
       // Store location ID for next steps
       sessionStorage.setItem('onboarding_location_id', locationRef.id);
@@ -89,18 +110,13 @@ export default function PropertyPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4 flex-1">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Property address</label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500"
-              placeholder="123 Main St, City, State"
-              required
-            />
-          </div>
+          <AddressAutocomplete
+            value={formData.address}
+            onChange={handleAddressChange}
+            placeholder="Start typing address..."
+            className="w-full pl-4 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500"
+            error={error && error.includes('address') ? error : undefined}
+          />
         </div>
 
         <div>

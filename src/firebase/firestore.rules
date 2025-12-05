@@ -79,8 +79,25 @@ service cloud.firestore {
       // Managers can read locations assigned to their org
       allow read: if isManager() && hasLocationAccess();
       
-      // Only admins can write locations
+      // Property owners can read their own locations
+      allow read: if isAuthenticated() && 
+        (isManager() || resource.data.ownerId == request.auth.uid);
+      
+      // Admins can write all locations
       allow write: if isAdmin();
+      
+      // Property owners (location_owner role) can create locations where they are the owner
+      allow create: if isAuthenticated() && 
+        (request.auth.token.role == "location_owner" || isManager()) &&
+        request.resource.data.ownerId == request.auth.uid;
+      
+      // Property owners can update their own locations
+      allow update: if isAuthenticated() && 
+        (isManager() || resource.data.ownerId == request.auth.uid);
+      
+      // Property owners can delete their own locations
+      allow delete: if isAuthenticated() && 
+        (isManager() || resource.data.ownerId == request.auth.uid);
       
       // Tasks subcollection
       match /tasks/{taskId} {
@@ -138,7 +155,38 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+    
+    // Media collection - allow owners to upload for their locations
+    match /media/{mediaId} {
+      allow read, write: if isAdmin();
+      
+      // Property owners can create media for their locations
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/locations/$(request.resource.data.locationId)).data.ownerId == request.auth.uid;
+      
+      // Property owners can read/update/delete media for their locations
+      allow read, update, delete: if isAuthenticated() && 
+        get(/databases/$(database)/documents/locations/$(resource.data.locationId)).data.ownerId == request.auth.uid;
+    }
+    
+    // Location invites - allow owners to invite cleaners
+    match /location_invites/{inviteId} {
+      allow read, write: if isAdmin();
+      
+      // Property owners can create invites for their locations
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/locations/$(request.resource.data.locationId)).data.ownerId == request.auth.uid;
+      
+      // Property owners can read/manage invites for their locations
+      allow read, update, delete: if isAuthenticated() && 
+        get(/databases/$(database)/documents/locations/$(resource.data.locationId)).data.ownerId == request.auth.uid;
+      
+      // Invited users can read their own invites by email
+      allow read: if isAuthenticated() && 
+        resource.data.invitedEmail == request.auth.token.email;
     }
 
     // Legacy collections (for backward compatibility)
