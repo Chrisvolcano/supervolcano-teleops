@@ -2,9 +2,10 @@
  * CAMERA SCREEN - Cross-Platform with Offline Support
  * Continuous recording with background segment uploads
  * Videos persist locally until confirmed uploaded
+ * Uses react-native-vision-camera for physical lens selection
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,10 +18,17 @@ import {
   Platform,
   AppState,
   AppStateStatus,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  VideoFile,
+} from 'react-native-vision-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { UploadQueueService } from '@/services/upload-queue.service';
@@ -31,16 +39,56 @@ import * as Haptics from 'expo-haptics';
 
 const SEGMENT_DURATION = 300; // 5 minutes in seconds
 
+type LensType = 'ultra-wide' | 'wide' | 'telephoto';
+
 export default function CameraScreen({ route, navigation }: any) {
   const { locationId, address } = route.params || {};
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const cameraRef = useRef<CameraView>(null);
-  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<Camera>(null);
+
+  // Permissions
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
+
+  // Lens selection state - default to ultra-wide
+  const [selectedLens, setSelectedLens] = useState<LensType>('ultra-wide');
+
+  // Get a device that supports all physical lenses for smooth switching
+  const device = useCameraDevice('back', {
+    physicalDevices: [
+      'ultra-wide-angle-camera',
+      'wide-angle-camera',
+      'telephoto-camera',
+    ],
+  });
+
+  // Track which lenses are available on this device
+  const availableLenses = {
+    'ultra-wide': device?.physicalDevices?.includes('ultra-wide-angle-camera') ?? false,
+    'wide': device?.physicalDevices?.includes('wide-angle-camera') ?? true,
+    'telephoto': device?.physicalDevices?.includes('telephoto-camera') ?? false,
+  };
+
+  // Calculate zoom based on selected lens
+  const getZoomForLens = useCallback((lens: LensType): number => {
+    switch (lens) {
+      case 'ultra-wide':
+        return 0.5; // 0.5x zoom triggers ultra-wide lens
+      case 'wide':
+        return 1.0; // 1x is standard wide
+      case 'telephoto':
+        return 2.0; // 2x for telephoto
+      default:
+        return 0.5;
+    }
+  }, []);
+
+  const currentZoom = getZoomForLens(selectedLens);
 
   // Upload queue status
   const uploadQueue = useUploadQueue();
-  
+
   // Toast notifications
   const { toast, showToast, hideToast } = useToast();
 
@@ -54,17 +102,21 @@ export default function CameraScreen({ route, navigation }: any) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionActiveRef = useRef(false);
+  const segmentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const appState = useRef(AppState.currentState);
 
   // Initialize upload queue service
   useEffect(() => {
     UploadQueueService.initialize();
-    
+
     // Handle app state changes
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
     return () => {
       subscription.remove();
+      if (segmentTimeoutRef.current) {
+        clearTimeout(segmentTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -126,14 +178,12 @@ export default function CameraScreen({ route, navigation }: any) {
   // Track uploads and show success toast
   const prevTotal = useRef(0);
   const hasRecordedRef = useRef(false);
-  
+
   useEffect(() => {
-    // Track when we've recorded segments
     if (segmentsRecorded > 0) {
       hasRecordedRef.current = true;
     }
-    
-    // Show toast when upload completes (total decreases after we've recorded)
+
     if (
       hasRecordedRef.current &&
       prevTotal.current > 0 &&
@@ -142,7 +192,7 @@ export default function CameraScreen({ route, navigation }: any) {
     ) {
       showToast('Video saved successfully', 'success');
     }
-    
+
     prevTotal.current = uploadQueue.total;
   }, [uploadQueue.total, uploadQueue.uploading, segmentsRecorded, showToast]);
 
@@ -170,52 +220,21 @@ export default function CameraScreen({ route, navigation }: any) {
       : addr;
   };
 
-  // Start recording session
-  const startSession = async () => {
-    console.log('[Camera] Starting session...');
-    setIsSessionActive(true);
-    sessionActiveRef.current = true;
-    setElapsedTime(0);
-    setSegmentsRecorded(0);
-
-    await recordSegment();
-  };
-
-  // Stop recording session
-  const stopSession = async () => {
-    console.log('[Camera] Stopping session...');
-    setIsSessionActive(false);
-    sessionActiveRef.current = false;
-
-    if (cameraRef.current && isRecording) {
-      cameraRef.current.stopRecording();
-    }
-
-    // Haptic feedback when session ends
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  // Record a single segment
-  const recordSegment = async () => {
-    if (!cameraRef.current || !sessionActiveRef.current) return;
-
-    try {
-      setIsRecording(true);
-      console.log('[Camera] Recording segment...');
-
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: SEGMENT_DURATION,
-      });
-
-      console.log('[Camera] Segment complete:', video?.uri);
+  // Handle recording stopped callback
+  const onRecordingFinished = useCallback(
+    async (video: VideoFile) => {
+      console.log('[Camera] Segment complete:', video.path);
       setIsRecording(false);
-
-      if (video?.uri && user) {
-        // Queue for upload (handles persistence and upload)
+      if (video?.path && user) {
         setSegmentsRecorded((prev) => prev + 1);
-        
+
+        // Convert path to file:// URI if needed
+        const videoUri = video.path.startsWith('file://') 
+          ? video.path 
+          : `file://${video.path}`;
+
         await UploadQueueService.addToQueue(
-          video.uri,
+          videoUri,
           locationId,
           user.uid,
           user.organizationId
@@ -224,18 +243,81 @@ export default function CameraScreen({ route, navigation }: any) {
         // If session still active, start next segment immediately
         if (sessionActiveRef.current) {
           console.log('[Camera] Starting next segment...');
-          recordSegment();
+          startRecordingSegment();
         }
       }
-    } catch (error: any) {
-      console.error('[Camera] Recording error:', error);
-      setIsRecording(false);
+    },
+    [user, locationId]
+  );
 
-      // If session active, try to recover
+  const onRecordingError = useCallback((error: any) => {
+    console.error('[Camera] Recording error:', error);
+    setIsRecording(false);
+    // If session active, try to recover
+    if (sessionActiveRef.current) {
+      setTimeout(() => startRecordingSegment(), 1000);
+    }
+  }, []);
+
+  // Start recording a segment
+  const startRecordingSegment = useCallback(async () => {
+    if (!cameraRef.current || !sessionActiveRef.current) return;
+
+    try {
+      setIsRecording(true);
+      console.log('[Camera] Recording segment...');
+
+      cameraRef.current.startRecording({
+        onRecordingFinished,
+        onRecordingError,
+        fileType: 'mp4',
+        videoBitRate: 'high',
+        videoCodec: 'h264',
+      });
+
+      // Stop after segment duration
+      segmentTimeoutRef.current = setTimeout(() => {
+        if (cameraRef.current && sessionActiveRef.current) {
+          console.log('[Camera] Segment duration reached, stopping...');
+          cameraRef.current.stopRecording();
+        }
+      }, SEGMENT_DURATION * 1000);
+    } catch (error: any) {
+      console.error('[Camera] Start recording error:', error);
+      setIsRecording(false);
       if (sessionActiveRef.current) {
-        setTimeout(() => recordSegment(), 1000);
+        setTimeout(() => startRecordingSegment(), 1000);
       }
     }
+  }, [onRecordingFinished, onRecordingError]);
+
+  // Start recording session
+  const startSession = async () => {
+    console.log('[Camera] Starting session...');
+    setIsSessionActive(true);
+    sessionActiveRef.current = true;
+    setElapsedTime(0);
+    setSegmentsRecorded(0);
+
+    await startRecordingSegment();
+  };
+
+  // Stop recording session
+  const stopSession = async () => {
+    console.log('[Camera] Stopping session...');
+    setIsSessionActive(false);
+    sessionActiveRef.current = false;
+
+    if (segmentTimeoutRef.current) {
+      clearTimeout(segmentTimeoutRef.current);
+      segmentTimeoutRef.current = null;
+    }
+
+    if (cameraRef.current && isRecording) {
+      await cameraRef.current.stopRecording();
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   // Handle record button press
@@ -270,6 +352,14 @@ export default function CameraScreen({ route, navigation }: any) {
     }
   };
 
+  // Handle lens change
+  const handleLensChange = (lens: LensType) => {
+    if (availableLenses[lens]) {
+      setSelectedLens(lens);
+      Haptics.selectionAsync();
+    }
+  };
+
   // Get status message
   const getStatusMessage = (): string => {
     if (isSessionActive) {
@@ -292,7 +382,19 @@ export default function CameraScreen({ route, navigation }: any) {
     return 'Tap to start recording';
   };
 
-  // Header pill component - handles platform differences
+  // Get lens display text
+  const getLensDisplayText = (lens: LensType): string => {
+    switch (lens) {
+      case 'ultra-wide':
+        return '.5';
+      case 'wide':
+        return '1x';
+      case 'telephoto':
+        return '2x';
+    }
+  };
+
+  // Header pill component
   const HeaderPill = ({ children }: { children: React.ReactNode }) => {
     if (Platform.OS === 'ios') {
       return (
@@ -308,8 +410,15 @@ export default function CameraScreen({ route, navigation }: any) {
     );
   };
 
-  // Permission handling
-  if (!permission) {
+  // Request permissions
+  const requestPermissions = async () => {
+    const cameraGranted = await requestCameraPermission();
+    const micGranted = await requestMicPermission();
+    return cameraGranted && micGranted;
+  };
+
+  // Permission not yet determined
+  if (hasCameraPermission === null || hasMicPermission === null) {
     return (
       <View style={styles.centerContainer}>
         <StatusBar
@@ -322,7 +431,8 @@ export default function CameraScreen({ route, navigation }: any) {
     );
   }
 
-  if (!permission.granted) {
+  // Permission denied
+  if (!hasCameraPermission || !hasMicPermission) {
     return (
       <View style={[styles.permissionContainer, { paddingTop: insets.top }]}>
         <StatusBar
@@ -330,28 +440,59 @@ export default function CameraScreen({ route, navigation }: any) {
           backgroundColor="transparent"
           translucent
         />
-          <Ionicons name="camera-outline" size={64} color="#666" />
+        <Ionicons name="camera-outline" size={64} color="#666" />
         <Text style={styles.permissionTitle}>Camera Access Needed</Text>
-          <Text style={styles.permissionText}>
+        <Text style={styles.permissionText}>
           We need camera and microphone access to record your session.
-          </Text>
+        </Text>
         <TouchableOpacity
-          onPress={requestPermission}
+          onPress={requestPermissions}
           style={styles.permissionButton}
           activeOpacity={0.8}
         >
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
-          </TouchableOpacity>
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => Linking.openSettings()}
+          style={styles.backLink}
+        >
+          <Text style={styles.backLinkText}>Open Settings</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backLink}
         >
           <Text style={styles.backLinkText}>Go Back</Text>
-          </TouchableOpacity>
+        </TouchableOpacity>
       </View>
     );
   }
 
+  // No camera device available
+  if (!device) {
+    return (
+      <View style={[styles.permissionContainer, { paddingTop: insets.top }]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="transparent"
+          translucent
+        />
+        <Ionicons name="camera-outline" size={64} color="#666" />
+        <Text style={styles.permissionTitle}>No Camera Found</Text>
+        <Text style={styles.permissionText}>
+          Unable to access camera device.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backLink}
+        >
+          <Text style={styles.backLinkText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Missing location/user
   if (!locationId || !user) {
     return (
       <View style={[styles.permissionContainer, { paddingTop: insets.top }]}>
@@ -360,17 +501,17 @@ export default function CameraScreen({ route, navigation }: any) {
           backgroundColor="transparent"
           translucent
         />
-          <Ionicons name="location-outline" size={64} color="#666" />
+        <Ionicons name="location-outline" size={64} color="#666" />
         <Text style={styles.permissionTitle}>Missing Information</Text>
-          <Text style={styles.permissionText}>
+        <Text style={styles.permissionText}>
           Location information is required to start recording.
-          </Text>
+        </Text>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backLink}
         >
           <Text style={styles.backLinkText}>Go Back</Text>
-          </TouchableOpacity>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -393,12 +534,14 @@ export default function CameraScreen({ route, navigation }: any) {
       />
 
       {/* Full-screen camera */}
-      <CameraView
+      <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
-        facing="back"
-        mode="video"
-        videoQuality="1080p"
+        device={device}
+        isActive={true}
+        video={true}
+        audio={true}
+        zoom={currentZoom}
       />
 
       {/* Top floating header */}
@@ -412,7 +555,6 @@ export default function CameraScreen({ route, navigation }: any) {
           >
             <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
-          
           <View style={styles.locationContainer}>
             <Ionicons
               name="location"
@@ -447,6 +589,33 @@ export default function CameraScreen({ route, navigation }: any) {
 
       {/* Bottom floating controls */}
       <View style={[styles.bottomContainer, { bottom: insets.bottom + 30 }]}>
+        {/* Lens selector */}
+        <View style={styles.lensSelector}>
+          {(['ultra-wide', 'wide', 'telephoto'] as LensType[]).map((lens) => (
+            <TouchableOpacity
+              key={lens}
+              onPress={() => handleLensChange(lens)}
+              style={[
+                styles.lensButton,
+                selectedLens === lens && styles.lensButtonActive,
+                !availableLenses[lens] && styles.lensButtonDisabled,
+              ]}
+              activeOpacity={0.7}
+              disabled={!availableLenses[lens]}
+            >
+              <Text
+                style={[
+                  styles.lensText,
+                  selectedLens === lens && styles.lensTextActive,
+                  !availableLenses[lens] && styles.lensTextDisabled,
+                ]}
+              >
+                {getLensDisplayText(lens)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Timer display */}
         {isSessionActive && (
           <View style={styles.timerContainer}>
@@ -455,7 +624,7 @@ export default function CameraScreen({ route, navigation }: any) {
         )}
 
         {/* Record button */}
-              <TouchableOpacity
+        <TouchableOpacity
           onPress={handleRecordPress}
           style={styles.recordButtonOuter}
           activeOpacity={0.8}
@@ -496,7 +665,7 @@ export default function CameraScreen({ route, navigation }: any) {
             {getStatusMessage()}
           </Text>
         </TouchableOpacity>
-        </View>
+      </View>
     </View>
   );
 }
@@ -634,6 +803,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
+
+  // Lens selector
+  lensSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 22,
+    padding: 3,
+  },
+  lensButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lensButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  lensButtonDisabled: {
+    opacity: 0.3,
+  },
+  lensText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  lensTextActive: {
+    color: '#FFD60A',
+  },
+  lensTextDisabled: {
+    color: 'rgba(255,255,255,0.3)',
+  },
+
   timerContainer: {
     marginBottom: 24,
     paddingHorizontal: 16,
