@@ -25,7 +25,9 @@ def blur_video():
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         
-        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as input_tmp:
+        ext = os.path.splitext(source_path)[1] or '.mp4'
+        
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as input_tmp:
             input_file = input_tmp.name
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as output_tmp:
             output_file = output_tmp.name
@@ -37,91 +39,103 @@ def blur_video():
             
             # Get video dimensions
             probe_cmd = [
-                'ffprobe', '-v', 'error',
-                '-select_streams', 'v:0',
-                '-show_entries', 'stream=width,height',
-                '-of', 'csv=p=0',
-                input_file
+                'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height', '-of', 'csv=p=0', input_file
             ]
-            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-            width, height = map(int, probe_result.stdout.strip().split(','))
-            print(f"Video dimensions: {width}x{height}")
+            probe = subprocess.run(probe_cmd, capture_output=True, text=True)
+            try:
+                width, height = map(int, probe.stdout.strip().split(','))
+            except:
+                width, height = 1920, 1080  # fallback
+            
+            print(f"Video: {width}x{height}, Faces: {len(faces)}")
             
             if faces and len(faces) > 0:
-                # Build filter for each face region
-                # Uses delogo-style approach: blur specific regions
-                filter_parts = []
+                # Build filter that blurs only face regions during their appearance
+                # Using drawbox with enable for time-based application
+                filters = []
                 
                 for i, face in enumerate(faces):
-                    # Convert normalized coords to pixels with padding
-                    fx = int(face['x'] * width)
-                    fy = int(face['y'] * height)
-                    fw = int(face['width'] * width)
-                    fh = int(face['height'] * height)
+                    # Convert normalized coords (0-1) to pixels
+                    fx = int(face.get('x', 0) * width)
+                    fy = int(face.get('y', 0) * height)
+                    fw = int(face.get('width', 0.1) * width)
+                    fh = int(face.get('height', 0.1) * height)
+                    start = face.get('startTime', 0)
+                    end = face.get('endTime', 9999)
                     
-                    # Add 20% padding around face
-                    pad_x = int(fw * 0.2)
-                    pad_y = int(fh * 0.2)
-                    fx = max(0, fx - pad_x)
-                    fy = max(0, fy - pad_y)
-                    fw = min(width - fx, fw + 2 * pad_x)
-                    fh = min(height - fy, fh + 2 * pad_y)
+                    # Add padding
+                    pad = int(max(fw, fh) * 0.3)
+                    fx = max(0, fx - pad)
+                    fy = max(0, fy - pad)
+                    fw = min(width - fx, fw + 2 * pad)
+                    fh = min(height - fy, fh + 2 * pad)
                     
-                    print(f"Face {i}: x={fx}, y={fy}, w={fw}, h={fh}")
+                    print(f"Face {i}: ({fx},{fy}) {fw}x{fh} from {start:.1f}s to {end:.1f}s")
                     
-                    # Create blur box for this face
-                    # Using drawbox with pixelize effect via scale down then up
-                    filter_parts.append(
-                        f"boxblur=luma_radius=30:luma_power=3:enable='1':x={fx}:y={fy}:w={fw}:h={fh}"
+                    # Create blur filter for this face region during its time range
+                    # Using boxblur with coordinates
+                    filters.append(
+                        f"split[base{i}][blur{i}];"
+                        f"[blur{i}]crop={fw}:{fh}:{fx}:{fy},boxblur=50:15[blurred{i}];"
+                        f"[base{i}][blurred{i}]overlay={fx}:{fy}:enable='between(t,{start},{end})'"
                     )
                 
-                # For multiple faces, use split/overlay approach
-                # Simpler: apply heavy blur to face regions using multiple crop+blur+overlay
-                filter_complex = f"[0:v]split={len(faces)+1}"
-                for i in range(len(faces) + 1):
-                    filter_complex += f"[v{i}]"
-                filter_complex += ";"
+                # Chain filters together
+                if len(filters) == 1:
+                    filter_complex = filters[0]
+                else:
+                    # For multiple faces, chain them
+                    filter_complex = filters[0]
+                    for i in range(1, len(filters)):
+                        filter_complex += f"[out{i-1}];[out{i-1}]" + filters[i].replace(f"[base{i}]", "").replace(f"split[base{i}][blur{i}];", f"split[tmp{i}][blur{i}];[tmp{i}]copy[base{i}];[base{i}]")
                 
+                # Simplified approach: apply each blur sequentially
+                filter_str = ""
+                prev_output = "0:v"
                 for i, face in enumerate(faces):
-                    fx = int(face['x'] * width)
-                    fy = int(face['y'] * height)
-                    fw = int(face['width'] * width)
-                    fh = int(face['height'] * height)
+                    fx = int(face.get('x', 0) * width)
+                    fy = int(face.get('y', 0) * height)
+                    fw = int(face.get('width', 0.1) * width)
+                    fh = int(face.get('height', 0.1) * height)
+                    start = face.get('startTime', 0)
+                    end = face.get('endTime', 9999)
                     
-                    pad_x = int(fw * 0.3)
-                    pad_y = int(fh * 0.3)
-                    fx = max(0, fx - pad_x)
-                    fy = max(0, fy - pad_y)
-                    fw = min(width - fx, fw + 2 * pad_x)
-                    fh = min(height - fy, fh + 2 * pad_y)
+                    pad = int(max(fw, fh) * 0.3)
+                    fx = max(0, fx - pad)
+                    fy = max(0, fy - pad)
+                    fw = min(width - fx, fw + 2 * pad)
+                    fh = min(height - fy, fh + 2 * pad)
                     
                     if i == 0:
-                        filter_complex += f"[v{i}]crop={fw}:{fh}:{fx}:{fy},boxblur=40:10[blur{i}];"
-                        filter_complex += f"[v{len(faces)}][blur{i}]overlay={fx}:{fy}[out{i}];"
+                        filter_str += f"[{prev_output}]split[base{i}][blur{i}];"
                     else:
-                        filter_complex += f"[v{i}]crop={fw}:{fh}:{fx}:{fy},boxblur=40:10[blur{i}];"
-                        filter_complex += f"[out{i-1}][blur{i}]overlay={fx}:{fy}[out{i}];"
+                        filter_str += f"[out{i-1}]split[base{i}][blur{i}];"
+                    
+                    filter_str += f"[blur{i}]crop={fw}:{fh}:{fx}:{fy},boxblur=50:15[blurred{i}];"
+                    filter_str += f"[base{i}][blurred{i}]overlay={fx}:{fy}:enable='between(t,{start},{end})'[out{i}];"
                 
-                # Final output
-                final_out = f"out{len(faces)-1}"
+                filter_str = filter_str.rstrip(';')
+                final_output = f"out{len(faces)-1}"
                 
                 ffmpeg_cmd = [
                     'ffmpeg', '-i', input_file,
-                    '-filter_complex', filter_complex,
-                    '-map', f'[{final_out}]', '-map', '0:a?',
+                    '-filter_complex', filter_str,
+                    '-map', f'[{final_output}]', '-map', '0:a?',
                     '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-                    '-c:a', 'copy', '-movflags', '+faststart',
+                    '-c:a', 'aac',
                     '-y', output_file
                 ]
             else:
-                ffmpeg_cmd = ['ffmpeg', '-i', input_file, '-c', 'copy', '-y', output_file]
+                print("No faces, copying video")
+                ffmpeg_cmd = ['ffmpeg', '-i', input_file, '-c:v', 'libx264', '-c:a', 'aac', '-y', output_file]
             
-            print(f"Running FFmpeg")
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            print(f"Running FFmpeg...")
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=600)
             
             if result.returncode != 0:
-                print(f"FFmpeg error: {result.stderr}")
-                return jsonify({'error': 'FFmpeg failed', 'details': result.stderr}), 500
+                print(f"FFmpeg stderr: {result.stderr}")
+                return jsonify({'error': 'FFmpeg failed', 'details': result.stderr[-1000:]}), 500
             
             print(f"Uploading to {output_path}")
             output_blob = bucket.blob(output_path)
@@ -136,7 +150,6 @@ def blur_video():
                 os.unlink(output_file)
                 
     except Exception as e:
-        print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

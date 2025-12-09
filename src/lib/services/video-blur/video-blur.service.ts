@@ -265,12 +265,30 @@ class VideoBlurService {
           sourcePath: storagePath,
           outputPath: blurredPath,
           bucket: this.bucketName,
-          faces: faces.map(f => ({
-            x: f.frames[0]?.boundingBox.left || 0,
-            y: f.frames[0]?.boundingBox.top || 0,
-            width: (f.frames[0]?.boundingBox.right || 0) - (f.frames[0]?.boundingBox.left || 0),
-            height: (f.frames[0]?.boundingBox.bottom || 0) - (f.frames[0]?.boundingBox.top || 0),
-          })),
+          faces: faces.map(f => {
+            // Get time range this face appears
+            const startTime = f.frames[0]?.timeOffset || 0;
+            const endTime = f.frames[f.frames.length - 1]?.timeOffset || 9999;
+            
+            // Get average bounding box across all frames
+            const avgBox = f.frames.reduce((acc, frame) => ({
+              left: acc.left + frame.boundingBox.left,
+              top: acc.top + frame.boundingBox.top,
+              right: acc.right + frame.boundingBox.right,
+              bottom: acc.bottom + frame.boundingBox.bottom,
+            }), { left: 0, top: 0, right: 0, bottom: 0 });
+            
+            const numFrames = f.frames.length || 1;
+            
+            return {
+              x: avgBox.left / numFrames,
+              y: avgBox.top / numFrames,
+              width: (avgBox.right - avgBox.left) / numFrames,
+              height: (avgBox.bottom - avgBox.top) / numFrames,
+              startTime,
+              endTime,
+            };
+          }),
         }),
       });
 
