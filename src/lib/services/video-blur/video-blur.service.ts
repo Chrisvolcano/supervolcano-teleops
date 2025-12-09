@@ -262,11 +262,15 @@ class VideoBlurService {
           'Authorization': `Bearer ${process.env.VIDEO_BLUR_PROCESSOR_KEY || ''}`,
         },
         body: JSON.stringify({
-          inputGcsUri: gcsUri,
-          outputGcsPath: blurredPath,
-          outputBucket: this.bucketName,
-          faces,
-          blurType: 'gaussian',
+          sourcePath: storagePath,
+          outputPath: blurredPath,
+          bucket: this.bucketName,
+          faces: faces.map(f => ({
+            x: f.frames[0]?.boundingBox.left || 0,
+            y: f.frames[0]?.boundingBox.top || 0,
+            width: (f.frames[0]?.boundingBox.right || 0) - (f.frames[0]?.boundingBox.left || 0),
+            height: (f.frames[0]?.boundingBox.bottom || 0) - (f.frames[0]?.boundingBox.top || 0),
+          })),
         }),
       });
 
