@@ -43,7 +43,8 @@ import {
   Archive,
   Upload,
   Plus,
-  HardDrive
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -1172,6 +1173,16 @@ export default function AdminContributions() {
                                 </button>
                               )}
                               
+                              {item.blurStatus === 'complete' && !blurringIds.has(item.id) && (
+                                <button
+                                  onClick={() => handleBlur(item)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                  Re-blur
+                                </button>
+                              )}
+                              
                               {/* Download dropdown */}
                               <div className="relative group">
                                 <button
@@ -1326,6 +1337,16 @@ export default function AdminContributions() {
                     >
                       <Shield className="w-3 h-3" />
                       Blur Faces
+                    </button>
+                  )}
+                  
+                  {item.reviewStatus === 'approved' && item.blurStatus === 'complete' && !blurringIds.has(item.id) && (
+                    <button
+                      onClick={() => handleBlur(item)}
+                      className="w-full mt-3 py-1.5 text-orange-600 hover:bg-orange-50 text-xs font-medium rounded-lg transition flex items-center justify-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Re-blur
                     </button>
                   )}
                 </div>
@@ -1905,13 +1926,22 @@ export default function AdminContributions() {
                     )}
                     
                     {previewItem.blurStatus === 'complete' && (
-                      <button
-                        onClick={() => handleDownload(previewItem, 'blurred')}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Blurred
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleBlur(previewItem)}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-orange-400 hover:bg-white/20 font-medium rounded-lg transition"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Re-blur
+                        </button>
+                        <button
+                          onClick={() => handleDownload(previewItem, 'blurred')}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Blurred
+                        </button>
+                      </>
                     )}
                     
                     <button
