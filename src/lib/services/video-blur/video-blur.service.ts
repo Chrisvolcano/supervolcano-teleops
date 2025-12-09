@@ -272,8 +272,8 @@ class VideoBlurService {
             }
             
             // Get time range this face appears
-            const startTime = f.frames[0]?.timeOffset || 0;
-            const endTime = f.frames[f.frames.length - 1]?.timeOffset || 9999;
+            const startTime = Math.max(0, (f.frames[0]?.timeOffset || 0) - 0.5); // Start 0.5s early
+            const endTime = (f.frames[f.frames.length - 1]?.timeOffset || 9999) + 1.0; // Add 1s buffer
             
             // Get average bounding box across all frames
             const avgBox = f.frames.reduce((acc, frame) => ({

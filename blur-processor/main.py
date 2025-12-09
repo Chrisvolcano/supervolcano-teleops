@@ -38,78 +38,29 @@ def blur_video():
             blob = bucket.blob(source_path)
             blob.download_to_filename(input_file)
             
-            # Get video info including rotation
-            probe_cmd = [
-                'ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                '-show_entries', 'stream=width,height,rotation:stream_tags=rotate',
-                '-of', 'json', input_file
-            ]
-            probe = subprocess.run(probe_cmd, capture_output=True, text=True)
-            
-            try:
-                probe_data = json.loads(probe.stdout)
-                stream = probe_data.get('streams', [{}])[0]
-                width = int(stream.get('width', 1920))
-                height = int(stream.get('height', 1080))
-                rotation = int(stream.get('rotation', 0) or stream.get('tags', {}).get('rotate', 0) or 0)
-            except:
-                width, height, rotation = 1920, 1080, 0
-            
-            print(f"Video: {width}x{height}, rotation: {rotation}, Faces: {len(faces)}")
-            print(f"Face data received: {json.dumps(faces, indent=2)}")
-            
-            # Handle rotation - swap dimensions if rotated 90/270
-            display_width, display_height = width, height
-            if abs(rotation) in [90, 270]:
-                display_width, display_height = height, width
-            
-            print(f"Display dimensions: {display_width}x{display_height}")
+            print(f"Faces received: {json.dumps(faces)}")
             
             if faces and len(faces) > 0:
-                filter_str = ""
-                prev_output = "0:v"
-                
+                # Build time-based enable condition for full-frame blur
+                # Blur when ANY face is visible
+                time_conditions = []
                 for i, face in enumerate(faces):
-                    # Get normalized coordinates
-                    nx = face.get('x', 0)
-                    ny = face.get('y', 0)
-                    nw = face.get('width', 0.1)
-                    nh = face.get('height', 0.1)
                     start = face.get('startTime', 0)
                     end = face.get('endTime', 9999)
-                    
-                    print(f"Face {i} normalized: x={nx:.3f}, y={ny:.3f}, w={nw:.3f}, h={nh:.3f}")
-                    
-                    # Convert to pixel coordinates using display dimensions
-                    fx = int(nx * display_width)
-                    fy = int(ny * display_height)
-                    fw = int(nw * display_width)
-                    fh = int(nh * display_height)
-                    
-                    # Add padding
-                    pad = int(max(fw, fh) * 0.4)
-                    fx = max(0, fx - pad)
-                    fy = max(0, fy - pad)
-                    fw = min(display_width - fx, fw + 2 * pad)
-                    fh = min(display_height - fy, fh + 2 * pad)
-                    
-                    print(f"Face {i} pixels: x={fx}, y={fy}, w={fw}, h={fh}, time={start:.1f}-{end:.1f}s")
-                    
-                    if i == 0:
-                        filter_str += f"[{prev_output}]split[base{i}][blur{i}];"
-                    else:
-                        filter_str += f"[out{i-1}]split[base{i}][blur{i}];"
-                    
-                    filter_str += f"[blur{i}]crop={fw}:{fh}:{fx}:{fy},boxblur=50:15[blurred{i}];"
-                    filter_str += f"[base{i}][blurred{i}]overlay={fx}:{fy}:enable='between(t,{start},{end})'[out{i}];"
+                    print(f"Face {i}: visible from {start:.1f}s to {end:.1f}s")
+                    time_conditions.append(f"between(t,{start},{end})")
                 
-                filter_str = filter_str.rstrip(';')
-                final_output = f"out{len(faces)-1}"
+                # Combine with OR - blur if any face is visible
+                enable_condition = "+".join(time_conditions)
+                
+                # Simple full-frame blur with time-based enable
+                filter_str = f"boxblur=50:15:enable='{enable_condition}'"
+                
+                print(f"Filter: {filter_str}")
                 
                 ffmpeg_cmd = [
                     'ffmpeg', '-i', input_file,
-                    '-filter_complex', filter_str,
-                    '-map', f'[{final_output}]', '-map', '0:a?',
+                    '-vf', filter_str,
                     '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
                     '-c:a', 'aac',
                     '-y', output_file
