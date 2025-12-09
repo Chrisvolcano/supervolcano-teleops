@@ -14,6 +14,7 @@ import {
   Film,
   GraduationCap,
   Upload,
+  Package,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: "Media Library", href: "/admin/robot-intelligence/media", icon: Film },
   { label: "Training Library", href: "/admin/robot-intelligence/training", icon: GraduationCap },
   { label: "Contributions", href: "/admin/contributions", icon: Upload },
+  { label: "Exports", href: "/admin/exports", icon: Package },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 

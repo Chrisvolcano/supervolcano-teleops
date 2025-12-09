@@ -59,6 +59,25 @@ interface UserStats {
   rejectedCount: number;
 }
 
+// Extract video duration from file (client-side)
+const extractVideoDuration = (file: File): Promise<number> => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      resolve(Math.round(video.duration));
+    };
+    
+    video.onerror = () => {
+      resolve(0); // Fallback if extraction fails
+    };
+    
+    video.src = URL.createObjectURL(file);
+  });
+};
+
 export default function ContributorDashboard() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -236,6 +255,9 @@ export default function ContributorDashboard() {
               try {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
+                // Extract duration before creating media document
+                const durationSeconds = await extractVideoDuration(uploadFile.file);
+
                 // Create media document
                 await addDoc(collection(db, 'media'), {
                   contributorId: user.uid,
@@ -244,6 +266,7 @@ export default function ContributorDashboard() {
                   fileName: uploadFile.file.name,
                   fileSize: uploadFile.file.size,
                   mimeType: uploadFile.file.type,
+                  durationSeconds,
                   url: downloadURL,
                   storagePath,
                   locationText: locationText.trim() || null,
@@ -259,7 +282,8 @@ export default function ContributorDashboard() {
                 // Update user stats
                 await updateDoc(doc(db, 'users', user.uid), {
                   'stats.totalUploads': increment(1),
-                  'stats.pendingCount': increment(1)
+                  'stats.pendingCount': increment(1),
+                  'stats.totalDurationSeconds': increment(durationSeconds)
                 });
 
                 setFiles(prev => prev.map(f => 

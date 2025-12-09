@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebaseClient';
 import { 
   collection, 
@@ -12,7 +12,8 @@ import {
   updateDoc,
   serverTimestamp,
   getDoc,
-  increment
+  increment,
+  getDocs
 } from 'firebase/firestore';
 import { 
   Clock, 
@@ -23,11 +24,28 @@ import {
   User,
   MapPin,
   Calendar,
-  Filter,
-  X
+  X,
+  Download,
+  Grid,
+  List,
+  Timer,
+  Users,
+  Video,
+  Search,
+  CheckSquare,
+  Square,
+  Shield,
+  Package,
+  AlertTriangle,
+  FileDown,
+  Archive
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 type ReviewStatus = 'all' | 'pending' | 'approved' | 'rejected';
+type ViewMode = 'table' | 'gallery';
+type BlurStatus = 'none' | 'processing' | 'complete' | 'failed';
+type DeliveryMethod = 'manifest' | 'zip' | 'both';
 
 interface ContributorMedia {
   id: string;
@@ -36,29 +54,67 @@ interface ContributorMedia {
   contributorName?: string;
   fileName: string;
   fileSize: number;
+  durationSeconds?: number;
   url: string;
+  storagePath: string;
   locationText?: string;
   reviewStatus: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
   reviewedAt?: any;
   reviewedBy?: string;
   createdAt: any;
+  // Blur fields
+  blurStatus?: BlurStatus;
+  blurredUrl?: string;
+  blurredStoragePath?: string;
+  facesDetected?: number;
+  blurError?: string;
+}
+
+interface ContributorStats {
+  id: string;
+  name: string;
+  email: string;
+  totalUploads: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
 }
 
 export default function AdminContributions() {
-  const [mediaItems, setMediaItems] = useState<ContributorMedia[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending');
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const { user } = useAuth();
   
-  // Rejection modal
+  // Data state
+  const [mediaItems, setMediaItems] = useState<ContributorMedia[]>([]);
+  const [contributors, setContributors] = useState<Map<string, ContributorStats>>(new Map());
+  const [loading, setLoading] = useState(true);
+  
+  // Filter state
+  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending');
+  const [contributorFilter, setContributorFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [blurringIds, setBlurringIds] = useState<Set<string>>(new Set());
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+  
+  // Modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingItem, setRejectingItem] = useState<ContributorMedia | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [previewItem, setPreviewItem] = useState<ContributorMedia | null>(null);
   
-  // Video preview
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Export modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportName, setExportName] = useState('');
+  const [exportDescription, setExportDescription] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('both');
+  const [exportLoading, setExportLoading] = useState(false);
 
+  // Fetch media with filters
   useEffect(() => {
     let q = query(
       collection(db, 'media'),
@@ -82,6 +138,28 @@ export default function AdminContributions() {
       })) as ContributorMedia[];
       setMediaItems(items);
       setLoading(false);
+      
+      // Build contributor stats from data
+      const statsMap = new Map<string, ContributorStats>();
+      items.forEach(item => {
+        if (!statsMap.has(item.contributorId)) {
+          statsMap.set(item.contributorId, {
+            id: item.contributorId,
+            name: item.contributorName || 'Unknown',
+            email: item.contributorEmail,
+            totalUploads: 0,
+            approvedCount: 0,
+            pendingCount: 0,
+            rejectedCount: 0
+          });
+        }
+        const stats = statsMap.get(item.contributorId)!;
+        stats.totalUploads++;
+        if (item.reviewStatus === 'approved') stats.approvedCount++;
+        if (item.reviewStatus === 'pending') stats.pendingCount++;
+        if (item.reviewStatus === 'rejected') stats.rejectedCount++;
+      });
+      setContributors(statsMap);
     }, (error) => {
       console.error('Error fetching contributions:', error);
       setLoading(false);
@@ -90,17 +168,58 @@ export default function AdminContributions() {
     return () => unsubscribe();
   }, [statusFilter]);
 
+  // Filtered items
+  const filteredItems = useMemo(() => {
+    let items = mediaItems;
+    
+    if (contributorFilter !== 'all') {
+      items = items.filter(i => i.contributorId === contributorFilter);
+    }
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(i => 
+        i.fileName.toLowerCase().includes(query) ||
+        i.contributorEmail.toLowerCase().includes(query) ||
+        i.contributorName?.toLowerCase().includes(query) ||
+        i.locationText?.toLowerCase().includes(query)
+      );
+    }
+    
+    return items;
+  }, [mediaItems, contributorFilter, searchQuery]);
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const all = mediaItems;
+    const pending = all.filter(i => i.reviewStatus === 'pending');
+    const approved = all.filter(i => i.reviewStatus === 'approved');
+    const blurred = all.filter(i => i.blurStatus === 'complete');
+    const totalDuration = all.reduce((sum, i) => sum + (i.durationSeconds || 0), 0);
+    const approvedDuration = approved.reduce((sum, i) => sum + (i.durationSeconds || 0), 0);
+    
+    return {
+      totalCount: all.length,
+      pendingCount: pending.length,
+      approvedCount: approved.length,
+      rejectedCount: all.filter(i => i.reviewStatus === 'rejected').length,
+      blurredCount: blurred.length,
+      totalDuration,
+      approvedDuration,
+      contributorCount: contributors.size
+    };
+  }, [mediaItems, contributors]);
+
+  // Actions
   const handleApprove = async (item: ContributorMedia) => {
-    setProcessingId(item.id);
+    setProcessingIds(prev => new Set(prev).add(item.id));
     try {
-      // Update media document
       await updateDoc(doc(db, 'media', item.id), {
         reviewStatus: 'approved',
         reviewedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
 
-      // Update contributor stats
       const userRef = doc(db, 'users', item.contributorId);
       const userDoc = await getDoc(userRef);
       if (userDoc.exists()) {
@@ -112,8 +231,24 @@ export default function AdminContributions() {
     } catch (error) {
       console.error('Error approving:', error);
     } finally {
-      setProcessingId(null);
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
+  };
+
+  const handleBulkApprove = async () => {
+    const itemsToApprove = filteredItems.filter(i => 
+      selectedIds.has(i.id) && i.reviewStatus === 'pending'
+    );
+    
+    for (const item of itemsToApprove) {
+      await handleApprove(item);
+    }
+    
+    setSelectedIds(new Set());
   };
 
   const openRejectModal = (item: ContributorMedia) => {
@@ -125,9 +260,8 @@ export default function AdminContributions() {
   const handleReject = async () => {
     if (!rejectingItem) return;
     
-    setProcessingId(rejectingItem.id);
+    setProcessingIds(prev => new Set(prev).add(rejectingItem.id));
     try {
-      // Update media document
       await updateDoc(doc(db, 'media', rejectingItem.id), {
         reviewStatus: 'rejected',
         rejectionReason: rejectionReason.trim() || null,
@@ -135,7 +269,6 @@ export default function AdminContributions() {
         updatedAt: serverTimestamp()
       });
 
-      // Update contributor stats
       const userRef = doc(db, 'users', rejectingItem.contributorId);
       const userDoc = await getDoc(userRef);
       if (userDoc.exists()) {
@@ -150,8 +283,152 @@ export default function AdminContributions() {
     } catch (error) {
       console.error('Error rejecting:', error);
     } finally {
-      setProcessingId(null);
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(rejectingItem.id);
+        return next;
+      });
     }
+  };
+
+  // Blur handler
+  const handleBlur = async (item: ContributorMedia) => {
+    if (!user) return;
+    setBlurringIds(prev => new Set(prev).add(item.id));
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/contributions/blur', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ mediaId: item.id, action: 'blur' }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Blur failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Blur error:', error);
+    } finally {
+      setBlurringIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
+  // Download handler
+  const handleDownload = async (item: ContributorMedia, type: 'blurred' | 'original') => {
+    if (!user) return;
+    setDownloadingIds(prev => new Set(prev).add(item.id));
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(
+        `/api/admin/contributions/download?mediaId=${item.id}&type=${type}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      const result = await response.json();
+      if (result.success && result.downloadUrl) {
+        window.open(result.downloadUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
+  // Export handler
+  const handleCreateExport = async () => {
+    if (!exportName.trim() || !user) return;
+    
+    const eligibleIds = filteredItems
+      .filter(i => selectedIds.has(i.id) && i.reviewStatus === 'approved')
+      .map(i => i.id);
+    
+    if (eligibleIds.length === 0) {
+      alert('No approved videos selected');
+      return;
+    }
+    
+    setExportLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/contributions/export', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          name: exportName,
+          description: exportDescription,
+          videoIds: eligibleIds,
+          deliveryMethod,
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setShowExportModal(false);
+        setExportName('');
+        setExportDescription('');
+        setSelectedIds(new Set());
+        alert(`Export created! ${result.export.videoCount} videos included.`);
+      } else {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredItems.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredItems.map(i => i.id)));
+    }
+  };
+
+  // Formatters
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '—';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins >= 60) {
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return `${hours}:${remainingMins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTotalDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -161,7 +438,7 @@ export default function AdminContributions() {
   };
 
   const formatDate = (timestamp: any) => {
-    if (!timestamp) return '-';
+    if (!timestamp) return '—';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
@@ -171,7 +448,47 @@ export default function AdminContributions() {
     });
   };
 
-  const pendingCount = mediaItems.filter(i => i.reviewStatus === 'pending').length;
+  const pendingSelectedCount = filteredItems.filter(i => 
+    selectedIds.has(i.id) && i.reviewStatus === 'pending'
+  ).length;
+
+  const approvedSelectedCount = filteredItems.filter(i => 
+    selectedIds.has(i.id) && i.reviewStatus === 'approved'
+  ).length;
+
+  // Blur status badge component
+  const BlurStatusBadge = ({ item }: { item: ContributorMedia }) => {
+    const isBlurring = blurringIds.has(item.id);
+    
+    if (isBlurring || item.blurStatus === 'processing') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Blurring...
+        </span>
+      );
+    }
+    
+    if (item.blurStatus === 'complete') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+          <Shield className="w-3 h-3" />
+          Blurred ({item.facesDetected || 0})
+        </span>
+      );
+    }
+    
+    if (item.blurStatus === 'failed') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-600 text-xs font-medium rounded-full">
+          <AlertTriangle className="w-3 h-3" />
+          Failed
+        </span>
+      );
+    }
+    
+    return null;
+  };
 
   return (
     <div className="space-y-6">
@@ -179,23 +496,194 @@ export default function AdminContributions() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Contributions</h1>
-          <p className="text-gray-600">Review uploads from individual contributors</p>
+          <p className="text-gray-600">Review and approve uploaded footage</p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-2 rounded-lg transition ${viewMode === 'table' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <List className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setViewMode('gallery')}
+            className={`p-2 rounded-lg transition ${viewMode === 'gallery' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <Grid className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <Clock className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.pendingCount}</p>
+              <p className="text-xs text-gray-500">Pending</p>
+            </div>
+          </div>
         </div>
 
-        {/* Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-400" />
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.approvedCount}</p>
+              <p className="text-xs text-gray-500">Approved</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+              <XCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.rejectedCount}</p>
+              <p className="text-xs text-gray-500">Rejected</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.blurredCount}</p>
+              <p className="text-xs text-gray-500">Blurred</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Timer className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{formatTotalDuration(summaryStats.approvedDuration)}</p>
+              <p className="text-xs text-gray-500">Approved Time</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.contributorCount}</p>
+              <p className="text-xs text-gray-500">Contributors</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Video className="w-5 h-5 text-gray-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{summaryStats.totalCount}</p>
+              <p className="text-xs text-gray-500">Total Videos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters & Search */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by filename, contributor, or location..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+          </div>
+
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as ReviewStatus)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
-            <option value="pending">Pending Review ({pendingCount})</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
+            <option value="pending">Pending ({summaryStats.pendingCount})</option>
+            <option value="approved">Approved ({summaryStats.approvedCount})</option>
+            <option value="rejected">Rejected ({summaryStats.rejectedCount})</option>
+          </select>
+
+          {/* Contributor Filter */}
+          <select
+            value={contributorFilter}
+            onChange={(e) => setContributorFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Contributors</option>
+            {Array.from(contributors.values()).map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.totalUploads})
+              </option>
+            ))}
           </select>
         </div>
+
+        {/* Bulk Actions */}
+        {selectedIds.size > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between flex-wrap gap-3">
+            <span className="text-sm text-gray-600">
+              {selectedIds.size} selected
+              {pendingSelectedCount > 0 && (
+                <span className="text-yellow-600 ml-1">({pendingSelectedCount} pending)</span>
+              )}
+              {approvedSelectedCount > 0 && (
+                <span className="text-green-600 ml-1">({approvedSelectedCount} approved)</span>
+              )}
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+              >
+                Clear
+              </button>
+              {pendingSelectedCount > 0 && (
+                <button
+                  onClick={handleBulkApprove}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Approve {pendingSelectedCount}
+                </button>
+              )}
+              {approvedSelectedCount > 0 && (
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+                >
+                  <Package className="w-4 h-4" />
+                  Export {approvedSelectedCount}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -203,165 +691,349 @@ export default function AdminContributions() {
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
         </div>
-      ) : mediaItems.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            {statusFilter === 'pending' ? (
-              <Clock className="w-8 h-8 text-gray-400" />
-            ) : statusFilter === 'approved' ? (
-              <CheckCircle className="w-8 h-8 text-gray-400" />
-            ) : statusFilter === 'rejected' ? (
-              <XCircle className="w-8 h-8 text-gray-400" />
-            ) : (
-              <PlayCircle className="w-8 h-8 text-gray-400" />
-            )}
+            <Video className="w-8 h-8 text-gray-400" />
           </div>
-          <p className="text-gray-500 font-medium">No {statusFilter !== 'all' ? statusFilter : ''} contributions</p>
+          <p className="text-gray-500 font-medium">No videos found</p>
           <p className="text-sm text-gray-400 mt-1">
-            {statusFilter === 'pending' 
-              ? 'All caught up! No videos waiting for review.'
-              : 'Contributions will appear here when submitted.'}
+            {statusFilter !== 'all' ? `No ${statusFilter} videos` : 'Contributions will appear here'}
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'table' ? (
+        /* Table View */
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-4 py-3 w-10">
+                    <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
+                      {selectedIds.size === filteredItems.length ? (
+                        <CheckSquare className="w-5 h-5" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                    </button>
+                  </th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">Video</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">Duration</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">Contributor</th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3 hidden md:table-cell">Location</th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3 hidden lg:table-cell">Uploaded</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3 hidden lg:table-cell">Location</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3 hidden md:table-cell">Uploaded</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">Status</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {mediaItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
+                {filteredItems.map(item => {
+                  const isProcessing = processingIds.has(item.id);
+                  const isSelected = selectedIds.has(item.id);
+                  const contributorStats = contributors.get(item.contributorId);
+                  
+                  return (
+                    <tr key={item.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+                      <td className="px-4 py-4">
                         <button 
-                          onClick={() => setPreviewUrl(item.url)}
-                          className="relative group"
+                          onClick={() => toggleSelect(item.id)}
+                          className="text-gray-400 hover:text-gray-600"
                         >
-                          <div className="w-16 h-12 bg-gray-900 rounded-lg flex items-center justify-center">
-                            <PlayCircle className="w-6 h-6 text-white opacity-70 group-hover:opacity-100 transition" />
-                          </div>
-                        </button>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
-                            {item.fileName}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {formatFileSize(item.fileSize)}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-gray-500" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate max-w-[140px]">
-                            {item.contributorName || 'Unknown'}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate max-w-[140px]">
-                            {item.contributorEmail}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 hidden md:table-cell">
-                      {item.locationText ? (
-                        <div className="flex items-center gap-1 text-sm text-gray-600">
-                          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <span className="truncate max-w-[150px]">{item.locationText}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Calendar className="w-3 h-3 text-gray-400" />
-                        {formatDate(item.createdAt)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      {item.reviewStatus === 'pending' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
-                          <Clock className="w-3 h-3" />
-                          Pending
-                        </span>
-                      )}
-                      {item.reviewStatus === 'approved' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          <CheckCircle className="w-3 h-3" />
-                          Approved
-                        </span>
-                      )}
-                      {item.reviewStatus === 'rejected' && (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                            <XCircle className="w-3 h-3" />
-                            Rejected
-                          </span>
-                          {item.rejectionReason && (
-                            <p className="text-xs text-gray-500 mt-1 max-w-[120px] truncate" title={item.rejectionReason}>
-                              {item.rejectionReason}
-                            </p>
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Square className="w-5 h-5" />
                           )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setPreviewItem(item)}
+                            className="relative group flex-shrink-0"
+                          >
+                            <div className="w-20 h-14 bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden">
+                              <PlayCircle className="w-6 h-6 text-white opacity-70 group-hover:opacity-100 transition" />
+                            </div>
+                          </button>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                              {item.fileName}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {formatFileSize(item.fileSize)}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        {item.reviewStatus === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(item)}
-                              disabled={processingId === item.id}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                            >
-                              {processingId === item.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <Timer className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatDuration(item.durationSeconds)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-gray-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                              {item.contributorName || 'Unknown'}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {contributorStats ? (
+                                <span className="text-green-600">{contributorStats.approvedCount} approved</span>
                               ) : (
-                                <CheckCircle className="w-3 h-3" />
+                                item.contributorEmail
                               )}
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => openRejectModal(item)}
-                              disabled={processingId === item.id}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 hidden lg:table-cell">
+                        {item.locationText ? (
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="truncate max-w-[150px]">{item.locationText}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
                         )}
-                        {item.reviewStatus !== 'pending' && (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                      </td>
+                      <td className="px-4 py-4 hidden md:table-cell">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          {formatDate(item.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col gap-1">
+                          {item.reviewStatus === 'pending' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full w-fit">
+                              <Clock className="w-3 h-3" />
+                              Pending
+                            </span>
+                          )}
+                          {item.reviewStatus === 'approved' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full w-fit">
+                              <CheckCircle className="w-3 h-3" />
+                              Approved
+                            </span>
+                          )}
+                          {item.reviewStatus === 'rejected' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full w-fit">
+                              <XCircle className="w-3 h-3" />
+                              Rejected
+                            </span>
+                          )}
+                          <BlurStatusBadge item={item} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          {/* Pending actions */}
+                          {item.reviewStatus === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleApprove(item)}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                              >
+                                {isProcessing ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="w-3 h-3" />
+                                )}
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => openRejectModal(item)}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          
+                          {/* Approved actions */}
+                          {item.reviewStatus === 'approved' && (
+                            <>
+                              {/* Blur button */}
+                              {(!item.blurStatus || item.blurStatus === 'none' || item.blurStatus === 'failed') && !blurringIds.has(item.id) && (
+                                <button
+                                  onClick={() => handleBlur(item)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition"
+                                >
+                                  <Shield className="w-3 h-3" />
+                                  {item.blurStatus === 'failed' ? 'Retry Blur' : 'Blur Faces'}
+                                </button>
+                              )}
+                              
+                              {/* Download dropdown */}
+                              <div className="relative group">
+                                <button
+                                  disabled={downloadingIds.has(item.id)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+                                >
+                                  {downloadingIds.has(item.id) ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Download className="w-3 h-3" />
+                                  )}
+                                  Download
+                                </button>
+                                <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                  {item.blurStatus === 'complete' && (
+                                    <button
+                                      onClick={() => handleDownload(item, 'blurred')}
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                                    >
+                                      <Shield className="w-4 h-4 text-purple-600" />
+                                      Blurred Version
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDownload(item, 'original')}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <FileDown className="w-4 h-4 text-gray-600" />
+                                    Original
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          
+                          <button
+                            onClick={() => setPreviewItem(item)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
                           >
                             <PlayCircle className="w-3 h-3" />
                             View
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        </div>
+      ) : (
+        /* Gallery View */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredItems.map(item => {
+            const isProcessing = processingIds.has(item.id);
+            const isSelected = selectedIds.has(item.id);
+            
+            return (
+              <div 
+                key={item.id} 
+                className={`bg-white rounded-xl border overflow-hidden transition ${
+                  isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {/* Video Preview */}
+                <div 
+                  className="relative aspect-video bg-gray-900 cursor-pointer group"
+                  onClick={() => setPreviewItem(item)}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <PlayCircle className="w-12 h-12 text-white opacity-70 group-hover:opacity-100 transition" />
+                  </div>
+                  
+                  {/* Duration badge */}
+                  {item.durationSeconds && (
+                    <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                      {formatDuration(item.durationSeconds)}
+                    </div>
+                  )}
+                  
+                  {/* Status badge */}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1">
+                    {item.reviewStatus === 'pending' && (
+                      <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">Pending</span>
+                    )}
+                    {item.reviewStatus === 'approved' && (
+                      <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">Approved</span>
+                    )}
+                    {item.reviewStatus === 'rejected' && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Rejected</span>
+                    )}
+                    {item.blurStatus === 'complete' && (
+                      <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        Blurred
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Selection checkbox */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}
+                    className="absolute top-2 right-2 text-white"
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5 opacity-50 hover:opacity-100" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Info */}
+                <div className="p-3">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.fileName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {item.contributorName || item.contributorEmail}
+                  </p>
+                  {item.locationText && (
+                    <p className="text-xs text-gray-400 mt-1 truncate flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {item.locationText}
+                    </p>
+                  )}
+                  
+                  {/* Actions */}
+                  {item.reviewStatus === 'pending' && (
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleApprove(item)}
+                        disabled={isProcessing}
+                        className="flex-1 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => openRejectModal(item)}
+                        disabled={isProcessing}
+                        className="flex-1 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  
+                  {item.reviewStatus === 'approved' && (!item.blurStatus || item.blurStatus === 'none') && (
+                    <button
+                      onClick={() => handleBlur(item)}
+                      disabled={blurringIds.has(item.id)}
+                      className="w-full mt-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                      <Shield className="w-3 h-3" />
+                      Blur Faces
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -392,7 +1064,7 @@ export default function AdminContributions() {
                 onChange={(e) => setRejectionReason(e.target.value)}
                 rows={3}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="e.g., Video is too dark, audio missing, wrong location..."
+                placeholder="e.g., Video too dark, audio missing, wrong location..."
               />
               <p className="text-xs text-gray-400 mt-1">
                 The contributor will see this reason
@@ -408,10 +1080,10 @@ export default function AdminContributions() {
               </button>
               <button
                 onClick={handleReject}
-                disabled={processingId === rejectingItem.id}
+                disabled={processingIds.has(rejectingItem.id)}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition disabled:opacity-50"
               >
-                {processingId === rejectingItem.id ? (
+                {processingIds.has(rejectingItem.id) ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Rejecting...
@@ -425,28 +1097,252 @@ export default function AdminContributions() {
         </div>
       )}
 
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Create Export</h3>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              Export <span className="font-medium">{approvedSelectedCount}</span> approved videos for partner delivery.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Export Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={exportName}
+                onChange={(e) => setExportName(e.target.value)}
+                placeholder="e.g., December 2024 Training Data"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={exportDescription}
+                onChange={(e) => setExportDescription(e.target.value)}
+                rows={2}
+                placeholder="Notes about this export..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Delivery Method
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="delivery" 
+                    value="manifest"
+                    checked={deliveryMethod === 'manifest'}
+                    onChange={() => setDeliveryMethod('manifest')}
+                    className="text-indigo-600"
+                  />
+                  <span className="text-sm">Manifest only (signed URLs)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="delivery" 
+                    value="zip"
+                    checked={deliveryMethod === 'zip'}
+                    onChange={() => setDeliveryMethod('zip')}
+                    className="text-indigo-600"
+                  />
+                  <span className="text-sm">ZIP file only</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="delivery" 
+                    value="both"
+                    checked={deliveryMethod === 'both'}
+                    onChange={() => setDeliveryMethod('both')}
+                    className="text-indigo-600"
+                  />
+                  <span className="text-sm">Both manifest and ZIP</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+              <p className="font-medium flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                Privacy Note
+              </p>
+              <p className="mt-1">Blurred versions will be used when available. Videos without blur will use original.</p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateExport}
+                disabled={exportLoading || !exportName.trim()}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {exportLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4" />
+                    Create Export
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Video Preview Modal */}
-      {previewUrl && (
+      {previewItem && (
         <div 
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
-          onClick={() => setPreviewUrl(null)}
+          onClick={() => setPreviewItem(null)}
         >
-          <button 
-            className="absolute top-4 right-4 text-white/70 hover:text-white"
-            onClick={() => setPreviewUrl(null)}
-          >
-            <X className="w-8 h-8" />
-          </button>
-          <video
-            src={previewUrl}
-            controls
-            autoPlay
-            className="max-w-full max-h-full rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="absolute -top-12 right-0 text-white/70 hover:text-white"
+              onClick={() => setPreviewItem(null)}
+            >
+              <X className="w-8 h-8" />
+            </button>
+            
+            <video
+              src={previewItem.blurStatus === 'complete' && previewItem.blurredUrl ? previewItem.blurredUrl : previewItem.url}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+            />
+            
+            {/* Video Details */}
+            <div className="mt-4 bg-white/10 backdrop-blur rounded-lg p-4 text-white">
+              <div className="flex flex-wrap items-center gap-6">
+                <div>
+                  <p className="text-sm opacity-60">File</p>
+                  <p className="font-medium">{previewItem.fileName}</p>
+                </div>
+                <div>
+                  <p className="text-sm opacity-60">Duration</p>
+                  <p className="font-medium">{formatDuration(previewItem.durationSeconds)}</p>
+                </div>
+                <div>
+                  <p className="text-sm opacity-60">Size</p>
+                  <p className="font-medium">{formatFileSize(previewItem.fileSize)}</p>
+                </div>
+                <div>
+                  <p className="text-sm opacity-60">Contributor</p>
+                  <p className="font-medium">{previewItem.contributorName || previewItem.contributorEmail}</p>
+                </div>
+                {previewItem.locationText && (
+                  <div>
+                    <p className="text-sm opacity-60">Location</p>
+                    <p className="font-medium">{previewItem.locationText}</p>
+                  </div>
+                )}
+                {previewItem.blurStatus === 'complete' && (
+                  <div>
+                    <p className="text-sm opacity-60">Blur Status</p>
+                    <p className="font-medium flex items-center gap-1">
+                      <Shield className="w-4 h-4 text-purple-400" />
+                      {previewItem.facesDetected || 0} faces blurred
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm opacity-60">Uploaded</p>
+                  <p className="font-medium">{formatDate(previewItem.createdAt)}</p>
+                </div>
+              </div>
+              
+              {/* Actions in preview */}
+              <div className="flex gap-3 mt-4 pt-4 border-t border-white/20 flex-wrap">
+                {previewItem.reviewStatus === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        handleApprove(previewItem);
+                        setPreviewItem(null);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPreviewItem(null);
+                        openRejectModal(previewItem);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 text-white font-medium rounded-lg hover:bg-white/30 transition"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </button>
+                  </>
+                )}
+                
+                {previewItem.reviewStatus === 'approved' && (
+                  <>
+                    {(!previewItem.blurStatus || previewItem.blurStatus === 'none') && (
+                      <button
+                        onClick={() => handleBlur(previewItem)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition"
+                      >
+                        <Shield className="w-4 h-4" />
+                        Blur Faces
+                      </button>
+                    )}
+                    
+                    {previewItem.blurStatus === 'complete' && (
+                      <button
+                        onClick={() => handleDownload(previewItem, 'blurred')}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download Blurred
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => handleDownload(previewItem, 'original')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 text-white font-medium rounded-lg hover:bg-white/30 transition"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Original
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
