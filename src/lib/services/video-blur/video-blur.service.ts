@@ -255,7 +255,7 @@ class VideoBlurService {
       }
 
       // Call the FFmpeg processor
-      const response = await fetch(processorUrl, {
+      const response = await fetch(`${processorUrl}/blur`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
