@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { db } from '@/lib/firebaseClient';
+import { db, storage } from '@/lib/firebaseClient';
 import { 
   collection, 
   query, 
@@ -13,8 +13,10 @@ import {
   serverTimestamp,
   getDoc,
   increment,
-  getDocs
+  getDocs,
+  addDoc
 } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { 
   Clock, 
   CheckCircle, 
@@ -38,7 +40,9 @@ import {
   Package,
   AlertTriangle,
   FileDown,
-  Archive
+  Archive,
+  Upload,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -113,6 +117,13 @@ export default function AdminContributions() {
   const [exportDescription, setExportDescription] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('both');
   const [exportLoading, setExportLoading] = useState(false);
+  
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFiles, setImportFiles] = useState<File[]>([]);
+  const [importAttribution, setImportAttribution] = useState<string>('');
+  const [importUploading, setImportUploading] = useState(false);
+  const [importProgress, setImportProgress] = useState<Map<string, number>>(new Map());
 
   // Fetch media with filters
   useEffect(() => {
@@ -391,6 +402,118 @@ export default function AdminContributions() {
     }
   };
 
+  // Extract video duration helper
+  const extractVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(Math.round(video.duration));
+      };
+      video.onerror = () => resolve(0);
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Handle admin import
+  const handleImport = async () => {
+    if (!user || importFiles.length === 0) return;
+    
+    setImportUploading(true);
+    const progressMap = new Map<string, number>();
+    
+    try {
+      for (const file of importFiles) {
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `contributions/${user.uid}/${timestamp}_${safeName}`;
+        const storageRef = ref(storage, storagePath);
+        
+        // Upload with progress tracking
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              progressMap.set(file.name, progress);
+              setImportProgress(new Map(progressMap));
+            },
+            reject,
+            async () => {
+              try {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                
+                // Extract duration if video
+                let durationSeconds = 0;
+                if (file.type.startsWith('video/')) {
+                  durationSeconds = await extractVideoDuration(file);
+                }
+                
+                // Create media document - AUTO APPROVED
+                await addDoc(collection(db, 'media'), {
+                  contributorId: user.uid,
+                  contributorEmail: user.email || 'admin@supervolcano.ai',
+                  contributorName: importAttribution.trim() || 'Admin Import',
+                  fileName: file.name,
+                  fileSize: file.size,
+                  mimeType: file.type,
+                  url,
+                  storagePath,
+                  durationSeconds,
+                  locationText: null,
+                  source: 'web_contribute',
+                  reviewStatus: 'approved', // Auto-approve for admin
+                  reviewedAt: serverTimestamp(),
+                  reviewedBy: user.uid,
+                  blurStatus: 'none',
+                  blurredUrl: null,
+                  blurredStoragePath: null,
+                  facesDetected: null,
+                  blurError: null,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+                
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            }
+          );
+        });
+      }
+      
+      // Success - close modal and reset
+      setShowImportModal(false);
+      setImportFiles([]);
+      setImportAttribution('');
+      setImportProgress(new Map());
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Import failed. Check console for details.');
+    } finally {
+      setImportUploading(false);
+    }
+  };
+
+  // Handle file drop/select
+  const handleImportFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setImportFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleImportDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => 
+      f.type.startsWith('video/')
+    );
+    setImportFiles(files);
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -500,6 +623,13 @@ export default function AdminContributions() {
         </div>
         
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+          >
+            <Upload className="w-4 h-4" />
+            Import Videos
+          </button>
           <button
             onClick={() => setViewMode('table')}
             className={`p-2 rounded-lg transition ${viewMode === 'table' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
@@ -1090,6 +1220,132 @@ export default function AdminContributions() {
                   </span>
                 ) : (
                   'Reject Video'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Import Videos</h3>
+              <button 
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFiles([]);
+                  setImportProgress(new Map());
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              Import videos directly as admin. Videos will be auto-approved and ready for face blurring.
+            </p>
+            
+            {/* Drop zone */}
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleImportDrop}
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer"
+              onClick={() => document.getElementById('import-file-input')?.click()}
+            >
+              <input
+                id="import-file-input"
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={handleImportFiles}
+                className="hidden"
+              />
+              <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+              {importFiles.length === 0 ? (
+                <>
+                  <p className="text-gray-600 font-medium">Drop videos here or click to select</p>
+                  <p className="text-sm text-gray-400 mt-1">MP4, MOV, WebM supported</p>
+                </>
+              ) : (
+                <p className="text-blue-600 font-medium">{importFiles.length} video(s) selected</p>
+              )}
+            </div>
+            
+            {/* Selected files list */}
+            {importFiles.length > 0 && (
+              <div className="max-h-32 overflow-y-auto space-y-2">
+                {importFiles.map((file, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                    <span className="truncate flex-1">{file.name}</span>
+                    <span className="text-gray-400 ml-2">{formatFileSize(file.size)}</span>
+                    {importProgress.get(file.name) !== undefined && (
+                      <span className="text-blue-600 ml-2">{Math.round(importProgress.get(file.name) || 0)}%</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Attribution */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attribution <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={importAttribution}
+                onChange={(e) => setImportAttribution(e.target.value)}
+                placeholder="Contributor name or leave blank for 'Admin Import'"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {contributors.size > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500 mb-1">Or select existing:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(contributors.values()).slice(0, 5).map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => setImportAttribution(c.name)}
+                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full transition"
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFiles([]);
+                  setImportProgress(new Map());
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={importUploading || importFiles.length === 0}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {importUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Import {importFiles.length > 0 ? importFiles.length : ''} Video{importFiles.length !== 1 ? 's' : ''}
+                  </>
                 )}
               </button>
             </div>
