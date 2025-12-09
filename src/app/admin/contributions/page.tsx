@@ -42,7 +42,8 @@ import {
   FileDown,
   Archive,
   Upload,
-  Plus
+  Plus,
+  HardDrive
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -124,6 +125,24 @@ export default function AdminContributions() {
   const [importAttribution, setImportAttribution] = useState<string>('');
   const [importUploading, setImportUploading] = useState(false);
   const [importProgress, setImportProgress] = useState<Map<string, number>>(new Map());
+  
+  // Google Drive import state
+  const [showDriveModal, setShowDriveModal] = useState(false);
+  const [driveAccessToken, setDriveAccessToken] = useState<string | null>(null);
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [driveFolderUrl, setDriveFolderUrl] = useState('');
+  const [driveFolderName, setDriveFolderName] = useState('');
+  const [driveFiles, setDriveFiles] = useState<Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    selected: boolean;
+  }>>([]);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveImporting, setDriveImporting] = useState(false);
+  const [driveImportProgress, setDriveImportProgress] = useState(0);
+  const [driveAttribution, setDriveAttribution] = useState('');
 
   // Fetch media with filters
   useEffect(() => {
@@ -514,6 +533,148 @@ export default function AdminContributions() {
     setImportFiles(files);
   };
 
+  // Google Drive handlers
+  const handleDriveConnect = async () => {
+    if (!user) return;
+    
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/drive/auth?action=getAuthUrl', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const { authUrl } = await response.json();
+      
+      // Open OAuth popup
+      const popup = window.open(authUrl, 'Google Drive Auth', 'width=500,height=600');
+      
+      // Listen for OAuth callback
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.data?.type === 'google-oauth-callback' && event.data?.code) {
+          window.removeEventListener('message', handleMessage);
+          popup?.close();
+          
+          // Exchange code for token
+          const tokenResponse = await fetch('/api/admin/drive/auth', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}` 
+            },
+            body: JSON.stringify({ code: event.data.code }),
+          });
+          
+          const tokenData = await tokenResponse.json();
+          if (tokenData.success) {
+            setDriveAccessToken(tokenData.accessToken);
+            setDriveConnected(true);
+          } else {
+            alert('Failed to connect: ' + tokenData.error);
+          }
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      // Fallback: check URL params if popup closes
+      const checkPopup = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkPopup);
+          window.removeEventListener('message', handleMessage);
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Drive connect error:', error);
+    }
+  };
+
+  const handleDriveListFiles = async () => {
+    if (!user || !driveAccessToken || !driveFolderUrl) return;
+    
+    setDriveLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/drive/list', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ 
+          accessToken: driveAccessToken, 
+          folderUrl: driveFolderUrl 
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setDriveFolderName(data.folderName);
+        setDriveFiles(data.files.map((f: any) => ({ ...f, selected: true })));
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Drive list error:', error);
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const handleDriveImport = async () => {
+    if (!user || !driveAccessToken || driveFiles.length === 0) return;
+    
+    const selectedFiles = driveFiles.filter(f => f.selected);
+    if (selectedFiles.length === 0) {
+      alert('No files selected');
+      return;
+    }
+    
+    setDriveImporting(true);
+    setDriveImportProgress(0);
+    
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/drive/import', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ 
+          accessToken: driveAccessToken, 
+          files: selectedFiles,
+          attribution: driveAttribution,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        alert(`Imported ${data.successCount} of ${selectedFiles.length} videos`);
+        setShowDriveModal(false);
+        setDriveFiles([]);
+        setDriveFolderUrl('');
+        setDriveFolderName('');
+      } else {
+        alert('Import failed: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Drive import error:', error);
+    } finally {
+      setDriveImporting(false);
+    }
+  };
+
+  const toggleDriveFileSelect = (fileId: string) => {
+    setDriveFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, selected: !f.selected } : f
+    ));
+  };
+
+  const toggleAllDriveFiles = () => {
+    const allSelected = driveFiles.every(f => f.selected);
+    setDriveFiles(prev => prev.map(f => ({ ...f, selected: !allSelected })));
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -629,6 +790,13 @@ export default function AdminContributions() {
           >
             <Upload className="w-4 h-4" />
             Import Videos
+          </button>
+          <button
+            onClick={() => setShowDriveModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+          >
+            <HardDrive className="w-4 h-4" />
+            Import from Drive
           </button>
           <button
             onClick={() => setViewMode('table')}
@@ -1349,6 +1517,167 @@ export default function AdminContributions() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Drive Import Modal */}
+      {showDriveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <HardDrive className="w-5 h-5" />
+                  Import from Google Drive
+                </h3>
+                <button 
+                  onClick={() => {
+                    setShowDriveModal(false);
+                    setDriveFiles([]);
+                    setDriveFolderUrl('');
+                    setDriveFolderName('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {/* Step 1: Connect */}
+              {!driveConnected ? (
+                <div className="text-center py-8">
+                  <HardDrive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">Connect your Google account to import videos from Drive</p>
+                  <button
+                    onClick={handleDriveConnect}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Connect Google Drive
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Step 2: Paste folder URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Google Drive Folder URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={driveFolderUrl}
+                        onChange={(e) => setDriveFolderUrl(e.target.value)}
+                        placeholder="https://drive.google.com/drive/folders/..."
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleDriveListFiles}
+                        disabled={driveLoading || !driveFolderUrl}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {driveLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Search className="w-4 h-4" />
+                        )}
+                        List Files
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Make sure the folder is shared with your Google account
+                    </p>
+                  </div>
+
+                  {/* Step 3: Select files */}
+                  {driveFiles.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-gray-900">{driveFolderName}</span>
+                          <span className="text-gray-500 ml-2">({driveFiles.length} videos)</span>
+                        </div>
+                        <button
+                          onClick={toggleAllDriveFiles}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          {driveFiles.every(f => f.selected) ? 'Deselect all' : 'Select all'}
+                        </button>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+                        {driveFiles.map(file => (
+                          <div 
+                            key={file.id}
+                            className={`flex items-center gap-3 p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer ${file.selected ? 'bg-blue-50' : ''}`}
+                            onClick={() => toggleDriveFileSelect(file.id)}
+                          >
+                            <button className="text-gray-400">
+                              {file.selected ? (
+                                <CheckSquare className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Attribution */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Attribution <span className="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={driveAttribution}
+                          onChange={(e) => setDriveAttribution(e.target.value)}
+                          placeholder="Contributor name or leave blank for 'Google Drive Import'"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            {/* Footer */}
+            {driveConnected && driveFiles.length > 0 && (
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">
+                    {driveFiles.filter(f => f.selected).length} of {driveFiles.length} selected
+                  </span>
+                  <button
+                    onClick={handleDriveImport}
+                    disabled={driveImporting || driveFiles.filter(f => f.selected).length === 0}
+                    className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {driveImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Import Selected
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
