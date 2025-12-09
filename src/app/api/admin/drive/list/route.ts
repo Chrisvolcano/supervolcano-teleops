@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     const folderInfo = await drive.files.get({
       fileId: folderId,
       fields: 'name',
+      supportsAllDrives: true,
     });
 
     // List video files in folder
@@ -53,6 +54,8 @@ export async function POST(request: NextRequest) {
       fields: 'files(id, name, mimeType, size, createdTime, thumbnailLink)',
       orderBy: 'createdTime desc',
       pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
 
     const files = (response.data.files || []).map(file => ({

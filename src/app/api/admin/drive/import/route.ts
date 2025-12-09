@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
         // Download file from Drive
         const response = await drive.files.get(
-          { fileId: file.id, alt: 'media' },
+          { fileId: file.id, alt: 'media', supportsAllDrives: true },
           { responseType: 'stream' }
         );
 
