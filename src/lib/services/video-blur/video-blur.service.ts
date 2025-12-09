@@ -265,7 +265,12 @@ class VideoBlurService {
           sourcePath: storagePath,
           outputPath: blurredPath,
           bucket: this.bucketName,
-          faces: faces.map(f => {
+          faces: faces.map((f, idx) => {
+            console.log(`[VideoBlur] Face ${idx} has ${f.frames.length} frames`);
+            if (f.frames.length > 0) {
+              console.log(`[VideoBlur] First frame box:`, JSON.stringify(f.frames[0].boundingBox));
+            }
+            
             // Get time range this face appears
             const startTime = f.frames[0]?.timeOffset || 0;
             const endTime = f.frames[f.frames.length - 1]?.timeOffset || 9999;
@@ -280,7 +285,7 @@ class VideoBlurService {
             
             const numFrames = f.frames.length || 1;
             
-            return {
+            const result = {
               x: avgBox.left / numFrames,
               y: avgBox.top / numFrames,
               width: (avgBox.right - avgBox.left) / numFrames,
@@ -288,6 +293,9 @@ class VideoBlurService {
               startTime,
               endTime,
             };
+            
+            console.log(`[VideoBlur] Face ${idx} coords:`, JSON.stringify(result));
+            return result;
           }),
         }),
       });
