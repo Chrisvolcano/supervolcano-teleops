@@ -1493,7 +1493,7 @@ export default function AdminContributions() {
               src={previewItem.blurStatus === 'complete' && previewItem.blurredUrl ? previewItem.blurredUrl : previewItem.url}
               controls
               autoPlay
-              className="w-full rounded-lg"
+              className="w-full max-h-[60vh] object-contain rounded-lg bg-black"
             />
             
             {/* Video Details */}

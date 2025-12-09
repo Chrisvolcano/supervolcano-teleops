@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims } from '@/lib/utils/auth';
 import { videoBlurService } from '@/lib/services/video-blur/video-blur.service';
 import { FieldValue } from 'firebase-admin/firestore';
+
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'mediaId required' }, { status: 400 });
     }
 
+    const adminDb = getAdminDb();
     const mediaRef = adminDb.collection('media').doc(mediaId);
     const mediaDoc = await mediaRef.get();
 

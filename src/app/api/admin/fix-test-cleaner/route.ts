@@ -4,13 +4,17 @@
  */
 
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
+
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     console.log("[Fix Test Cleaner] Starting fix...");
 
     // Find test cleaner by email
+    const adminDb = getAdminDb();
     const usersQuery = await adminDb
       .collection("users")
       .where("email", "==", "testcleaner@supervolcano.com")
@@ -37,6 +41,7 @@ export async function GET() {
     const role = existingOrgId.startsWith("oem:") ? "oem_teleoperator" : "location_cleaner";
 
     // Fix Auth custom claims
+    const adminAuth = getAdminAuth();
     await adminAuth.setCustomUserClaims(uid, {
       role,
       organizationId: existingOrgId,

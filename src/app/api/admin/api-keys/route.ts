@@ -4,9 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { getAdminAuth } from '@/lib/firebaseAdmin';
 import { Client } from 'pg';
 import crypto from 'crypto';
+
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
 
 // Generate API key
 function generateApiKey(): { key: string; hash: string; prefix: string } {
@@ -28,6 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    const adminAuth = getAdminAuth();
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     if (decodedToken.role !== 'admin' && decodedToken.role !== 'superadmin') {
@@ -107,6 +111,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    const adminAuth = getAdminAuth();
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     if (decodedToken.role !== 'admin' && decodedToken.role !== 'superadmin') {

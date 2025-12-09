@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getUserClaims } from '@/lib/utils/auth';
 import { Storage } from '@google-cloud/storage';
 
-const storage = new Storage({
-  credentials: {
-    client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
-    private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-});
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
 
 const bucketName = process.env.FIREBASE_STORAGE_BUCKET || 'super-volcano-oem-portal.firebasestorage.app';
+
+function getStorage() {
+  return new Storage({
+    credentials: {
+      client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
+      private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +40,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'mediaId required' }, { status: 400 });
     }
 
+    const adminDb = getAdminDb();
     const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
     if (!mediaDoc.exists) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });
@@ -55,6 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate signed URL with content-disposition for download
+    const storage = getStorage();
     const bucket = storage.bucket(bucketName);
     const [signedUrl] = await bucket.file(filePath).getSignedUrl({
       action: 'read',

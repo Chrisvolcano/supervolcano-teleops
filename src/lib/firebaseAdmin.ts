@@ -42,6 +42,28 @@ export function getAdminApp(): App {
     return global.firebaseAdminApp;
   }
 
+  // During Next.js build phase, env vars may not be available
+  // Return a mock app to allow build to complete
+  if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NEXT_PHASE === 'phase-development-build') {
+    const missing = [
+      "FIREBASE_ADMIN_PROJECT_ID",
+      "FIREBASE_ADMIN_CLIENT_EMAIL",
+      "FIREBASE_ADMIN_PRIVATE_KEY",
+    ].filter((key) => !process.env[key]);
+    
+    if (missing.length > 0) {
+      console.warn(`[Firebase Admin] Build phase detected with missing env vars: ${missing.join(", ")}. Using mock app.`);
+      // Return a mock app object with methods Firebase Admin SDK expects
+      const mockApp = {
+        _delegate: {},
+        options: {},
+        getOrInitService: () => ({}),
+      } as any as App;
+      global.firebaseAdminApp = mockApp;
+      return mockApp;
+    }
+  }
+
   // Verify environment variables exist
   const requiredEnvVars = [
     "FIREBASE_ADMIN_PROJECT_ID",
@@ -90,6 +112,28 @@ export function getAdminDb() {
   }
 
   const app = getAdminApp();
+  
+  // During build phase with mock app, return a mock db
+  if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NEXT_PHASE === 'phase-development-build') {
+    const requiredEnvVars = [
+      "FIREBASE_ADMIN_PROJECT_ID",
+      "FIREBASE_ADMIN_CLIENT_EMAIL",
+      "FIREBASE_ADMIN_PRIVATE_KEY",
+    ];
+    const missing = requiredEnvVars.filter((key) => !process.env[key]);
+    if (missing.length > 0) {
+      // Return a minimal mock db object that won't cause errors
+      const mockDb = {
+        collection: () => ({
+          doc: () => ({ id: 'mock-id' }),
+          where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }),
+        }),
+      } as any as ReturnType<typeof getFirestore>;
+      global.firebaseAdminDb = mockDb;
+      return mockDb;
+    }
+  }
+
   const databaseId = process.env.FIRESTORE_DATABASE_ID?.trim() || "default";
   
   const db = getFirestore(app, databaseId);
@@ -105,10 +149,50 @@ export function getAdminDb() {
   return db;
 }
 
-// Export commonly used instances
+/**
+ * Get or initialize Firebase Admin Auth instance (lazy)
+ */
+export function getAdminAuth() {
+  // During build phase with missing env vars, return a mock
+  if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NEXT_PHASE === 'phase-development-build') {
+    const missing = [
+      "FIREBASE_ADMIN_PROJECT_ID",
+      "FIREBASE_ADMIN_CLIENT_EMAIL",
+      "FIREBASE_ADMIN_PRIVATE_KEY",
+    ].filter((key) => !process.env[key]);
+    if (missing.length > 0) {
+      // Return a mock auth object
+      return {
+        verifyIdToken: async () => ({ uid: 'mock', role: 'admin' }),
+        getUser: async () => ({ uid: 'mock', email: 'mock@example.com' }),
+        setCustomUserClaims: async () => {},
+      } as any as ReturnType<typeof getAuth>;
+    }
+  }
+  const app = getAdminApp();
+  return getAuth(app);
+}
+
+/**
+ * Get or initialize Firebase Admin Storage instance (lazy)
+ */
+export function getAdminStorage() {
+  const app = getAdminApp();
+  return getStorage(app);
+}
+
+// Export lazy getters (these will be called at runtime, not build time)
+export function getFirebaseAdminApp(): App {
+  return getAdminApp();
+}
+
+// For backward compatibility, export getters that return the instances
+// These should be used instead of direct exports to avoid build-time initialization
 export const firebaseAdminApp = getAdminApp();
 export const adminApp = firebaseAdminApp;
 export const adminDb = getAdminDb();
-export const adminAuth = getAuth(firebaseAdminApp);
-export const adminStorage = getStorage(firebaseAdminApp);
+// Note: adminAuth and adminStorage are now functions - use getAdminAuth() and getAdminStorage()
+// Keeping these for backward compatibility but they will be called at module load
+export const adminAuth = getAdminAuth();
+export const adminStorage = getAdminStorage();
 

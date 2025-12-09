@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { getUserClaims } from '@/lib/utils/auth';
 import { Storage } from '@google-cloud/storage';
 import { FieldValue } from 'firebase-admin/firestore';
 import archiver from 'archiver';
 import { PassThrough } from 'stream';
 
-const storage = new Storage({
-  credentials: {
-    client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
-    private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-});
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
 
 const bucketName = process.env.FIREBASE_STORAGE_BUCKET || 'super-volcano-oem-portal.firebasestorage.app';
+
+function getStorage() {
+  return new Storage({
+    credentials: {
+      client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
+      private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch all selected videos
+    const adminDb = getAdminDb();
     const videoDocs = await Promise.all(
       videoIds.map((id: string) => adminDb.collection('media').doc(id).get())
     );
@@ -58,6 +64,7 @@ export async function POST(request: NextRequest) {
     const totalSizeBytes = eligibleVideos.reduce((sum: number, v: any) => sum + (v.fileSize || 0), 0);
     const totalDurationSeconds = eligibleVideos.reduce((sum: number, v: any) => sum + (v.durationSeconds || 0), 0);
 
+    const storage = getStorage();
     const bucket = storage.bucket(bucketName);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     const exportId = adminDb.collection('exports').doc().id;
@@ -164,6 +171,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user uid and email from token
+    const adminAuth = getAdminAuth();
     const decodedToken = await adminAuth.verifyIdToken(token);
     const uid = decodedToken.uid;
     const firebaseUser = await adminAuth.getUser(uid);
@@ -223,6 +231,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('exports')
       .orderBy('createdAt', 'desc')
