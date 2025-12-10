@@ -1,16 +1,102 @@
 import { VideoItem } from '@/app/admin/robot-intelligence/media/page';
+import { RefreshCw } from 'lucide-react';
 
 interface LabelReviewTabProps {
   media: VideoItem[];
+  onProcessBatch: () => void;
+  processing: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string, event: React.MouseEvent) => void;
+  onSelectAll: () => void;
+  formatDuration: (s: number | null) => string;
+  formatDate: (d: string | null) => string;
 }
 
-export function LabelReviewTab({ media }: LabelReviewTabProps) {
-  const needsLabels = media.filter(v => v.aiStatus === 'pending');
+export function LabelReviewTab({ 
+  media, 
+  onProcessBatch, 
+  processing,
+  selectedIds,
+  onToggleSelect,
+  onSelectAll,
+  formatDuration,
+  formatDate,
+}: LabelReviewTabProps) {
+  const needsLabels = media.filter(v => v.aiStatus === 'pending' || !v.aiStatus);
+  const allSelected = needsLabels.length > 0 && needsLabels.every(v => selectedIds.has(v.id));
 
   return (
-    <div>
-      <p className="text-gray-500 mb-4">{needsLabels.length} videos need labels</p>
-      {/* Table + Process Batch button will go here */}
+    <div className="space-y-4">
+      {/* Header with count and action */}
+      <div className="flex items-center justify-between">
+        <p className="text-gray-600">
+          {needsLabels.length} videos need AI labels
+        </p>
+        <button
+          onClick={onProcessBatch}
+          disabled={processing || needsLabels.length === 0}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {processing ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            `Process All (${needsLabels.length})`
+          )}
+        </button>
+      </div>
+
+      {/* Simple table showing only videos needing labels */}
+      {needsLabels.length > 0 ? (
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr className="text-left text-sm text-gray-500">
+                <th className="px-4 py-3">
+                  <button 
+                    onClick={onSelectAll}
+                    className="p-1 hover:bg-gray-200 rounded"
+                    title={allSelected ? 'Deselect all' : 'Select all'}
+                  >
+                    {allSelected ? '✓' : '☐'}
+                  </button>
+                </th>
+                <th className="px-4 py-3 font-medium">VIDEO</th>
+                <th className="px-4 py-3 font-medium">LOCATION</th>
+                <th className="px-4 py-3 font-medium">DURATION</th>
+                <th className="px-4 py-3 font-medium">UPLOADED</th>
+              </tr>
+            </thead>
+            <tbody>
+              {needsLabels.map(video => (
+                <tr 
+                  key={video.id} 
+                  className="border-b hover:bg-gray-50"
+                >
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={(e) => onToggleSelect(video.id, e)}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      {selectedIds.has(video.id) ? '✓' : '☐'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-sm">{video.fileName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{video.locationName || video.locationId?.slice(0, 8) || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{formatDuration(video.duration)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{formatDate(video.uploadedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-center text-gray-400 py-8 bg-white border rounded-lg">
+          All videos have been labeled
+        </div>
+      )}
     </div>
   );
 }

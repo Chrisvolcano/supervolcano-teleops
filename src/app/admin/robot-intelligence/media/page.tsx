@@ -68,6 +68,9 @@ export default function MediaLibraryPage() {
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [objectsExpanded, setObjectsExpanded] = useState(false);
   const [reanalyzingId, setReanalyzingId] = useState<string | null>(null);
+  const [blurringIds, setBlurringIds] = useState<Set<string>>(new Set());
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
 
   const fetchMedia = useCallback(async () => {
     if (!user) return;
@@ -335,7 +338,8 @@ export default function MediaLibraryPage() {
   };
 
   const processBatch = async () => {
-    if (!user) return;
+    if (!user || isProcessingBatch) return;
+    setIsProcessingBatch(true);
     try {
       setError(null);
       const token = await user.getIdToken();
@@ -352,6 +356,95 @@ export default function MediaLibraryPage() {
       }
       await fetchMedia();
     } catch (err: any) { setError(err.message); }
+    finally { setIsProcessingBatch(false); }
+  };
+
+  // Blur handlers
+  const handleApplyBlur = async (videoId: string) => {
+    if (!user) return;
+    setBlurringIds(prev => new Set(prev).add(videoId));
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/contributions/blur', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ mediaId: videoId, action: 'blur' }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        setError(result.error || 'Blur failed');
+      }
+      await fetchMedia();
+    } catch (err: any) {
+      setError(err.message || 'Blur error');
+    } finally {
+      setBlurringIds(prev => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+    }
+  };
+
+  const handleApproveBlur = async (videoId: string) => {
+    if (!user) return;
+    setProcessingIds(prev => new Set(prev).add(videoId));
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/admin/videos/${videoId}/review`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reviewStatus: 'approved' }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Approval failed');
+      }
+      await fetchMedia();
+    } catch (err: any) {
+      setError(err.message || 'Approval error');
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+    }
+  };
+
+  const handleRejectBlur = async (videoId: string) => {
+    if (!user) return;
+    setProcessingIds(prev => new Set(prev).add(videoId));
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/admin/videos/${videoId}/review`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reviewStatus: 'rejected' }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Rejection failed');
+      }
+      await fetchMedia();
+    } catch (err: any) {
+      setError(err.message || 'Rejection error');
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+    }
   };
 
   const formatDate = (d: string | null) => {
@@ -498,6 +591,17 @@ export default function MediaLibraryPage() {
         return <TabNav tabs={tabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as 'overview' | 'blur' | 'labels' | 'export')} />;
       })()}
 
+      {/* Error Display */}
+      {error && (
+        <div className={`mb-4 p-4 border rounded-lg ${
+          error.includes('Skipped') || error.includes('blur pending') 
+            ? 'bg-yellow-50 border-yellow-200 text-yellow-700' 
+            : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
+          {error}
+        </div>
+      )}
+
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <OverviewTab
@@ -526,8 +630,29 @@ export default function MediaLibraryPage() {
           getTrainingBadge={getTrainingBadge}
         />
       )}
-      {activeTab === 'blur' && <BlurReviewTab media={media} />}
-      {activeTab === 'labels' && <LabelReviewTab media={media} />}
+      {activeTab === 'blur' && (
+        <BlurReviewTab 
+          media={media}
+          onApplyBlur={handleApplyBlur}
+          onApproveBlur={handleApproveBlur}
+          onRejectBlur={handleRejectBlur}
+          blurringIds={blurringIds}
+          processingIds={processingIds}
+          formatDate={formatDate}
+        />
+      )}
+      {activeTab === 'labels' && (
+        <LabelReviewTab 
+          media={media}
+          onProcessBatch={processBatch}
+          processing={isProcessingBatch}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelection}
+          onSelectAll={selectAll}
+          formatDuration={formatDuration}
+          formatDate={formatDate}
+        />
+      )}
       {activeTab === 'export' && <ExportTab media={media} />}
 
 
