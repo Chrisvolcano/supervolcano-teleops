@@ -36,6 +36,11 @@ function isVideo(document: FirebaseFirestore.DocumentData): boolean {
   const lowerPath = storagePath.toLowerCase();
   if (lowerPath.startsWith('videos/') || videoExtensions.some(ext => lowerPath.endsWith(ext))) return true;
 
+  // Contribution uploads are always videos
+  if (document.source === 'web_contribute' && (videoUrl || storagePath)) {
+    return true;
+  }
+
   return false;
 }
 

@@ -96,7 +96,7 @@ export default function AdminContributions() {
   const [loading, setLoading] = useState(true);
   
   // Filter state
-  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending');
+  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('all');
   const [contributorFilter, setContributorFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
