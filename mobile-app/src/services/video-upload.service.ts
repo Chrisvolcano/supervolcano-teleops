@@ -87,17 +87,26 @@ export class VideoUploadService {
     organizationId: string,
     onProgress?: (progress: UploadProgress) => void
   ): Promise<VideoUpload> {
+    console.log('[VideoUploadService] Starting upload...');
+    console.log('[VideoUploadService] Video URI:', videoUri);
+    console.log('[VideoUploadService] Location ID:', locationId);
+    console.log('[VideoUploadService] User ID:', userId);
+    
     try {
       // Get video metadata first (including duration)
+      console.log('[VideoUploadService] Getting video metadata...');
       const metadata = await this.getVideoMetadata(videoUri);
+      console.log('[VideoUploadService] Metadata:', metadata);
       
       // Generate unique filename
       const timestamp = Date.now();
       const extension = videoUri.split('.').pop()?.toLowerCase() || 'mp4';
       const filename = `${timestamp}.${extension}`;
       const storagePath = `videos/${locationId}/${userId}/${filename}`;
+      console.log('[VideoUploadService] Storage path:', storagePath);
 
       // Create Firestore record first (status: uploading)
+      console.log('[VideoUploadService] Creating Firestore doc...');
       const videoDoc = await addDoc(collection(db, 'media'), {
         userId,
         locationId,
@@ -116,16 +125,24 @@ export class VideoUploadService {
         aiStatus: 'pending',
         trainingStatus: 'pending',
       });
+      console.log('[VideoUploadService] Firestore doc created:', videoDoc.id);
 
       // Fetch video file as blob
+      console.log('[VideoUploadService] Fetching video file as blob...');
       const response = await fetch(videoUri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video file: ${response.status} ${response.statusText}`);
+      }
       const blob = await response.blob();
+      console.log('[VideoUploadService] Blob created, size:', blob.size, 'bytes');
 
       // Upload to Firebase Storage
+      console.log('[VideoUploadService] Starting Storage upload...');
       const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, blob, {
         contentType: metadata.mimeType,
       });
+      console.log('[VideoUploadService] Upload task created');
 
       // Monitor upload progress
       return new Promise((resolve, reject) => {
@@ -139,47 +156,93 @@ export class VideoUploadService {
             };
             onProgress?.(progress);
           },
-          (error) => {
+          async (error) => {
             // Upload failed - update Firestore
-            updateDoc(doc(db, 'media', videoDoc.id), {
-              status: 'failed',
-              error: error.message,
-            });
+            console.error('[VideoUploadService] Upload task error:', error);
+            console.error('[VideoUploadService] Error code:', error.code);
+            console.error('[VideoUploadService] Error message:', error.message);
+            console.error('[VideoUploadService] Error stack:', error.stack);
+            
+            try {
+              await updateDoc(doc(db, 'media', videoDoc.id), {
+                status: 'failed',
+                error: error.message || 'Upload failed',
+              });
+              console.log('[VideoUploadService] Firestore doc updated to failed status');
+            } catch (updateError: any) {
+              console.error('[VideoUploadService] Failed to update Firestore on upload error:', updateError);
+              console.error('[VideoUploadService] Update error message:', updateError?.message);
+            }
+            
             reject(new Error('Upload failed. Please check your connection and try again.'));
           },
           async () => {
-            // Upload successful - get download URL
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            // Upload successful - get download URL and update Firestore
+            try {
+              console.log('[VideoUploadService] Upload to Storage complete, getting download URL...');
+              console.log('[VideoUploadService] Storage ref:', uploadTask.snapshot.ref.fullPath);
+              
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('[VideoUploadService] Download URL obtained:', downloadURL.substring(0, 100) + '...');
 
-            // Update Firestore with completed status
-            await updateDoc(doc(db, 'media', videoDoc.id), {
-              status: 'completed',
-              url: downloadURL,        // Primary field for web
-              videoUrl: downloadURL,   // Keep for backwards compatibility
-              storageUrl: downloadURL, // Also used by web
-              // Confirm fileSize from actual blob
-              fileSize: blob.size,
-            });
+              // Update Firestore with completed status
+              console.log('[VideoUploadService] Updating Firestore doc:', videoDoc.id);
+              await updateDoc(doc(db, 'media', videoDoc.id), {
+                status: 'completed',
+                url: downloadURL,        // Primary field for web
+                videoUrl: downloadURL,   // Keep for backwards compatibility
+                storageUrl: downloadURL, // Also used by web
+                // Confirm fileSize from actual blob
+                fileSize: blob.size,
+              });
+              console.log('[VideoUploadService] Firestore doc updated successfully');
 
-            const videoUpload: VideoUpload = {
-              id: videoDoc.id,
-              userId,
-              locationId,
-              organizationId,
-              videoUrl: downloadURL,
-              fileSize: blob.size,
-              uploadedAt: new Date(),
-              status: 'completed',
-            };
+              const videoUpload: VideoUpload = {
+                id: videoDoc.id,
+                userId,
+                locationId,
+                organizationId,
+                videoUrl: downloadURL,
+                fileSize: blob.size,
+                uploadedAt: new Date(),
+                status: 'completed',
+              };
 
-            resolve(videoUpload);
+              console.log('[VideoUploadService] Upload complete:', videoDoc.id);
+              resolve(videoUpload);
+            } catch (error: any) {
+              // Critical: If completion callback fails, update Firestore and reject Promise
+              console.error('[VideoUploadService] Completion callback error:', error);
+              console.error('[VideoUploadService] Error message:', error?.message);
+              console.error('[VideoUploadService] Error code:', error?.code);
+              console.error('[VideoUploadService] Error stack:', error?.stack);
+              
+              // Update Firestore to failed status
+              try {
+                await updateDoc(doc(db, 'media', videoDoc.id), {
+                  status: 'failed',
+                  error: `Failed to get download URL or update Firestore: ${error?.message || 'Unknown error'}`,
+                });
+                console.log('[VideoUploadService] Firestore doc updated to failed status');
+              } catch (updateError: any) {
+                console.error('[VideoUploadService] Failed to update Firestore on completion error:', updateError);
+              }
+              
+              // Reject Promise so caller knows upload failed
+              reject(new Error(`Upload completed but failed to finalize: ${error?.message || 'Unknown error'}`));
+            }
           }
         );
       });
     } catch (error: any) {
-      console.error('[VideoUploadService] Upload error:', error);
+      console.error('[VideoUploadService] ========================================');
+      console.error('[VideoUploadService] UPLOAD SETUP ERROR');
+      console.error('[VideoUploadService] ========================================');
+      console.error('[VideoUploadService] Error:', error);
       console.error('[VideoUploadService] Error message:', error?.message);
       console.error('[VideoUploadService] Error code:', error?.code);
+      console.error('[VideoUploadService] Error stack:', error?.stack);
+      console.error('[VideoUploadService] ========================================');
       throw new Error(`Failed to upload video: ${error?.message || error?.code || 'Unknown error'}`);
     }
   }
