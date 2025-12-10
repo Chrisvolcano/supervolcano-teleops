@@ -50,28 +50,57 @@ export function BlurReviewTab({
     }
   };
 
+  const handleBlurAll = async () => {
+    const toBlur = needsBlurReview.filter(v => !v.blurStatus || v.blurStatus === 'none');
+    for (const video of toBlur) {
+      await onApplyBlur(video.id);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-gray-600">
           {needsBlurReview.length} videos need blur review
         </p>
-        {selectedCount > 0 && (
-          <button
-            onClick={handleBlurSelected}
-            disabled={blurringIds.size > 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {blurringIds.size > 0 ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Blurring...
-              </>
-            ) : (
-              `Blur Selected (${selectedCount})`
-            )}
-          </button>
-        )}
+        
+        <div className="flex gap-2">
+          {/* Show "Blur Selected" when items selected */}
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleBlurSelected}
+              disabled={blurringIds.size > 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {blurringIds.size > 0 ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Blurring...
+                </>
+              ) : (
+                `Blur Selected (${selectedCount})`
+              )}
+            </button>
+          )}
+          
+          {/* Always show "Blur All" like Label Review shows "Process All" */}
+          {needsBlurReview.length > 0 && selectedIds.size === 0 && (
+            <button
+              onClick={handleBlurAll}
+              disabled={blurringIds.size > 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {blurringIds.size > 0 ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Blurring...
+                </>
+              ) : (
+                `Blur All (${needsBlurReview.length})`
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {needsBlurReview.length > 0 ? (
