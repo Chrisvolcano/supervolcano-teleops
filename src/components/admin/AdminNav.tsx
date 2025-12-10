@@ -28,7 +28,8 @@ const NAV_ITEMS = [
   { label: "Robot Intelligence", href: "/admin/robot-intelligence", icon: Database },
   { label: "Media Library", href: "/admin/robot-intelligence/media", icon: Film },
   { label: "Training Library", href: "/admin/robot-intelligence/training", icon: GraduationCap },
-  { label: "Contributions", href: "/admin/contributions", icon: Upload },
+  // Consolidated into Media Library - Dec 2025
+  // { label: "Contributions", href: "/admin/contributions", icon: Upload },
   { label: "Exports", href: "/admin/exports", icon: Package },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
