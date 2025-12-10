@@ -1,8 +1,11 @@
 import { VideoItem } from '@/app/admin/robot-intelligence/media/page';
-import { RefreshCw, Film } from 'lucide-react';
+import { RefreshCw, Film, Square, CheckSquare, Minus } from 'lucide-react';
 
 interface BlurReviewTabProps {
   media: VideoItem[];
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string, event: React.MouseEvent) => void;
+  onSelectAll: (ids: string[]) => void;
   onApplyBlur: (videoId: string) => Promise<void>;
   onApproveBlur: (videoId: string) => Promise<void>;
   onRejectBlur: (videoId: string) => Promise<void>;
@@ -13,6 +16,9 @@ interface BlurReviewTabProps {
 
 export function BlurReviewTab({ 
   media,
+  selectedIds,
+  onToggleSelect,
+  onSelectAll,
   onApplyBlur,
   onApproveBlur,
   onRejectBlur,
@@ -29,24 +35,60 @@ export function BlurReviewTab({
     return false;
   });
 
+  const allSelected = needsBlurReview.length > 0 && needsBlurReview.every(v => selectedIds.has(v.id));
+  const someSelected = needsBlurReview.some(v => selectedIds.has(v.id));
+  const selectedCount = needsBlurReview.filter(v => selectedIds.has(v.id)).length;
+
+  const handleSelectAll = () => {
+    onSelectAll(needsBlurReview.map(v => v.id));
+  };
+
+  const handleBlurSelected = async () => {
+    const toBlur = needsBlurReview.filter(v => selectedIds.has(v.id) && (!v.blurStatus || v.blurStatus === 'none'));
+    for (const video of toBlur) {
+      await onApplyBlur(video.id);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-gray-600">
           {needsBlurReview.length} videos need blur review
         </p>
+        {selectedCount > 0 && (
+          <button
+            onClick={handleBlurSelected}
+            disabled={blurringIds.size > 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {blurringIds.size > 0 ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Blurring...
+              </>
+            ) : (
+              `Blur Selected (${selectedCount})`
+            )}
+          </button>
+        )}
       </div>
 
       {needsBlurReview.length > 0 ? (
         <div className="bg-white border rounded-lg overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
-              <tr className="text-left text-sm text-gray-500">
-                <th className="px-4 py-3 font-medium">VIDEO</th>
-                <th className="px-4 py-3 font-medium">LOCATION</th>
-                <th className="px-4 py-3 font-medium">BLUR STATUS</th>
-                <th className="px-4 py-3 font-medium">UPLOADED</th>
-                <th className="px-4 py-3 font-medium">ACTIONS</th>
+              <tr>
+                <th className="w-10 px-4 py-3 text-left">
+                  <button onClick={handleSelectAll} className="p-1 hover:bg-gray-200 rounded">
+                    {allSelected ? <CheckSquare className="w-5 h-5 text-blue-600" /> : someSelected ? <Minus className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-gray-400" />}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">VIDEO</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">LOCATION</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">BLUR STATUS</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">UPLOADED</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -56,7 +98,12 @@ export function BlurReviewTab({
                 const isLoading = isBlurring || isProcessing;
 
                 return (
-                  <tr key={video.id} className="border-b hover:bg-gray-50">
+                  <tr key={video.id} className={`border-b hover:bg-gray-50 ${selectedIds.has(video.id) ? 'bg-blue-50' : ''}`}>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => onToggleSelect(video.id, e)} className="p-1 hover:bg-gray-200 rounded">
+                        {selectedIds.has(video.id) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-gray-400" />}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {video.thumbnailUrl ? (

@@ -572,10 +572,10 @@ export default function MediaLibraryPage() {
           
           {/* Only show Process Batch on Overview tab */}
           {activeTab === 'overview' && (
-            <button onClick={processBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button onClick={processBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
               <Play className="w-4 h-4" />
               Process Batch
-            </button>
+          </button>
           )}
         </div>
       </div>
@@ -645,6 +645,9 @@ export default function MediaLibraryPage() {
       {activeTab === 'blur' && (
         <BlurReviewTab 
           media={media}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelection}
+          onSelectAll={(ids) => setSelectedIds(new Set(ids))}
           onApplyBlur={handleApplyBlur}
           onApproveBlur={handleApproveBlur}
           onRejectBlur={handleRejectBlur}
@@ -660,12 +663,24 @@ export default function MediaLibraryPage() {
           processing={isProcessingBatch}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
-          onSelectAll={selectAll}
+          onSelectAll={() => {
+            const needsLabels = media.filter(v => v.aiStatus === 'pending' || !v.aiStatus);
+            setSelectedIds(new Set(needsLabels.map(v => v.id)));
+          }}
           formatDuration={formatDuration}
           formatDate={formatDate}
         />
       )}
-      {activeTab === 'export' && <ExportTab media={media} />}
+      {activeTab === 'export' && (
+        <ExportTab 
+          media={media}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelection}
+          onSelectAll={(ids) => setSelectedIds(new Set(ids))}
+          formatDuration={formatDuration}
+          formatDate={formatDate}
+        />
+      )}
 
 
       {selectedIds.size > 0 && (
