@@ -564,21 +564,33 @@ export default function MediaLibraryPage() {
           <h1 className="text-2xl font-bold text-gray-900">Media Library</h1>
           <p className="text-gray-500 mt-1">Manage and process video content for AI analysis</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <button onClick={fetchMedia} disabled={loading} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
-          <button onClick={processBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-            <Play className="w-4 h-4" /> Process Batch
-          </button>
+          
+          {/* Only show Process Batch on Overview tab */}
+          {activeTab === 'overview' && (
+            <button onClick={processBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+              <Play className="w-4 h-4" />
+              Process Batch
+            </button>
+          )}
         </div>
       </div>
 
       {/* Tab Navigation */}
       {(() => {
         // Calculate tab counts
-        const blurPendingCount = media.filter(v => typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved').length;
-        const labelsPendingCount = media.filter(v => v.aiStatus === 'pending').length;
+        const blurPendingCount = media.filter(v => {
+          // No blur status or not complete = needs blur
+          if (!v.blurStatus || v.blurStatus === 'none') return true;
+          // Has reviewStatus that's not approved = needs review
+          if (typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved') return true;
+          return false;
+        }).length;
+        const labelsPendingCount = media.filter(v => v.aiStatus === 'pending' || !v.aiStatus).length;
         const exportReadyCount = media.filter(v => v.reviewStatus === 'approved').length;
 
         const tabs = [

@@ -1,5 +1,5 @@
 import { VideoItem } from '@/app/admin/robot-intelligence/media/page';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Film } from 'lucide-react';
 
 interface LabelReviewTabProps {
   media: VideoItem[];
@@ -63,7 +63,7 @@ export function LabelReviewTab({
                     {allSelected ? '✓' : '☐'}
                   </button>
                 </th>
-                <th className="px-4 py-3 font-medium">VIDEO</th>
+                <th className="px-4 py-3 font-medium pl-4">VIDEO</th>
                 <th className="px-4 py-3 font-medium">LOCATION</th>
                 <th className="px-4 py-3 font-medium">DURATION</th>
                 <th className="px-4 py-3 font-medium">UPLOADED</th>
@@ -83,7 +83,22 @@ export function LabelReviewTab({
                       {selectedIds.has(video.id) ? '✓' : '☐'}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-medium text-sm">{video.fileName}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {video.thumbnailUrl ? (
+                        <img 
+                          src={video.thumbnailUrl} 
+                          alt={video.fileName}
+                          className="w-10 h-10 object-cover rounded bg-gray-100"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                          <Film className="w-5 h-5 text-gray-400" />
+                        </div>
+                      )}
+                      <span className="font-medium text-sm text-gray-900">{video.fileName}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{video.locationName || video.locationId?.slice(0, 8) || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatDuration(video.duration)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatDate(video.uploadedAt)}</td>
