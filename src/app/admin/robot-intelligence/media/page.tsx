@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
   Smartphone, HardDrive, Tag, AlertCircle
 } from 'lucide-react';
+import { StatsRow } from '@/components/ui/StatsRow';
+import { PipelineStatus } from '@/components/ui/PipelineStatus';
+import { ApprovalStatus } from '@/components/ui/ApprovalStatus';
 
 interface VideoItem {
   id: string;
@@ -52,6 +55,7 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
+  const [trainingFilter, setTrainingFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -86,6 +90,18 @@ export default function MediaLibraryPage() {
       setLoading(false);
     }
   }, [user, filter]);
+  
+  // Apply training status filter client-side
+  const filteredMedia = useMemo(() => {
+    if (trainingFilter === 'all') return media;
+    
+    return media.filter((v) => {
+      if (trainingFilter === 'pending') {
+        return v.trainingStatus === 'pending' && v.aiStatus === 'completed';
+      }
+      return v.trainingStatus === trainingFilter;
+    });
+  }, [media, trainingFilter]);
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
 
@@ -98,14 +114,14 @@ export default function MediaLibraryPage() {
       }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateModal(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); navigateModal(1); }
-      else if ((e.key === 'a' || e.key === 'A') && media[selectedVideoIndex]?.aiStatus === 'completed') {
-        handleSingleAction(media[selectedVideoIndex].id, 'approve');
+      else if ((e.key === 'a' || e.key === 'A') && filteredMedia[selectedVideoIndex]?.aiStatus === 'completed') {
+        handleSingleAction(filteredMedia[selectedVideoIndex].id, 'approve');
       }
-      else if ((e.key === 'r' || e.key === 'R') && media[selectedVideoIndex]?.aiStatus === 'completed') {
-        handleSingleAction(media[selectedVideoIndex].id, 'reject');
+      else if ((e.key === 'r' || e.key === 'R') && filteredMedia[selectedVideoIndex]?.aiStatus === 'completed') {
+        handleSingleAction(filteredMedia[selectedVideoIndex].id, 'reject');
       }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && !deleteLoading) {
-        handleSingleDelete(media[selectedVideoIndex].id);
+        handleSingleDelete(filteredMedia[selectedVideoIndex].id);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -120,7 +136,7 @@ export default function MediaLibraryPage() {
   const navigateModal = (direction: number) => {
     if (selectedVideoIndex === null) return;
     const newIndex = selectedVideoIndex + direction;
-    if (newIndex >= 0 && newIndex < media.length) {
+    if (newIndex >= 0 && newIndex < filteredMedia.length) {
       setSelectedVideoIndex(newIndex);
       setObjectsExpanded(false); // Reset expansion when navigating
     }
@@ -130,10 +146,10 @@ export default function MediaLibraryPage() {
     event.stopPropagation();
     const newSelected = new Set(selectedIds);
     if (event.shiftKey && lastSelectedId) {
-      const lastIndex = media.findIndex(v => v.id === lastSelectedId);
-      const currentIndex = media.findIndex(v => v.id === id);
+      const lastIndex = filteredMedia.findIndex(v => v.id === lastSelectedId);
+      const currentIndex = filteredMedia.findIndex(v => v.id === id);
       const [start, end] = [Math.min(lastIndex, currentIndex), Math.max(lastIndex, currentIndex)];
-      for (let i = start; i <= end; i++) newSelected.add(media[i].id);
+      for (let i = start; i <= end; i++) newSelected.add(filteredMedia[i].id);
     } else {
       if (newSelected.has(id)) newSelected.delete(id);
       else newSelected.add(id);
@@ -142,9 +158,9 @@ export default function MediaLibraryPage() {
     setLastSelectedId(id);
   };
 
-  const selectAll = () => setSelectedIds(new Set(media.map(v => v.id)));
+  const selectAll = () => setSelectedIds(new Set(filteredMedia.map(v => v.id)));
   const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedId(null); };
-  const allSelected = media.length > 0 && media.every(v => selectedIds.has(v.id));
+  const allSelected = filteredMedia.length > 0 && filteredMedia.every(v => selectedIds.has(v.id));
   const someSelected = selectedIds.size > 0;
 
   const handleAnalyze = async (mediaId: string) => {
@@ -253,7 +269,7 @@ export default function MediaLibraryPage() {
       if (!response.ok) throw new Error('Action failed');
       await fetchMedia();
       if (selectedVideoIndex !== null) {
-        const nextPending = media.findIndex((v, i) => i > selectedVideoIndex && v.aiStatus === 'completed' && v.trainingStatus === 'pending');
+        const nextPending = filteredMedia.findIndex((v, i) => i > selectedVideoIndex && v.aiStatus === 'completed' && v.trainingStatus === 'pending');
         if (nextPending !== -1) setSelectedVideoIndex(nextPending);
       }
     } catch (err: any) { setError(err.message); }
@@ -289,8 +305,8 @@ export default function MediaLibraryPage() {
       });
       if (!response.ok) throw new Error('Delete failed');
       if (selectedVideoIndex !== null) {
-        if (media.length <= 1) setSelectedVideoIndex(null);
-        else if (selectedVideoIndex >= media.length - 1) setSelectedVideoIndex(selectedVideoIndex - 1);
+        if (filteredMedia.length <= 1) setSelectedVideoIndex(null);
+        else if (selectedVideoIndex >= filteredMedia.length - 1) setSelectedVideoIndex(selectedVideoIndex - 1);
       }
       await fetchMedia();
     } catch (err: any) { setError(err.message); }
@@ -443,7 +459,7 @@ export default function MediaLibraryPage() {
     );
   };
 
-  const selectedVideo = selectedVideoIndex !== null ? media[selectedVideoIndex] : null;
+  const selectedVideo = selectedVideoIndex !== null ? filteredMedia[selectedVideoIndex] : null;
 
   return (
     <div className="p-6">
@@ -462,9 +478,9 @@ export default function MediaLibraryPage() {
         </div>
       </div>
 
-      {/* Summary Stats Bar */}
-      {media.length > 0 && (() => {
-        // Sum only non-null durations
+      {/* Summary Stats */}
+      {(() => {
+        // Sum only non-null durations (use full media for stats)
         const totalDuration = media.reduce((sum, v) => {
           const dur = v.duration ?? (v as any).durationSeconds ?? null;
           if (dur !== null && typeof dur === 'number' && dur > 0) {
@@ -474,55 +490,49 @@ export default function MediaLibraryPage() {
         }, 0);
         const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
         const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
+        const totalFootage = totalDuration > 0 ? formatTotalDuration(totalDuration) : (media.length > 0 ? '—' : '0m');
         
         return (
-          <div className="mb-6 grid grid-cols-4 gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-lg font-semibold text-gray-900">
-                {totalDuration > 0 ? formatTotalDuration(totalDuration) : (media.length > 0 ? '—' : '0m')}
-              </div>
-              <div className="text-xs text-gray-500">Total Footage</div>
-            </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-lg font-semibold text-gray-900">{media.length}</div>
-              <div className="text-xs text-gray-500">Total Videos</div>
-            </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-lg font-semibold text-gray-900">{uniqueUsers.size}</div>
-              <div className="text-xs text-gray-500">Contributors</div>
-            </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-lg font-semibold text-gray-900">{uniqueLocations.size}</div>
-              <div className="text-xs text-gray-500">Locations</div>
-            </div>
-          </div>
+          <StatsRow items={[
+            { value: totalFootage, label: 'Total Footage' },
+            { value: filteredMedia.length, label: 'Videos' },
+            { value: uniqueUsers.size, label: 'Contributors' },
+            { value: uniqueLocations.size, label: 'Locations' },
+          ]} />
         );
       })()}
 
-      <div className="mb-6 space-y-4">
-        <div>
-          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-            <Film className="w-3 h-3" /> Processing Pipeline
-          </h3>
-          <div className="grid grid-cols-5 gap-4">
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-yellow-600">{stats.blurPending}</div><div className="text-sm text-gray-500">Blur Pending</div></div>
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-slate-600">{stats.queued}</div><div className="text-sm text-gray-500">Labels Pending</div></div>
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-blue-600">{stats.processing}</div><div className="text-sm text-gray-500">Processing</div></div>
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-emerald-600">{stats.completed}</div><div className="text-sm text-gray-500">Completed</div></div>
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-red-600">{stats.failed}</div><div className="text-sm text-gray-500">Failed</div></div>
-          </div>
-        </div>
-        <div>
-          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-            <Database className="w-3 h-3" /> Training Corpus Approval
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4"><div className="text-2xl font-bold text-amber-600">{stats.pendingApproval}</div><div className="text-sm text-amber-700">Pending Review</div></div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4"><div className="text-2xl font-bold text-green-600">{stats.approved}</div><div className="text-sm text-green-700">Approved</div></div>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4"><div className="text-2xl font-bold text-red-600">{stats.rejected}</div><div className="text-sm text-red-700">Rejected</div></div>
-          </div>
-        </div>
-      </div>
+      {/* Processing Pipeline Status */}
+      <PipelineStatus 
+        label="PROCESSING"
+        stages={[
+          { label: 'Blur', count: stats.blurPending, icon: '⏳' },
+          { label: 'Labels', count: stats.queued, icon: '🏷️' },
+          { label: 'Running', count: stats.processing, icon: '⚙️', status: 'active' },
+          { label: 'Done', count: stats.completed, icon: '✅', status: 'complete' },
+          { label: 'Failed', count: stats.failed, icon: '❌', status: 'error' },
+        ]}
+      />
+
+      {/* Training Approval Status */}
+      <ApprovalStatus
+        label="TRAINING"
+        pending={stats.pendingApproval}
+        approved={stats.approved}
+        rejected={stats.rejected}
+        onClickPending={() => {
+          setTrainingFilter('pending');
+          setFilter('completed'); // Show only completed videos for training review
+        }}
+        onClickApproved={() => {
+          setTrainingFilter('approved');
+          setFilter('all');
+        }}
+        onClickRejected={() => {
+          setTrainingFilter('rejected');
+          setFilter('all');
+        }}
+      />
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
@@ -535,7 +545,6 @@ export default function MediaLibraryPage() {
               <option value="failed">Failed</option>
             </optgroup>
           </select>
-          <span className="text-sm text-gray-500">Showing {media.length} of {totalCount} videos</span>
         </div>
       </div>
 
@@ -571,10 +580,10 @@ export default function MediaLibraryPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</td></tr>
-            ) : media.length === 0 ? (
+            ) : filteredMedia.length === 0 ? (
               <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500">No videos found</td></tr>
             ) : (
-              media.map((item, index) => (
+              filteredMedia.map((item, index) => (
                 <tr key={item.id} className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-50' : ''} ${item.trainingStatus === 'approved' ? 'bg-green-50/30' : ''} ${item.trainingStatus === 'rejected' ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedVideoIndex(index)}>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <button onClick={(e) => toggleSelection(item.id, e)} className="p-1 hover:bg-gray-200 rounded">
@@ -619,8 +628,8 @@ export default function MediaLibraryPage() {
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <button onClick={() => navigateModal(-1)} disabled={selectedVideoIndex === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Previous"><ChevronLeft className="w-5 h-5" /></button>
-                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {media.length}</span>
-                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === media.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
+                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {filteredMedia.length}</span>
+                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === filteredMedia.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => handleSingleDelete(selectedVideo.id)} disabled={deleteLoading} className="p-2 hover:bg-red-100 text-red-600 rounded-lg" title="Delete"><Trash2 className="w-5 h-5" /></button>
