@@ -575,9 +575,9 @@ export default function MediaLibraryPage() {
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center"><Film className="w-5 h-5 text-gray-400" /></div><span className="font-medium text-sm truncate max-w-[200px]">{item.fileName}</span></div></td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {item.importSource === 'google-drive' ? (
-                      <HardDrive className="w-4 h-4 text-gray-500" title="Google Drive Import" />
+                      <span title="Google Drive Import"><HardDrive className="w-4 h-4 text-gray-500" /></span>
                     ) : (
-                      <Smartphone className="w-4 h-4 text-gray-500" title="App Upload" />
+                      <span title="App Upload"><Smartphone className="w-4 h-4 text-gray-500" /></span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{item.locationName || item.locationId?.slice(0, 8) || '-'}</td>
