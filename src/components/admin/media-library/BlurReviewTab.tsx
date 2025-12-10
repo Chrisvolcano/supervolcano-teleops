@@ -5,7 +5,13 @@ interface BlurReviewTabProps {
 }
 
 export function BlurReviewTab({ media }: BlurReviewTabProps) {
-  const needsBlur = media.filter(v => !v.blurStatus || v.blurStatus === 'pending' || (typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved'));
+  const needsBlur = media.filter(v => {
+    // No blur status or not complete = needs blur
+    if (!v.blurStatus || v.blurStatus === 'none') return true;
+    // Has reviewStatus that's not approved = needs blur
+    if (typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved') return true;
+    return false;
+  });
 
   return (
     <div>
@@ -14,4 +20,3 @@ export function BlurReviewTab({ media }: BlurReviewTabProps) {
     </div>
   );
 }
-
