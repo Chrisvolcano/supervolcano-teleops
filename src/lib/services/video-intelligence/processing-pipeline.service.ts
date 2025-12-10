@@ -115,6 +115,20 @@ class VideoProcessingPipeline {
         throw new Error(`No storage URL for media: ${mediaId}`);
       }
 
+      // Check if video needs blur and hasn't been approved (safety check)
+      const needsBlur = media.source === 'web_contribute' || media.reviewStatus !== undefined;
+      const blurApproved = media.reviewStatus === 'approved';
+      
+      if (needsBlur && !blurApproved) {
+        // Remove from queue and skip
+        await sql`
+          UPDATE video_processing_queue
+          SET status = 'failed', last_error = 'Blur pending - video requires face blur before AI processing'
+          WHERE media_id = ${mediaId}
+        `;
+        throw new Error('Blur pending - video requires face blur before AI processing');
+      }
+
       // Process the video
       const processResult = await this.processVideo(mediaId, storageUrl);
 
@@ -481,9 +495,10 @@ class VideoProcessingPipeline {
   async processBatch(batchSize: number = 5): Promise<{
     processed: number;
     failed: number;
+    skipped: number;
     errors: string[];
   }> {
-    const results = { processed: 0, failed: 0, errors: [] as string[] };
+    const results = { processed: 0, failed: 0, skipped: 0, errors: [] as string[] };
 
     for (let i = 0; i < batchSize; i++) {
       const result = await this.processNext();
@@ -496,7 +511,12 @@ class VideoProcessingPipeline {
       if (result.processed) {
         results.processed++;
       } else {
-        results.failed++;
+        // Check if it was skipped due to blur
+        if (result.error?.includes('Blur pending')) {
+          results.skipped++;
+        } else {
+          results.failed++;
+        }
         if (result.error) {
           results.errors.push(`${result.mediaId}: ${result.error}`);
         }

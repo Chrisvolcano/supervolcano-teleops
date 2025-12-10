@@ -41,6 +41,25 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'mediaId required' }, { status: 400 });
         }
         
+        // Check if video needs blur and hasn't been approved
+        const mediaDoc = await adminDb.collection('media').doc(mediaId).get();
+        if (!mediaDoc.exists) {
+          return NextResponse.json({ error: 'Media not found' }, { status: 404 });
+        }
+        
+        const mediaData = mediaDoc.data()!;
+        const needsBlur = mediaData.source === 'web_contribute' || mediaData.reviewStatus !== undefined;
+        const blurApproved = mediaData.reviewStatus === 'approved';
+        
+        if (needsBlur && !blurApproved) {
+          return NextResponse.json({ 
+            success: false,
+            error: 'Video requires face blur before AI processing',
+            skipped: true,
+            reason: 'Blur pending'
+          });
+        }
+        
         // For reanalyze, reset the status first
         if (action === 'reanalyze') {
           await adminDb.collection('media').doc(mediaId).update({

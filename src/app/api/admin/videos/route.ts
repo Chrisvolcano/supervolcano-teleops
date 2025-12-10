@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     }
 
     const stats = { 
-      queued: 0, processing: 0, completed: 0, failed: 0,
+      queued: 0, processing: 0, completed: 0, failed: 0, blurPending: 0,
       pendingApproval: 0, approved: 0, rejected: 0,
     };
     const allVideoDocs: Array<{ doc: FirebaseFirestore.QueryDocumentSnapshot; aiStatus: string }> = [];
@@ -144,7 +144,23 @@ export async function GET(request: NextRequest) {
       if (!isVideo(data)) return;
 
       const aiStatus = getAIStatus(data);
-      stats[aiStatus === 'pending' ? 'queued' : aiStatus as keyof typeof stats]++;
+      const source = data.source;
+      const reviewStatus = data.reviewStatus;
+      const needsBlur = source === 'web_contribute' || reviewStatus !== undefined;
+      const blurApproved = reviewStatus === 'approved';
+      
+      // Count blur pending
+      if (needsBlur && !blurApproved) {
+        stats.blurPending++;
+      }
+      
+      // Count AI status (only if blur not needed or blur approved)
+      if (!needsBlur || blurApproved) {
+        if (aiStatus === 'pending') stats.queued++;
+        else if (aiStatus === 'processing') stats.processing++;
+        else if (aiStatus === 'completed') stats.completed++;
+        else if (aiStatus === 'failed') stats.failed++;
+      }
       
       if (aiStatus === 'completed') {
         const trainingStatus = data.trainingStatus || 'pending';
@@ -169,6 +185,11 @@ export async function GET(request: NextRequest) {
           roomId: data.roomId || null,
           targetId: data.targetId || null,
           actionId: data.actionId || null,
+          userId: data.userId || data.contributorId || null,
+          source: data.source || null,
+          reviewStatus: data.reviewStatus || null,
+          blurStatus: data.blurStatus || null,
+          importSource: data.importSource || null,
           uploadedAt: parseFirestoreTimestamp(data.uploadedAt) || parseFirestoreTimestamp(data.createdAt) || parseFirestoreTimestamp(data.timestamp),
           aiStatus,
           aiAnnotations: data.aiAnnotations || data.annotations || null,

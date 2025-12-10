@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
-  ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles
+  ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
+  Smartphone, HardDrive, Tag, AlertCircle
 } from 'lucide-react';
 
 interface VideoItem {
@@ -15,6 +16,11 @@ interface VideoItem {
   locationId: string | null;
   locationName: string | null;
   uploadedAt: string | null;
+  userId?: string | null;
+  source?: string;
+  reviewStatus?: 'pending' | 'approved' | 'rejected';
+  blurStatus?: 'none' | 'processing' | 'complete' | 'failed';
+  importSource?: string;
   aiStatus: 'pending' | 'processing' | 'completed' | 'failed';
   aiAnnotations: any | null;
   aiError: string | null;
@@ -32,6 +38,7 @@ interface Stats {
   processing: number;
   completed: number;
   failed: number;
+  blurPending: number;
   pendingApproval: number;
   approved: number;
   rejected: number;
@@ -40,7 +47,7 @@ interface Stats {
 export default function MediaLibraryPage() {
   const { user } = useAuth();
   const [media, setMedia] = useState<VideoItem[]>([]);
-  const [stats, setStats] = useState<Stats>({ queued: 0, processing: 0, completed: 0, failed: 0, pendingApproval: 0, approved: 0, rejected: 0 });
+  const [stats, setStats] = useState<Stats>({ queued: 0, processing: 0, completed: 0, failed: 0, blurPending: 0, pendingApproval: 0, approved: 0, rejected: 0 });
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +78,7 @@ export default function MediaLibraryPage() {
       if (!response.ok) throw new Error('Failed to fetch videos');
       const data = await response.json();
       setMedia(data.videos || []);
-      setStats(data.stats || { queued: 0, processing: 0, completed: 0, failed: 0, pendingApproval: 0, approved: 0, rejected: 0 });
+      setStats(data.stats || { queued: 0, processing: 0, completed: 0, failed: 0, blurPending: 0, pendingApproval: 0, approved: 0, rejected: 0 });
       setTotalCount(data.pagination?.total || data.videos?.length || 0);
     } catch (err: any) {
       setError(err.message);
@@ -156,7 +163,12 @@ export default function MediaLibraryPage() {
         throw new Error(result.error || 'Analysis failed');
       }
       if (!result.success) {
-        throw new Error(result.error || 'Analysis did not complete');
+        if (result.skipped) {
+          setError(result.error || 'Video requires face blur before AI processing');
+        } else {
+          throw new Error(result.error || 'Analysis did not complete');
+        }
+        return;
       }
       // Refresh to get updated status
       await fetchMedia();
@@ -306,12 +318,19 @@ export default function MediaLibraryPage() {
   const processBatch = async () => {
     if (!user) return;
     try {
+      setError(null);
       const token = await user.getIdToken();
-      await fetch('/api/admin/videos/process', {
+      const response = await fetch('/api/admin/videos/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: 'process_batch', batchSize: 5 }),
       });
+      const result = await response.json();
+      if (result.skipped > 0) {
+        setError(`Processed ${result.processed} videos. Skipped ${result.skipped} (blur pending).`);
+      } else if (result.processed > 0) {
+        setError(null); // Clear any previous errors
+      }
       await fetchMedia();
     } catch (err: any) { setError(err.message); }
   };
@@ -325,6 +344,76 @@ export default function MediaLibraryPage() {
     return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
   };
   const formatSize = (b: number | null) => b ? `${(b / 1024 / 1024).toFixed(1)} MB` : '-';
+  const formatTotalDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+  
+  // Get processing status with unified pipeline logic
+  const getProcessingStatus = (video: VideoItem): { label: string; variant: 'warning' | 'info' | 'processing' | 'success' | 'error'; icon: JSX.Element } => {
+    const needsBlur = video.source === 'web_contribute' || video.reviewStatus !== undefined;
+    const blurApproved = video.reviewStatus === 'approved';
+    
+    // Check blur first
+    if (needsBlur && !blurApproved) {
+      return { 
+        label: 'Blur Pending', 
+        variant: 'warning',
+        icon: <Clock className="w-4 h-4" />
+      };
+    }
+    
+    // Then check AI status
+    if (video.aiStatus === 'failed') {
+      return { 
+        label: 'Failed', 
+        variant: 'error',
+        icon: <XCircle className="w-4 h-4" />
+      };
+    }
+    if (video.aiStatus === 'processing') {
+      return { 
+        label: 'Processing', 
+        variant: 'processing',
+        icon: <RefreshCw className="w-4 h-4 animate-spin" />
+      };
+    }
+    if (video.aiStatus === 'completed') {
+      return { 
+        label: 'Ready', 
+        variant: 'success',
+        icon: <CheckCircle className="w-4 h-4" />
+      };
+    }
+    
+    // Default: needs CV labeling
+    return { 
+      label: 'Labels Pending', 
+      variant: 'info',
+      icon: <Tag className="w-4 h-4" />
+    };
+  };
+  
+  const getProcessingStatusBadge = (video: VideoItem) => {
+    const status = getProcessingStatus(video);
+    const variantClasses = {
+      warning: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      info: 'bg-blue-100 text-blue-700 border-blue-200',
+      processing: 'bg-blue-100 text-blue-700 border-blue-200',
+      success: 'bg-green-100 text-green-700 border-green-200',
+      error: 'bg-red-100 text-red-700 border-red-200',
+    };
+    
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${variantClasses[status.variant]}`}>
+        {status.icon}
+        {status.label}
+      </span>
+    );
+  };
+  
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4 text-gray-400" />;
@@ -373,13 +462,42 @@ export default function MediaLibraryPage() {
         </div>
       </div>
 
+      {/* Summary Stats Bar */}
+      {media.length > 0 && (() => {
+        const totalDuration = media.reduce((sum, v) => sum + (v.duration || 0), 0);
+        const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
+        const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
+        
+        return (
+          <div className="mb-6 grid grid-cols-4 gap-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-lg font-semibold text-gray-900">{formatTotalDuration(totalDuration)}</div>
+              <div className="text-xs text-gray-500">Total Footage</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-lg font-semibold text-gray-900">{media.length}</div>
+              <div className="text-xs text-gray-500">Total Videos</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-lg font-semibold text-gray-900">{uniqueUsers.size}</div>
+              <div className="text-xs text-gray-500">Contributors</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="text-lg font-semibold text-gray-900">{uniqueLocations.size}</div>
+              <div className="text-xs text-gray-500">Locations</div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="mb-6 space-y-4">
         <div>
           <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-            <Film className="w-3 h-3" /> AI Processing
+            <Film className="w-3 h-3" /> Processing Pipeline
           </h3>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-slate-600">{stats.queued}</div><div className="text-sm text-gray-500">Queued</div></div>
+          <div className="grid grid-cols-5 gap-4">
+            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-yellow-600">{stats.blurPending}</div><div className="text-sm text-gray-500">Blur Pending</div></div>
+            <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-slate-600">{stats.queued}</div><div className="text-sm text-gray-500">Labels Pending</div></div>
             <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-blue-600">{stats.processing}</div><div className="text-sm text-gray-500">Processing</div></div>
             <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-emerald-600">{stats.completed}</div><div className="text-sm text-gray-500">Completed</div></div>
             <div className="bg-white border rounded-lg p-4"><div className="text-2xl font-bold text-red-600">{stats.failed}</div><div className="text-sm text-gray-500">Failed</div></div>
@@ -412,7 +530,15 @@ export default function MediaLibraryPage() {
         </div>
       </div>
 
-      {error && <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>}
+      {error && (
+        <div className={`mb-4 p-4 border rounded-lg ${
+          error.includes('Skipped') || error.includes('blur pending') 
+            ? 'bg-yellow-50 border-yellow-200 text-yellow-700' 
+            : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
+          {error}
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg overflow-hidden">
         <table className="w-full">
@@ -424,19 +550,20 @@ export default function MediaLibraryPage() {
                 </button>
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">VIDEO</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SOURCE</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">LOCATION</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">DURATION</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SIZE</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">AI STATUS</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">PROCESSING STATUS</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">TRAINING</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">CREATED</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</td></tr>
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</td></tr>
             ) : media.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500">No videos found</td></tr>
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500">No videos found</td></tr>
             ) : (
               media.map((item, index) => (
                 <tr key={item.id} className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-50' : ''} ${item.trainingStatus === 'approved' ? 'bg-green-50/30' : ''} ${item.trainingStatus === 'rejected' ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedVideoIndex(index)}>
@@ -446,10 +573,17 @@ export default function MediaLibraryPage() {
                     </button>
                   </td>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center"><Film className="w-5 h-5 text-gray-400" /></div><span className="font-medium text-sm truncate max-w-[200px]">{item.fileName}</span></div></td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {item.importSource === 'google-drive' ? (
+                      <HardDrive className="w-4 h-4 text-gray-500" title="Google Drive Import" />
+                    ) : (
+                      <Smartphone className="w-4 h-4 text-gray-500" title="App Upload" />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{item.locationName || item.locationId?.slice(0, 8) || '-'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatDuration(item.duration)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatSize(item.size)}</td>
-                  <td className="px-4 py-3"><div className="flex items-center gap-2">{getStatusIcon(item.aiStatus)}<span className="text-sm capitalize">{item.aiStatus}</span></div></td>
+                  <td className="px-4 py-3">{getProcessingStatusBadge(item)}</td>
                   <td className="px-4 py-3">{getTrainingBadge(item.trainingStatus)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatDate(item.uploadedAt)}</td>
                 </tr>
