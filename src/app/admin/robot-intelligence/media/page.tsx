@@ -495,7 +495,7 @@ export default function MediaLibraryPage() {
           { id: 'export', label: 'Export', count: exportReadyCount },
         ];
 
-        return <TabNav tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />;
+        return <TabNav tabs={tabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as 'overview' | 'blur' | 'labels' | 'export')} />;
       })()}
 
       {/* Tab Content */}
