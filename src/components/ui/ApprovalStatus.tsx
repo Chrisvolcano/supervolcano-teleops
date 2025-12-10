@@ -28,11 +28,11 @@ export function ApprovalStatus({
           disabled={!onClickPending}
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium transition ${
             pending > 0
-              ? 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100'
+              ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
               : 'bg-gray-50 border-gray-200 text-gray-400'
           } ${onClickPending ? 'cursor-pointer' : 'cursor-default'}`}
         >
-          <span>🟡</span>
+          <span className="text-amber-500">●</span>
           <span>{pending}</span>
           <span>Pending</span>
         </button>
@@ -42,11 +42,11 @@ export function ApprovalStatus({
           disabled={!onClickApproved}
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium transition ${
             approved > 0
-              ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
               : 'bg-gray-50 border-gray-200 text-gray-400'
           } ${onClickApproved ? 'cursor-pointer' : 'cursor-default'}`}
         >
-          <span>🟢</span>
+          <span className="text-emerald-600">●</span>
           <span>{approved}</span>
           <span>Approved</span>
         </button>
@@ -60,7 +60,7 @@ export function ApprovalStatus({
               : 'bg-gray-50 border-gray-200 text-gray-400'
           } ${onClickRejected ? 'cursor-pointer' : 'cursor-default'}`}
         >
-          <span>🔴</span>
+          <span className="text-red-500">●</span>
           <span>{rejected}</span>
           <span>Rejected</span>
         </button>

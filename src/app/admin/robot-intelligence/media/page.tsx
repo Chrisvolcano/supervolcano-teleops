@@ -490,7 +490,7 @@ export default function MediaLibraryPage() {
         }, 0);
         const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
         const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
-        const totalFootage = totalDuration > 0 ? formatTotalDuration(totalDuration) : (media.length > 0 ? '—' : '0m');
+        const totalFootage = totalDuration > 0 ? formatTotalDuration(totalDuration) : '—';
         
         return (
           <StatsRow items={[
@@ -506,11 +506,11 @@ export default function MediaLibraryPage() {
       <PipelineStatus 
         label="PROCESSING"
         stages={[
-          { label: 'Blur', count: stats.blurPending, icon: '⏳' },
-          { label: 'Labels', count: stats.queued, icon: '🏷️' },
-          { label: 'Running', count: stats.processing, icon: '⚙️', status: 'active' },
-          { label: 'Done', count: stats.completed, icon: '✅', status: 'complete' },
-          { label: 'Failed', count: stats.failed, icon: '❌', status: 'error' },
+          { label: 'Blur', count: stats.blurPending },
+          { label: 'Labels', count: stats.queued },
+          { label: 'Running', count: stats.processing, status: 'active' },
+          { label: 'Done', count: stats.completed, status: 'complete' },
+          { label: 'Failed', count: stats.failed, status: 'error' },
         ]}
       />
 
