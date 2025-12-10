@@ -200,8 +200,13 @@ class VideoProcessingPipeline {
       const qualityScore = this.calculateQualityScore(result.annotations);
       const duration = this.estimateDuration(result.annotations);
 
+      // Extract duration from Video Intelligence results
+      // estimateDuration finds the max endTime from shots and label segments
+      // Store as durationSeconds for consistency with other fields
+      const durationSeconds = duration ? Math.round(duration) : null;
+
       // ✅ Store results in FIRESTORE (source of truth)
-      await mediaRef.update({
+      const updateData: any = {
         aiStatus: 'completed',
         aiAnnotations: result.annotations,
         aiProcessedAt: new Date(),
@@ -215,7 +220,15 @@ class VideoProcessingPipeline {
         aiFilteredLabelCount: filteredObjects.length,
         // Training workflow status
         trainingStatus: 'pending',  // pending | approved | rejected
-      });
+      };
+      
+      // Add durationSeconds if we extracted it from Video Intelligence
+      if (durationSeconds && durationSeconds > 0) {
+        updateData.durationSeconds = durationSeconds;
+        console.log(`[Pipeline] Extracted duration: ${durationSeconds}s for video ${mediaId}`);
+      }
+
+      await mediaRef.update(updateData);
 
       // ❌ REMOVED: Auto-sync to training_videos
       // This only happens on explicit approval now

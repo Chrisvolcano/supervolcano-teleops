@@ -353,9 +353,8 @@ export default function MediaLibraryPage() {
   
   // Get processing status with unified pipeline logic
   const getProcessingStatus = (video: VideoItem): { label: string; variant: 'warning' | 'info' | 'processing' | 'success' | 'error'; icon: JSX.Element } => {
-    // ONLY show "Blur Pending" if video has reviewStatus field AND reviewStatus !== 'approved'
-    // App uploads without reviewStatus field should NOT show blur pending
-    const needsBlur = video.reviewStatus !== undefined && video.reviewStatus !== 'approved';
+    // Only videos that explicitly have reviewStatus field AND it's not approved
+    const needsBlur = typeof video.reviewStatus === 'string' && video.reviewStatus !== 'approved';
     
     // Check blur first
     if (needsBlur) {
@@ -465,13 +464,13 @@ export default function MediaLibraryPage() {
 
       {/* Summary Stats Bar */}
       {media.length > 0 && (() => {
-        // Debug: log durations to check field names
-        console.log('durations:', media.map(v => ({ id: v.id, duration: v.duration, durationSeconds: (v as any).durationSeconds })));
-        
-        // Sum all video durations - handle both duration and durationSeconds fields
+        // Sum only non-null durations
         const totalDuration = media.reduce((sum, v) => {
-          const dur = v.duration ?? (v as any).durationSeconds ?? 0;
-          return sum + (typeof dur === 'number' && dur > 0 ? dur : 0);
+          const dur = v.duration ?? (v as any).durationSeconds ?? null;
+          if (dur !== null && typeof dur === 'number' && dur > 0) {
+            return sum + dur;
+          }
+          return sum;
         }, 0);
         const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
         const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
@@ -479,7 +478,9 @@ export default function MediaLibraryPage() {
         return (
           <div className="mb-6 grid grid-cols-4 gap-3">
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="text-lg font-semibold text-gray-900">{formatTotalDuration(totalDuration)}</div>
+              <div className="text-lg font-semibold text-gray-900">
+                {totalDuration > 0 ? formatTotalDuration(totalDuration) : (media.length > 0 ? '—' : '0m')}
+              </div>
               <div className="text-xs text-gray-500">Total Footage</div>
             </div>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -582,7 +583,7 @@ export default function MediaLibraryPage() {
                   </td>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center"><Film className="w-5 h-5 text-gray-400" /></div><span className="font-medium text-sm truncate max-w-[200px]">{item.fileName}</span></div></td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {item.importSource === 'google-drive' ? (
+                    {(item.source === 'google-drive' || item.importSource === 'google-drive') ? (
                       <span title="Google Drive Import" className="text-lg">📁</span>
                     ) : (
                       <span title="App Upload" className="text-lg">📱</span>
