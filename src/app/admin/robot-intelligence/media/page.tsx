@@ -7,11 +7,13 @@ import {
   ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
   Smartphone, HardDrive, Tag, AlertCircle
 } from 'lucide-react';
-import { StatsRow } from '@/components/ui/StatsRow';
-import { PipelineStatus } from '@/components/ui/PipelineStatus';
-import { ApprovalStatus } from '@/components/ui/ApprovalStatus';
+import { TabNav } from '@/components/ui/TabNav';
+import { OverviewTab } from '@/components/admin/media-library/OverviewTab';
+import { BlurReviewTab } from '@/components/admin/media-library/BlurReviewTab';
+import { LabelReviewTab } from '@/components/admin/media-library/LabelReviewTab';
+import { ExportTab } from '@/components/admin/media-library/ExportTab';
 
-interface VideoItem {
+export interface VideoItem {
   id: string;
   fileName: string;
   url: string;
@@ -56,6 +58,7 @@ export default function MediaLibraryPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
   const [trainingFilter, setTrainingFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [activeTab, setActiveTab] = useState<'overview' | 'blur' | 'labels' | 'export'>('overview');
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -182,7 +185,7 @@ export default function MediaLibraryPage() {
         if (result.skipped) {
           setError(result.error || 'Video requires face blur before AI processing');
         } else {
-          throw new Error(result.error || 'Analysis did not complete');
+        throw new Error(result.error || 'Analysis did not complete');
         }
         return;
       }
@@ -478,138 +481,55 @@ export default function MediaLibraryPage() {
         </div>
       </div>
 
-      {/* Summary Stats */}
+      {/* Tab Navigation */}
       {(() => {
-        // Sum only non-null durations (use full media for stats)
-        const totalDuration = media.reduce((sum, v) => {
-          const dur = v.duration ?? (v as any).durationSeconds ?? null;
-          if (dur !== null && typeof dur === 'number' && dur > 0) {
-            return sum + dur;
-          }
-          return sum;
-        }, 0);
-        const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
-        const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
-        const totalFootage = totalDuration > 0 ? formatTotalDuration(totalDuration) : '—';
-        
-        return (
-          <StatsRow items={[
-            { value: totalFootage, label: 'Total Footage' },
-            { value: filteredMedia.length, label: 'Videos' },
-            { value: uniqueUsers.size, label: 'Contributors' },
-            { value: uniqueLocations.size, label: 'Locations' },
-          ]} />
-        );
+        // Calculate tab counts
+        const blurPendingCount = media.filter(v => typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved').length;
+        const labelsPendingCount = media.filter(v => v.aiStatus === 'pending').length;
+        const exportReadyCount = media.filter(v => v.reviewStatus === 'approved').length;
+
+        const tabs = [
+          { id: 'overview', label: 'Overview' },
+          { id: 'blur', label: 'Blur Review', count: blurPendingCount },
+          { id: 'labels', label: 'Label Review', count: labelsPendingCount },
+          { id: 'export', label: 'Export', count: exportReadyCount },
+        ];
+
+        return <TabNav tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />;
       })()}
 
-      {/* Processing Pipeline Status */}
-      <PipelineStatus 
-        label="PROCESSING"
-        stages={[
-          { label: 'Blur', count: stats.blurPending },
-          { label: 'Labels', count: stats.queued },
-          { label: 'Running', count: stats.processing, status: 'active' },
-          { label: 'Done', count: stats.completed, status: 'complete' },
-          { label: 'Failed', count: stats.failed, status: 'error' },
-        ]}
-      />
-
-      {/* Training Approval Status */}
-      <ApprovalStatus
-        label="TRAINING"
-        pending={stats.pendingApproval}
-        approved={stats.approved}
-        rejected={stats.rejected}
-        onClickPending={() => {
-          setTrainingFilter('pending');
-          setFilter('completed'); // Show only completed videos for training review
-        }}
-        onClickApproved={() => {
-          setTrainingFilter('approved');
-          setFilter('all');
-        }}
-        onClickRejected={() => {
-          setTrainingFilter('rejected');
-          setFilter('all');
-        }}
-      />
-
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border rounded-lg px-3 py-2 min-w-[180px]">
-            <option value="all">All Videos ({totalCount})</option>
-            <optgroup label="AI Status">
-              <option value="pending">Pending Processing</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </optgroup>
-          </select>
-        </div>
-      </div>
-
-      {error && (
-        <div className={`mb-4 p-4 border rounded-lg ${
-          error.includes('Skipped') || error.includes('blur pending') 
-            ? 'bg-yellow-50 border-yellow-200 text-yellow-700' 
-            : 'bg-red-50 border-red-200 text-red-700'
-        }`}>
-          {error}
-        </div>
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          media={media}
+          filteredMedia={filteredMedia}
+          stats={stats}
+          totalCount={totalCount}
+          filter={filter}
+          setFilter={setFilter}
+          trainingFilter={trainingFilter}
+          setTrainingFilter={setTrainingFilter}
+          formatTotalDuration={formatTotalDuration}
+          loading={loading}
+          error={error}
+          selectedIds={selectedIds}
+          allSelected={allSelected}
+          someSelected={someSelected}
+          selectAll={selectAll}
+          clearSelection={clearSelection}
+          toggleSelection={toggleSelection}
+          setSelectedVideoIndex={setSelectedVideoIndex}
+          formatDuration={formatDuration}
+          formatSize={formatSize}
+          formatDate={formatDate}
+          getProcessingStatusBadge={getProcessingStatusBadge}
+          getTrainingBadge={getTrainingBadge}
+        />
       )}
+      {activeTab === 'blur' && <BlurReviewTab media={media} />}
+      {activeTab === 'labels' && <LabelReviewTab media={media} />}
+      {activeTab === 'export' && <ExportTab media={media} />}
 
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="w-10 px-4 py-3 text-left">
-                <button onClick={() => allSelected ? clearSelection() : selectAll()} className="p-1 hover:bg-gray-200 rounded">
-                  {allSelected ? <CheckSquare className="w-5 h-5 text-blue-600" /> : someSelected ? <Minus className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-gray-400" />}
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">VIDEO</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SOURCE</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">LOCATION</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">DURATION</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SIZE</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">PROCESSING STATUS</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">TRAINING</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">CREATED</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</td></tr>
-            ) : filteredMedia.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500">No videos found</td></tr>
-            ) : (
-              filteredMedia.map((item, index) => (
-                <tr key={item.id} className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-50' : ''} ${item.trainingStatus === 'approved' ? 'bg-green-50/30' : ''} ${item.trainingStatus === 'rejected' ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedVideoIndex(index)}>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => toggleSelection(item.id, e)} className="p-1 hover:bg-gray-200 rounded">
-                      {selectedIds.has(item.id) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-gray-400" />}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center"><Film className="w-5 h-5 text-gray-400" /></div><span className="font-medium text-sm truncate max-w-[200px]">{item.fileName}</span></div></td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {(item.source === 'google-drive' || item.importSource === 'google-drive') ? (
-                      <span title="Google Drive Import" className="text-lg">📁</span>
-                    ) : (
-                      <span title="App Upload" className="text-lg">📱</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{item.locationName || item.locationId?.slice(0, 8) || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatDuration(item.duration)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatSize(item.size)}</td>
-                  <td className="px-4 py-3">{getProcessingStatusBadge(item)}</td>
-                  <td className="px-4 py-3">{getTrainingBadge(item.trainingStatus)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatDate(item.uploadedAt)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
 
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 z-50">
