@@ -353,11 +353,12 @@ export default function MediaLibraryPage() {
   
   // Get processing status with unified pipeline logic
   const getProcessingStatus = (video: VideoItem): { label: string; variant: 'warning' | 'info' | 'processing' | 'success' | 'error'; icon: JSX.Element } => {
-    const needsBlur = video.source === 'web_contribute' || video.reviewStatus !== undefined;
-    const blurApproved = video.reviewStatus === 'approved';
+    // ONLY show "Blur Pending" if video has reviewStatus field AND reviewStatus !== 'approved'
+    // App uploads without reviewStatus field should NOT show blur pending
+    const needsBlur = video.reviewStatus !== undefined && video.reviewStatus !== 'approved';
     
     // Check blur first
-    if (needsBlur && !blurApproved) {
+    if (needsBlur) {
       return { 
         label: 'Blur Pending', 
         variant: 'warning',
@@ -464,7 +465,14 @@ export default function MediaLibraryPage() {
 
       {/* Summary Stats Bar */}
       {media.length > 0 && (() => {
-        const totalDuration = media.reduce((sum, v) => sum + (v.duration || 0), 0);
+        // Debug: log durations to check field names
+        console.log('durations:', media.map(v => ({ id: v.id, duration: v.duration, durationSeconds: (v as any).durationSeconds })));
+        
+        // Sum all video durations - handle both duration and durationSeconds fields
+        const totalDuration = media.reduce((sum, v) => {
+          const dur = v.duration ?? (v as any).durationSeconds ?? 0;
+          return sum + (typeof dur === 'number' && dur > 0 ? dur : 0);
+        }, 0);
         const uniqueUsers = new Set(media.map(v => v.userId).filter(Boolean));
         const uniqueLocations = new Set(media.map(v => v.locationId).filter(Boolean));
         
@@ -575,9 +583,9 @@ export default function MediaLibraryPage() {
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center"><Film className="w-5 h-5 text-gray-400" /></div><span className="font-medium text-sm truncate max-w-[200px]">{item.fileName}</span></div></td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {item.importSource === 'google-drive' ? (
-                      <span title="Google Drive Import"><HardDrive className="w-4 h-4 text-gray-500" /></span>
+                      <span title="Google Drive Import" className="text-lg">📁</span>
                     ) : (
-                      <span title="App Upload"><Smartphone className="w-4 h-4 text-gray-500" /></span>
+                      <span title="App Upload" className="text-lg">📱</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{item.locationName || item.locationId?.slice(0, 8) || '-'}</td>
