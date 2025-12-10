@@ -39,7 +39,7 @@ export function AdminNav() {
 
   if (loading || initializing) {
     return (
-      <nav className="hidden w-56 flex-shrink-0 lg:block">
+      <nav className="hidden w-64 flex-shrink-0 lg:block pl-3">
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="h-10 animate-pulse rounded-lg bg-neutral-100" />
@@ -56,7 +56,7 @@ export function AdminNav() {
   }
 
   return (
-    <nav role="navigation" aria-label="Admin" className="hidden w-56 flex-shrink-0 lg:block">
+    <nav role="navigation" aria-label="Admin" className="hidden w-64 flex-shrink-0 lg:block pl-3">
       <ul className="space-y-1 text-sm">
         {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
           const isDashboard = href === "/admin";

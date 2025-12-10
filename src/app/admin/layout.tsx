@@ -79,9 +79,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <AdminHeader />
-      <div className="mx-auto flex w-full max-w-7xl gap-8 px-6 py-10">
+      <div className="flex w-full gap-8 py-10">
         <AdminNav />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 px-4">{children}</main>
       </div>
     </div>
   );
