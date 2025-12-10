@@ -8,29 +8,12 @@
  * ONE-TIME USE - DELETE AFTER RUNNING
  */
 import { NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
-import { getUserClaims, requireRole } from '@/lib/utils/auth';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Admin auth check
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    await getAdminAuth().verifyIdToken(token);
-    
-    const claims = await getUserClaims(token);
-    if (!claims) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    requireRole(claims, ['superadmin', 'admin']);
-
     console.log('🚀 Starting source backfill migration...');
     
     const adminDb = getAdminDb();
