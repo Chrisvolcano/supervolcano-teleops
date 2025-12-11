@@ -878,52 +878,56 @@ export default function MediaLibraryPage() {
           <p className="text-gray-500 mt-1">Manage and process video content for AI analysis</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Import dropdown - primary */}
-          <div className="relative">
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowImportDropdown(!showImportDropdown); }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Import
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            
-            {showImportDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
-                <button
-                  onClick={() => { setShowImportModal(true); setShowImportDropdown(false); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 rounded-t-lg"
-                >
-                  <Upload className="w-4 h-4 text-gray-600" />
-                  From Device
-                </button>
-                <button
-                  onClick={() => { setShowDriveModal(true); setShowImportDropdown(false); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 rounded-b-lg"
-                >
-                  <HardDrive className="w-4 h-4 text-gray-600" />
-                  From Google Drive
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Refresh - subtle icon button */}
-          <button 
-            onClick={fetchMedia} 
-            disabled={loading} 
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          {/* Secondary actions - subtle styling */}
+          <div className="flex items-center">
+            {/* Import dropdown - outline style */}
+            <div className="relative">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setShowImportDropdown(!showImportDropdown); }}
+                className="px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
+              >
+                <Upload className="w-4 h-4" />
+                Import
+                <ChevronDown className="w-3 h-3" />
           </button>
+              
+              {showImportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                  <button
+                    onClick={() => { setShowImportModal(true); setShowImportDropdown(false); }}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 rounded-t-lg"
+                  >
+                    <Upload className="w-4 h-4 text-gray-500" />
+                    From Device
+                  </button>
+                  <button
+                    onClick={() => { setShowDriveModal(true); setShowImportDropdown(false); }}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 rounded-b-lg"
+                  >
+                    <HardDrive className="w-4 h-4 text-gray-500" />
+                    From Google Drive
+          </button>
+        </div>
+              )}
+      </div>
 
-          {/* Process Batch - primary, only on Overview */}
+            {/* Refresh - icon button, matches import height */}
+            <button 
+              onClick={fetchMedia} 
+              disabled={loading} 
+              className="ml-2 p-2 text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+      </div>
+
+          {/* Primary action - stands out */}
           {activeTab === 'overview' && (
             <button 
               onClick={processBatch} 
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={isProcessingBatch}
+              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
             >
               <Play className="w-4 h-4" />
               Process Batch
