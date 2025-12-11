@@ -66,3 +66,63 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    await getAdminAuth().verifyIdToken(token);
+    
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    // Only admin and superadmin can delete locations
+    if (!['admin', 'superadmin'].includes(claims.role)) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const locationId = params.id;
+    const adminDb = getAdminDb();
+
+    // Check if location exists
+    const locationRef = adminDb.collection('locations').doc(locationId);
+    const locationDoc = await locationRef.get();
+
+    if (!locationDoc.exists) {
+      return NextResponse.json({ error: 'Location not found' }, { status: 404 });
+    }
+
+    // Delete associated assignments
+    const assignmentsSnapshot = await adminDb.collection('assignments')
+      .where('location_id', '==', locationId)
+      .get();
+    
+    const batch = adminDb.batch();
+    
+    assignmentsSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+
+    // Delete the location document
+    batch.delete(locationRef);
+
+    await batch.commit();
+
+    return NextResponse.json({ success: true, message: 'Location deleted' });
+  } catch (error: any) {
+    console.error('[API] Location delete error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete location' },
+      { status: 500 }
+    );
+  }
+}
+

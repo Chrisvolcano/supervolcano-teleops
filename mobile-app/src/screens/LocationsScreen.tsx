@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Home, Building2, Video } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
@@ -331,21 +332,65 @@ function LocationCard({
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={1}
-        style={styles.card}
+        activeOpacity={0.7}
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
       >
-        <View style={styles.cardIcon}>
-          <Ionicons name="home" size={18} color="#007AFF" />
+        {/* Left icon */}
+        <View style={{
+          width: 48,
+          height: 48,
+          borderRadius: 12,
+          backgroundColor: location.type === 'office' ? '#EEF2FF' : '#EFF6FF',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12,
+        }}>
+          {location.type === 'office' ? (
+            <Building2 size={24} color="#6366F1" />
+          ) : (
+            <Home size={24} color="#3B82F6" />
+          )}
         </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {location.name || 'Property'}
+
+        {/* Middle content */}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+            {location.name}
           </Text>
-          <Text style={styles.cardAddress} numberOfLines={1}>
-            {location.address}
-          </Text>
+          {location.address ? (
+            <Text style={{ fontSize: 14, color: '#6B7280' }} numberOfLines={1}>
+              {location.address}
+            </Text>
+          ) : (
+            <Text style={{ fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' }}>
+              No address
+            </Text>
+          )}
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+
+        {/* Right camera icon */}
+        <View style={{
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: '#EFF6FF',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <Video size={20} color="#3B82F6" />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );

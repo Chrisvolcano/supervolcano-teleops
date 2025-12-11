@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users, Film } from 'lucide-react';
+import { ArrowLeft, Building2, ListTodo, Settings, Loader2, Users, Film, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import LocationStructureTab from '@/components/admin/LocationStructureTab';
 import LocationTasksTab from '@/components/admin/LocationTasksTab';
@@ -272,6 +272,42 @@ export default function AdminLocationDetailPage() {
               }
               onUpdate={loadLocation}
             />
+            
+            {/* Danger Zone */}
+            <div className="bg-white rounded-lg border border-red-200 p-6">
+              <h3 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Permanently delete this location and all associated data. This action cannot be undone.
+              </p>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Are you sure you want to delete "${location.name}"? This will remove all assignments, tasks, and media associated with this location. This cannot be undone.`)) {
+                    return;
+                  }
+                  
+                  try {
+                    const token = await getIdToken();
+                    const response = await fetch(`/api/admin/locations/${locationId}`, {
+                      method: 'DELETE',
+                      headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    
+                    if (!response.ok) {
+                      const data = await response.json();
+                      throw new Error(data.error || 'Failed to delete location');
+                    }
+                    
+                    router.push('/admin/locations');
+                  } catch (err: any) {
+                    alert(`Failed to delete: ${err.message}`);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Location
+              </button>
+            </div>
           </div>
         )}
       </div>
