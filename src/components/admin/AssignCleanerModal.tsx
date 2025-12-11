@@ -57,70 +57,79 @@ export default function AssignCleanerModal({
       const token = await user.getIdToken();
       console.log('[Modal] Got auth token');
       
-      // Fetch both location_cleaner and oem_teleoperator roles
-      // We'll filter by organizationId to match the location
-      const response = await fetch('/api/admin/users?role=location_cleaner', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Fetch all field operators (any role that can be assigned to locations)
+      // For admin, fetch without organization filtering
+      const fieldOperatorRoles = ['location_cleaner', 'oem_teleoperator', 'field_operator'];
       
-      // Also fetch oem_teleoperators if needed (you can combine both queries)
-      const responseOem = await fetch('/api/admin/users?role=oem_teleoperator', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const allUsers: User[] = [];
       
-      console.log('[Modal] Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load cleaners');
-      }
-
-      const data = await response.json();
-      const dataOem = await responseOem.json();
-      
-      // Combine both responses
-      const allUsers = [...(data.users || []), ...(dataOem.users || [])];
-      
-      console.log('[Modal] Response data:', data);
-      console.log('[Modal] Users count:', allUsers.length);
-      
-      // Transform users to match modal's expected format
-      const transformedUsers: User[] = allUsers.map((user: any) => ({
-        id: user.uid,
-        name: user.displayName || user.firestore?.displayName || user.email.split('@')[0],
-        email: user.email,
-        role: user.auth?.role || user.firestore?.role || 'location_cleaner',
-        organizationId: user.auth?.organizationId || user.firestore?.organizationId,
-      }));
-      
-      console.log('[Modal] Transformed users:', transformedUsers.map((u: any) => ({ email: u.email, name: u.name, orgId: u.organizationId })));
-      
-      // Check for test cleaner specifically
-      const testCleaner = transformedUsers.find((u: any) => u.email === 'testcleaner@supervolcano.com');
-      if (testCleaner) {
-        console.log('[Modal] ✅ Test Cleaner FOUND:', testCleaner);
-        console.log('[Modal] Test cleaner orgId:', testCleaner.organizationId);
-      } else {
-        console.warn('[Modal] ❌ Test Cleaner NOT FOUND in response');
+      for (const role of fieldOperatorRoles) {
+        try {
+          const response = await fetch(`/api/admin/users?role=${role}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const users = data.users || [];
+            
+            // Transform and add users
+            users.forEach((user: any) => {
+              // Avoid duplicates
+              if (!allUsers.find(u => u.id === user.uid)) {
+                allUsers.push({
+                  id: user.uid,
+                  name: user.displayName || user.firestore?.displayName || user.email?.split('@')[0] || 'Unknown',
+                  email: user.email,
+                  role: user.auth?.role || user.firestore?.role || role,
+                  organizationId: user.auth?.organizationId || user.firestore?.organizationId,
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.warn(`[Modal] Failed to fetch ${role} users:`, err);
+        }
       }
       
-      // Log any cleaners missing required fields (helpful for debugging)
-      const invalidCleaners = transformedUsers.filter(
-        (user: any) => !user.organizationId
-      );
-      
-      if (invalidCleaners.length > 0) {
-        console.warn(
-          '[Modal] Found cleaners missing organization fields:',
-          invalidCleaners.map((u: any) => u.email)
-        );
+      // Also try fetching all users and filter client-side (backup)
+      if (allUsers.length === 0) {
+        try {
+          const response = await fetch('/api/admin/users', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const users = data.users || [];
+            
+            // Filter to field operator roles
+            users.forEach((user: any) => {
+              const userRole = user.auth?.role || user.firestore?.role || '';
+              if (fieldOperatorRoles.includes(userRole) || userRole.includes('cleaner') || userRole.includes('operator')) {
+                if (!allUsers.find(u => u.id === user.uid)) {
+                  allUsers.push({
+                    id: user.uid,
+                    name: user.displayName || user.firestore?.displayName || user.email?.split('@')[0] || 'Unknown',
+                    email: user.email,
+                    role: userRole,
+                    organizationId: user.auth?.organizationId || user.firestore?.organizationId,
+                  });
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('[Modal] Failed to fetch all users:', err);
+        }
       }
       
-      setCleaners(transformedUsers);
-      console.log('[Modal] Cleaners set in state');
+      console.log('[Modal] Total cleaners found:', allUsers.length);
+      setCleaners(allUsers);
     } catch (err: any) {
       console.error('[Modal] Error loading cleaners:', err);
       setError(err.message);
