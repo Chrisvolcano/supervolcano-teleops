@@ -160,6 +160,15 @@ export default function MediaLibraryPage() {
     }
   }, [showImportDropdown]);
 
+  // Restore Drive token from sessionStorage when modal opens
+  useEffect(() => {
+    const storedToken = sessionStorage.getItem('driveAccessToken');
+    if (storedToken) {
+      setDriveAccessToken(storedToken);
+      setDriveConnected(true);
+    }
+  }, [showDriveModal]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedVideoIndex === null) return;
@@ -757,6 +766,7 @@ export default function MediaLibraryPage() {
           
           const tokenData = await tokenResponse.json();
           if (tokenData.success) {
+            sessionStorage.setItem('driveAccessToken', tokenData.accessToken);
             setDriveAccessToken(tokenData.accessToken);
             setDriveConnected(true);
           } else {
@@ -781,19 +791,20 @@ export default function MediaLibraryPage() {
   };
 
   const handleDriveListFiles = async () => {
-    if (!user || !driveAccessToken || !driveFolderUrl) return;
+    const token = driveAccessToken || sessionStorage.getItem('driveAccessToken');
+    if (!user || !token || !driveFolderUrl) return;
     
     setDriveLoading(true);
     try {
-      const token = await user.getIdToken();
+      const userToken = await user.getIdToken();
       const response = await fetch('/api/admin/drive/list', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${userToken}` 
         },
         body: JSON.stringify({ 
-          accessToken: driveAccessToken, 
+          accessToken: token, 
           folderUrl: driveFolderUrl 
         }),
       });
@@ -813,7 +824,8 @@ export default function MediaLibraryPage() {
   };
 
   const handleDriveImport = async () => {
-    if (!user || !driveAccessToken || driveFiles.length === 0) return;
+    const token = driveAccessToken || sessionStorage.getItem('driveAccessToken');
+    if (!user || !token || driveFiles.length === 0) return;
     
     const selectedFiles = driveFiles.filter(f => f.selected);
     if (selectedFiles.length === 0) {
@@ -825,15 +837,15 @@ export default function MediaLibraryPage() {
     setDriveImportProgress(0);
     
     try {
-      const token = await user.getIdToken();
+      const userToken = await user.getIdToken();
       const response = await fetch('/api/admin/drive/import', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${userToken}` 
         },
         body: JSON.stringify({ 
-          accessToken: driveAccessToken,
+          accessToken: token,
           fileIds: selectedFiles.map(f => f.id),
           attribution: driveAttribution.trim() || 'Google Drive Import',
         }),
@@ -842,6 +854,10 @@ export default function MediaLibraryPage() {
       const data = await response.json();
       if (data.success) {
         alert(`Imported ${data.successCount} of ${selectedFiles.length} videos`);
+        // Clear token after successful import
+        sessionStorage.removeItem('driveAccessToken');
+        setDriveAccessToken(null);
+        setDriveConnected(false);
         setShowDriveModal(false);
         setDriveFiles([]);
         setDriveFolderUrl('');
