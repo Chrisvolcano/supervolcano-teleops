@@ -10,6 +10,7 @@ import LocationTasksTab from '@/components/admin/LocationTasksTab';
 import LocationAssignmentsTab from '@/components/admin/LocationAssignmentsTab';
 import LocationMediaTab from '@/components/locations/LocationMediaTab';
 import LocationReferenceMedia from '@/components/admin/LocationReferenceMedia';
+import LocationDetailsEditor from '@/components/admin/LocationDetailsEditor';
 import { LocationWizard } from '@/components/location-builder/LocationWizard';
 import type { ReferenceMediaItem } from '@/types/location-intelligence';
 
@@ -247,6 +248,15 @@ export default function AdminLocationDetailPage() {
         )}
         {activeTab === 'settings' && (
           <div className="space-y-6">
+            {/* Location Details Editor */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold mb-4">Location Details</h3>
+              <LocationDetailsEditor
+                location={location}
+                onSave={loadLocation}
+              />
+            </div>
+            
             <LocationReferenceMedia
               locationId={locationId}
               referenceMedia={location?.intelligence?.referenceMedia || []}

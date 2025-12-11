@@ -21,9 +21,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
-import { LocationsService } from '@/services/locations.service';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
 import type { Location } from '@/types/user.types';
+import { getAuth } from 'firebase/auth';
 
 export default function LocationsScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
@@ -39,17 +39,51 @@ export default function LocationsScreen({ navigation }: any) {
   }, [user]);
 
   const loadLocations = async () => {
-    if (!user?.organizationId) {
-      Alert.alert('Error', 'No organization assigned.');
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.log('[LocationsScreen] No current user');
+      setLocations([]);
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
     try {
-      const locs = await LocationsService.getAssignedLocations(user.organizationId);
-      setLocations(locs);
+      const token = await currentUser.getIdToken();
+      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://supervolcano-teleops.vercel.app';
+
+      console.log('[LocationsScreen] Fetching assigned locations for user:', currentUser.uid);
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${currentUser.uid}/assigned-locations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      console.log('[LocationsScreen] API response:', data);
+
+      if (data.success && data.assignments) {
+        const locs = data.assignments.map((a: any) => ({
+          id: a.location_id,
+          name: a.location_name || 'Unnamed Location',
+          address: a.location_address || '',
+          organizationId: '',
+          type: 'property' as const,
+          created_at: a.assigned_at ? new Date(a.assigned_at) : new Date(),
+          updated_at: new Date(),
+        }));
+        console.log('[LocationsScreen] Mapped locations:', locs.length);
+        setLocations(locs);
+      } else {
+        console.log('[LocationsScreen] No assignments found');
+        setLocations([]);
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      console.error('[LocationsScreen] Error loading locations:', error);
+      Alert.alert('Error', error.message || 'Failed to load locations');
+      setLocations([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
