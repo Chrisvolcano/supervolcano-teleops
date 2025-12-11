@@ -46,28 +46,59 @@ export async function POST(
       projectId,
     });
     
-    // Convert Firebase Storage URL to GCS URI if needed
-    let inputUri = videoUrl;
-    if (videoUrl.includes('firebasestorage.googleapis.com')) {
-      // Extract bucket and path from Firebase Storage URL
-      const urlMatch = videoUrl.match(/\/o\/(.+)\?/);
-      if (urlMatch) {
-        const path = decodeURIComponent(urlMatch[1]);
-        const bucket = videoUrl.match(/\/v0\/b\/([^/]+)\//)?.[1];
-        if (bucket) {
-          inputUri = `gs://${bucket}/${path}`;
+    // Convert Firebase Storage URL to GCS URI using same pattern as video-blur.service.ts
+    const firebaseUrlToGcsUri = (firebaseUrl: string): string | null => {
+      try {
+        const googleapisMatch = firebaseUrl.match(
+          /https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\/([^?]+)/
+        );
+        if (googleapisMatch) {
+          const bucket = googleapisMatch[1];
+          const path = decodeURIComponent(googleapisMatch[2]);
+          return `gs://${bucket}/${path}`;
         }
+
+        const storageMatch = firebaseUrl.match(
+          /https:\/\/storage\.googleapis\.com\/([^/]+)\/(.+)/
+        );
+        if (storageMatch) {
+          const bucket = storageMatch[1];
+          const path = storageMatch[2].split('?')[0];
+          return `gs://${bucket}/${path}`;
+        }
+
+        const newFormatMatch = firebaseUrl.match(
+          /https:\/\/([^.]+\.firebasestorage\.app)\/o\/([^?]+)/
+        );
+        if (newFormatMatch) {
+          const bucket = newFormatMatch[1];
+          const path = decodeURIComponent(newFormatMatch[2]);
+          return `gs://${bucket}/${path}`;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('[FaceDetection] Failed to parse Firebase URL:', error);
+        return null;
       }
-    }
+    };
+
+    const gcsUri = firebaseUrlToGcsUri(videoUrl) || videoUrl;
     
     const [operation] = await client.annotateVideo({
-      inputUri: inputUri,
-      features: ['FACE_DETECTION'],
+      inputUri: gcsUri,
+      features: ['FACE_DETECTION' as any],
+      videoContext: {
+        faceDetectionConfig: {
+          includeBoundingBoxes: true,
+          includeAttributes: false,
+        },
+      },
     });
 
-    const [result] = await operation.promise();
+    const [response] = await operation.promise();
     
-    const faceAnnotations = result.annotationResults?.[0]?.faceDetectionAnnotations || [];
+    const faceAnnotations = response.annotationResults?.[0]?.faceDetectionAnnotations || [];
     const hasFaces = faceAnnotations.length > 0;
     const faceCount = faceAnnotations.length;
     
