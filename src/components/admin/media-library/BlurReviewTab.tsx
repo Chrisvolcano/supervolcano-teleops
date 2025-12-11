@@ -174,11 +174,11 @@ export function BlurReviewTab({
                           Scanning...
                         </span>
                       )}
-                      {video.faceDetectionStatus === 'completed' && video.hasFaces && (
+                      {video.faceDetectionStatus === 'completed' && video.hasFaces === true && (
                         <span className="text-amber-600 text-sm">{video.faceCount || 0} face(s) detected</span>
                       )}
-                      {video.faceDetectionStatus === 'completed' && !video.hasFaces && (
-                        <span className="text-green-600 text-sm">No faces</span>
+                      {video.faceDetectionStatus === 'completed' && video.hasFaces !== true && (
+                        <span className="text-green-600 text-sm">No faces detected</span>
                       )}
                       {video.faceDetectionStatus === 'failed' && (
                         <span className="text-red-600 text-sm">Scan failed</span>
