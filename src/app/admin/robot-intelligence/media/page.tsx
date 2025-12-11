@@ -151,6 +151,30 @@ export default function MediaLibraryPage() {
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
 
+  // Auto-fix stuck uploads on page load
+  useEffect(() => {
+    const fixStuckUploads = async () => {
+      if (!user) return;
+
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/admin/migrate/fix-stuck-uploads', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (data.stats?.fixed > 0) {
+          console.log(`[Media Library] Auto-fixed ${data.stats.fixed} stuck uploads`);
+          fetchMedia();
+        }
+      } catch (err) {
+        console.log('[Media Library] Stuck upload check:', err);
+      }
+    };
+
+    fixStuckUploads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Click-outside handler for import dropdown
   useEffect(() => {
     const handleClickOutside = () => setShowImportDropdown(false);
