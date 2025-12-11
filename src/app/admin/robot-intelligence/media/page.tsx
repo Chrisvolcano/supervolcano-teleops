@@ -846,7 +846,7 @@ export default function MediaLibraryPage() {
         },
         body: JSON.stringify({ 
           accessToken: token,
-          files: selectedFiles.map(f => ({ fileId: f.id, name: f.name, size: f.size, mimeType: f.mimeType })),
+          files: selectedFiles.map(f => ({ id: f.id, name: f.name, size: f.size, mimeType: f.mimeType })),
           attribution: driveAttribution.trim() || 'Google Drive Import',
         }),
       });
