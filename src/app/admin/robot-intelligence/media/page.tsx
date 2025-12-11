@@ -1006,6 +1006,10 @@ export default function MediaLibraryPage() {
           blurringIds={blurringIds}
           processingIds={processingIds}
           formatDate={formatDate}
+          onVideoClick={(video) => {
+            const index = filteredMedia.findIndex(v => v.id === video.id);
+            setSelectedVideoIndex(index !== -1 ? index : null);
+          }}
         />
       )}
       {activeTab === 'labels' && (
@@ -1021,6 +1025,10 @@ export default function MediaLibraryPage() {
           }}
           formatDuration={formatDuration}
           formatDate={formatDate}
+          onVideoClick={(video) => {
+            const index = filteredMedia.findIndex(v => v.id === video.id);
+            setSelectedVideoIndex(index !== -1 ? index : null);
+          }}
         />
       )}
       {activeTab === 'export' && (

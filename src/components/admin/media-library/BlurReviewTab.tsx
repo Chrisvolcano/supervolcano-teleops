@@ -12,6 +12,7 @@ interface BlurReviewTabProps {
   blurringIds: Set<string>;
   processingIds: Set<string>;
   formatDate: (d: string | null) => string;
+  onVideoClick: (video: VideoItem) => void;
 }
 
 export function BlurReviewTab({ 
@@ -25,6 +26,7 @@ export function BlurReviewTab({
   blurringIds,
   processingIds,
   formatDate,
+  onVideoClick,
 }: BlurReviewTabProps) {
   // Videos that need blur OR have blur pending approval
   const needsBlurReview = media.filter(v => {
@@ -138,7 +140,11 @@ export function BlurReviewTab({
                 const isLoading = isBlurring || isProcessing;
 
                 return (
-                  <tr key={video.id} className={`border-b hover:bg-gray-50 ${selectedIds.has(video.id) ? 'bg-blue-50' : ''}`}>
+                  <tr 
+                    key={video.id} 
+                    className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(video.id) ? 'bg-blue-50' : ''}`}
+                    onClick={() => onVideoClick(video)}
+                  >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <button onClick={(e) => onToggleSelect(video.id, e)} className="p-1 hover:bg-gray-200 rounded">
                         {selectedIds.has(video.id) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-gray-400" />}
@@ -199,7 +205,7 @@ export function BlurReviewTab({
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{formatDate(video.uploadedAt)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         {(!video.blurStatus || video.blurStatus === 'none') && (
                           <button

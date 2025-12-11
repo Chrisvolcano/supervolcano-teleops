@@ -10,6 +10,7 @@ interface LabelReviewTabProps {
   onSelectAll: () => void;
   formatDuration: (s: number | null) => string;
   formatDate: (d: string | null) => string;
+  onVideoClick: (video: VideoItem) => void;
 }
 
 export function LabelReviewTab({ 
@@ -21,6 +22,7 @@ export function LabelReviewTab({
   onSelectAll,
   formatDuration,
   formatDate,
+  onVideoClick,
 }: LabelReviewTabProps) {
   const needsLabels = media.filter(v => v.aiStatus === 'pending' || !v.aiStatus);
   const allSelected = needsLabels.length > 0 && needsLabels.every(v => selectedIds.has(v.id));
@@ -74,7 +76,8 @@ export function LabelReviewTab({
               {needsLabels.map(video => (
                 <tr 
                   key={video.id} 
-                  className={`border-b hover:bg-gray-50 ${selectedIds.has(video.id) ? 'bg-blue-50' : ''}`}
+                  className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(video.id) ? 'bg-blue-50' : ''}`}
+                  onClick={() => onVideoClick(video)}
                 >
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <button
