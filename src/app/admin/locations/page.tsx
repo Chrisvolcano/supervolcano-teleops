@@ -75,7 +75,7 @@ export default function AdminLocationsPage() {
         </div>
         
         <button
-          onClick={() => setShowWizard(true)}
+          onClick={() => router.push('/admin/locations/new')}
           className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
         >
           <Plus className="h-4 w-4" />

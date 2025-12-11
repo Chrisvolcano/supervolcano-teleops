@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Home, Building2, Video } from 'lucide-react-native';
+import { Home, Building2, Video, MapPin, TrendingUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
@@ -32,6 +32,10 @@ export default function LocationsScreen({ navigation }: any) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userStats, setUserStats] = useState({
+    videosRecorded: 12,
+    thisWeek: 3,
+  });
 
   useEffect(() => {
     if (user) {
@@ -238,6 +242,86 @@ export default function LocationsScreen({ navigation }: any) {
                 </Text>
               </TouchableOpacity>
             )}
+
+            {/* Stats Bar */}
+            <View style={{
+              flexDirection: 'row',
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              marginHorizontal: 20,
+              marginBottom: 24,
+              padding: 16,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
+            }}>
+              {/* Stat 1: Locations */}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: '#EFF6FF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}>
+                  <MapPin size={18} color="#3B82F6" />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>
+                  {locations.length}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  Locations
+                </Text>
+              </View>
+              {/* Divider */}
+              <View style={{ width: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
+              {/* Stat 2: Videos */}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: '#F0FDF4',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}>
+                  <Video size={18} color="#22C55E" />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>
+                  {userStats.videosRecorded || 0}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  Recorded
+                </Text>
+              </View>
+              {/* Divider */}
+              <View style={{ width: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
+              {/* Stat 3: This Week */}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: '#FEF3C7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}>
+                  <TrendingUp size={18} color="#F59E0B" />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>
+                  {userStats.thisWeek || 0}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  This Week
+                </Text>
+              </View>
+            </View>
 
             {/* Section Title */}
             <View style={styles.sectionHeader}>
