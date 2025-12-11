@@ -118,6 +118,21 @@ export default function MediaLibraryPage() {
       setLoading(true);
       setError(null);
       const token = await user.getIdToken();
+      
+      // Auto-fix stuck uploads first (silent)
+      try {
+        const fixResponse = await fetch('/api/admin/migrate/fix-stuck-uploads', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const fixData = await fixResponse.json();
+        if (fixData.stats?.fixed > 0) {
+          console.log(`[Media Library] Auto-fixed ${fixData.stats.fixed} stuck uploads`);
+        }
+      } catch (fixErr) {
+        // Silent fail
+      }
+      
+      // Then fetch videos
       const params = new URLSearchParams();
       if (filter && filter !== 'all') params.append('status', filter);
       params.append('limit', '200');
@@ -150,30 +165,6 @@ export default function MediaLibraryPage() {
   }, [media, trainingFilter]);
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
-
-  // Auto-fix stuck uploads on page load
-  useEffect(() => {
-    const fixStuckUploads = async () => {
-      if (!user) return;
-
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch('/api/admin/migrate/fix-stuck-uploads', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-        if (data.stats?.fixed > 0) {
-          console.log(`[Media Library] Auto-fixed ${data.stats.fixed} stuck uploads`);
-          fetchMedia();
-        }
-      } catch (err) {
-        console.log('[Media Library] Stuck upload check:', err);
-      }
-    };
-
-    fixStuckUploads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   // Click-outside handler for import dropdown
   useEffect(() => {
