@@ -201,11 +201,11 @@ export async function GET(request: NextRequest) {
           aiObjectLabels: data.aiObjectLabels || [],
           aiQualityScore: data.aiQualityScore || null,
           trainingStatus: data.trainingStatus || 'pending',
-          faceDetectionStatus: data.faceDetectionStatus || null,
-          hasFaces: data.hasFaces || false,
-          faceCount: data.faceCount || null,
-          faceTimestamps: data.faceTimestamps || null,
-          faceDetectionError: data.faceDetectionError || null,
+          faceDetectionStatus: data.faceDetectionStatus ?? null,
+          hasFaces: data.hasFaces ?? null,
+          faceCount: data.faceCount ?? 0,
+          faceTimestamps: data.faceTimestamps ?? null,
+          faceDetectionError: data.faceDetectionError ?? null,
         };
       });
 

@@ -167,24 +167,30 @@ export function BlurReviewTab({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{video.locationName || video.locationId?.slice(0, 8) || '—'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-sm">
                       {video.faceDetectionStatus === 'processing' && (
-                        <span className="text-blue-600 flex items-center gap-1 text-sm">
+                        <span className="text-blue-600 flex items-center gap-1">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Scanning...
                         </span>
                       )}
                       {video.faceDetectionStatus === 'completed' && video.hasFaces === true && (
-                        <span className="text-amber-600 text-sm">{video.faceCount || 0} face(s) detected</span>
+                        <span className="text-amber-600">{video.faceCount || 1} face(s) detected</span>
                       )}
-                      {video.faceDetectionStatus === 'completed' && video.hasFaces !== true && (
-                        <span className="text-green-600 text-sm">No faces detected</span>
+                      {video.faceDetectionStatus === 'completed' && video.hasFaces === false && (
+                        <span className="text-green-600">No faces detected</span>
+                      )}
+                      {video.faceDetectionStatus === 'completed' && video.hasFaces === undefined && (
+                        <span className="text-green-600">No faces detected</span>
                       )}
                       {video.faceDetectionStatus === 'failed' && (
-                        <span className="text-red-600 text-sm">Scan failed</span>
+                        <span className="text-red-500">Scan failed</span>
+                      )}
+                      {video.faceDetectionStatus === 'pending' && (
+                        <span className="text-gray-400">Pending</span>
                       )}
                       {!video.faceDetectionStatus && (
-                        <span className="text-gray-400 text-sm">Not scanned</span>
+                        <span className="text-gray-400">Not scanned</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
