@@ -108,7 +108,7 @@ export async function processQueue(
     const queue = await getQueue();
     console.log('Total items in queue:', queue.length);
     
-    const pendingItems = queue.filter(item => item.status === 'pending' || item.status === 'error');
+    const pendingItems = queue.filter(item => item.status === 'pending');
     console.log('Pending items:', pendingItems.length);
     
     if (pendingItems.length === 0) {
