@@ -1,5 +1,5 @@
 import { VideoItem } from '@/app/admin/robot-intelligence/media/page';
-import { RefreshCw, Film, Square, CheckSquare, Minus } from 'lucide-react';
+import { RefreshCw, Film, Square, CheckSquare, Minus, Loader2 } from 'lucide-react';
 
 interface BlurReviewTabProps {
   media: VideoItem[];
@@ -28,11 +28,21 @@ export function BlurReviewTab({
 }: BlurReviewTabProps) {
   // Videos that need blur OR have blur pending approval
   const needsBlurReview = media.filter(v => {
-    // No blur status or not complete = needs blur
-    if (!v.blurStatus || v.blurStatus === 'none') return true;
-    // Has reviewStatus that's not approved = needs review
-    if (typeof v.reviewStatus === 'string' && v.reviewStatus !== 'approved') return true;
-    return false;
+    // Already blurred = skip
+    if (v.blurStatus && v.blurStatus !== 'none') return false;
+    
+    // Face detection completed: only show if faces found
+    if (v.faceDetectionStatus === 'completed') {
+      return v.hasFaces === true;
+    }
+    
+    // Face detection pending/processing: show with status indicator
+    if (v.faceDetectionStatus === 'pending' || v.faceDetectionStatus === 'processing') {
+      return true; // Show but indicate scanning
+    }
+    
+    // No face detection yet (old videos): show all
+    return true;
   });
 
   const allSelected = needsBlurReview.length > 0 && needsBlurReview.every(v => selectedIds.has(v.id));
@@ -115,6 +125,7 @@ export function BlurReviewTab({
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">VIDEO</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">LOCATION</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">FACES</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">BLUR STATUS</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">UPLOADED</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">ACTIONS</th>
@@ -150,6 +161,26 @@ export function BlurReviewTab({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{video.locationName || video.locationId?.slice(0, 8) || '—'}</td>
+                    <td className="px-4 py-3">
+                      {video.faceDetectionStatus === 'processing' && (
+                        <span className="text-blue-600 flex items-center gap-1 text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Scanning...
+                        </span>
+                      )}
+                      {video.faceDetectionStatus === 'completed' && video.hasFaces && (
+                        <span className="text-amber-600 text-sm">{video.faceCount || 0} face(s) detected</span>
+                      )}
+                      {video.faceDetectionStatus === 'completed' && !video.hasFaces && (
+                        <span className="text-green-600 text-sm">No faces</span>
+                      )}
+                      {video.faceDetectionStatus === 'failed' && (
+                        <span className="text-red-600 text-sm">Scan failed</span>
+                      )}
+                      {!video.faceDetectionStatus && (
+                        <span className="text-gray-400 text-sm">Not scanned</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {/* Show current blur state */}
                       {!video.blurStatus || video.blurStatus === 'none' ? (

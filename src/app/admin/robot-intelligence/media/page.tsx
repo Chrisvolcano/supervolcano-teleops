@@ -11,7 +11,7 @@ import {
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
-  ChevronLeft, ChevronRight, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
+  ChevronLeft, ChevronRight, ChevronDown, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
   Smartphone, HardDrive, Tag, AlertCircle, Upload, Loader2, Search
 } from 'lucide-react';
 import { TabNav } from '@/components/ui/TabNav';
@@ -43,6 +43,11 @@ export interface VideoItem {
   aiObjectLabels: string[];
   aiQualityScore: number | null;
   trainingStatus: 'pending' | 'approved' | 'rejected';
+  faceDetectionStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+  hasFaces?: boolean;
+  faceCount?: number;
+  faceTimestamps?: { startTime: number; endTime: number }[];
+  faceDetectionError?: string;
 }
 
 interface Stats {
@@ -78,6 +83,9 @@ export default function MediaLibraryPage() {
   const [blurringIds, setBlurringIds] = useState<Set<string>>(new Set());
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+  
+  // Import dropdown state
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
   
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -142,6 +150,15 @@ export default function MediaLibraryPage() {
   }, [media, trainingFilter]);
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
+
+  // Click-outside handler for import dropdown
+  useEffect(() => {
+    const handleClickOutside = () => setShowImportDropdown(false);
+    if (showImportDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showImportDropdown]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -860,26 +877,57 @@ export default function MediaLibraryPage() {
           <h1 className="text-2xl font-bold text-gray-900">Media Library</h1>
           <p className="text-gray-500 mt-1">Manage and process video content for AI analysis</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-            <Upload className="w-4 h-4" />
-            Import Videos
+        <div className="flex items-center gap-2">
+          {/* Import dropdown - primary */}
+          <div className="relative">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowImportDropdown(!showImportDropdown); }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Import
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            {showImportDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                <button
+                  onClick={() => { setShowImportModal(true); setShowImportDropdown(false); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 rounded-t-lg"
+                >
+                  <Upload className="w-4 h-4 text-gray-600" />
+                  From Device
+                </button>
+                <button
+                  onClick={() => { setShowDriveModal(true); setShowImportDropdown(false); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 rounded-b-lg"
+                >
+                  <HardDrive className="w-4 h-4 text-gray-600" />
+                  From Google Drive
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Refresh - subtle icon button */}
+          <button 
+            onClick={fetchMedia} 
+            disabled={loading} 
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => setShowDriveModal(true)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <HardDrive className="w-4 h-4" />
-            Import from Drive
-          </button>
-          <button onClick={fetchMedia} disabled={loading} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          
-          {/* Only show Process Batch on Overview tab */}
+
+          {/* Process Batch - primary, only on Overview */}
           {activeTab === 'overview' && (
-          <button onClick={processBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <button 
+              onClick={processBatch} 
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
               <Play className="w-4 h-4" />
               Process Batch
-          </button>
+            </button>
           )}
         </div>
       </div>

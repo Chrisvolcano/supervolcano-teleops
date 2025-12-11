@@ -5,6 +5,7 @@
 
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { storage, db } from '@/config/firebase';
 import { Audio, Video } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -209,6 +210,28 @@ export class VideoUploadService {
               };
 
               console.log('[VideoUploadService] Upload complete:', videoDoc.id);
+              
+              // Trigger face detection (fire and forget - don't block upload completion)
+              try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (user) {
+                  const userToken = await user.getIdToken();
+                  const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://supervolcano-teleops.vercel.app';
+                  fetch(`${API_BASE_URL}/api/admin/videos/${videoDoc.id}/detect-faces`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${userToken}`,
+                    },
+                  }).catch(err => {
+                    console.log('[VideoUploadService] Face detection queued, will process in background:', err);
+                  });
+                }
+              } catch (e) {
+                // Don't fail upload if face detection fails to queue
+                console.log('[VideoUploadService] Face detection will be processed later:', e);
+              }
+              
               resolve(videoUpload);
             } catch (error: any) {
               // Critical: If completion callback fails, update Firestore and reject Promise
