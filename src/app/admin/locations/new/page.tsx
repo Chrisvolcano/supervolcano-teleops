@@ -138,9 +138,8 @@ export default function NewLocationPage() {
               </label>
               <AddressAutocomplete
                 value={address}
-                onChange={(value, placeData) => {
-                  setAddress(value);
-                  // Optionally store placeData for lat/lng if needed
+                onChange={(addressData) => {
+                  setAddress(addressData.fullAddress);
                 }}
                 placeholder="Start typing an address..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
