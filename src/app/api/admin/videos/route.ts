@@ -124,14 +124,9 @@ export async function GET(request: NextRequest) {
       query = query.where('locationId', '==', locationId);
     }
 
-    let snapshot;
-    try {
-      snapshot = await query.orderBy('uploadedAt', 'desc').get();
-    } catch {
-      query = adminDb.collection('media');
-      if (locationId) query = query.where('locationId', '==', locationId);
-      snapshot = await query.get();
-    }
+    // Don't use orderBy - it excludes docs without the field
+    // Sorting happens in JavaScript later which handles both uploadedAt and createdAt
+    const snapshot = await query.get();
 
     const stats = { 
       queued: 0, processing: 0, completed: 0, failed: 0, blurPending: 0,
