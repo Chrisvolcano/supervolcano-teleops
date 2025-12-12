@@ -49,6 +49,9 @@ export interface VideoItem {
   faceCount?: number;
   faceTimestamps?: { startTime: number; endTime: number }[];
   faceDetectionError?: string;
+  blurApproved?: boolean;
+  blurredUrl?: string;
+  updatedAt?: string;
   contributorName?: string | null;
   contributorType?: string | null;
   contributorId?: string | null;
