@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     let holdings = DEFAULT_HOLDINGS;
     if (settingsDoc.exists) {
-      const data = settingsDoc.data();
+      const data = settingsDoc.data() || {};
       holdings = {
         videosCollected: data.videosCollected ?? DEFAULT_HOLDINGS.videosCollected,
         videosDelivered: data.videosDelivered ?? DEFAULT_HOLDINGS.videosDelivered,
