@@ -1109,6 +1109,7 @@ export default function MediaLibraryPage() {
       {activeTab === 'overview' && (
         <OverviewTab
           media={filteredVideos}
+          filteredMedia={filteredVideos}
           stats={stats}
           totalCount={totalCount}
           filter={filter}
