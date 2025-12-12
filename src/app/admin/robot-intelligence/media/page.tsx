@@ -1136,7 +1136,6 @@ export default function MediaLibraryPage() {
       {activeTab === 'blur' && (
         <BlurReviewTab 
           media={filteredVideos}
-          filteredMedia={filteredVideos}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
           onSelectAll={(ids) => setSelectedIds(new Set(ids))}
