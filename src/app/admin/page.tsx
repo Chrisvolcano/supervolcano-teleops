@@ -230,6 +230,10 @@ export default function DataIntelligencePage() {
 
   const handleEditStat = (statKey: keyof DataHoldings) => {
     if (!data) return;
+    // Prevent editing delivered stats (they're calculated from deliveries)
+    if (statKey.startsWith('delivered')) {
+      return;
+    }
     setEditingStat(statKey);
     // Use the actual stored value, not the calculated/display value
     const storedValue = data.holdings[statKey] as number;
@@ -238,6 +242,11 @@ export default function DataIntelligencePage() {
 
   const handleSaveStat = async () => {
     if (!data || !editingStat) return;
+    
+    // Prevent saving delivered stats (they're calculated from deliveries)
+    if (editingStat.startsWith('delivered')) {
+      return;
+    }
     
     try {
       const token = await getIdToken();
@@ -414,33 +423,65 @@ export default function DataIntelligencePage() {
     },
   ];
 
-  // Data Delivered cards
-  const deliveredHoursData = getHours(data.holdings.deliveredHours, data.holdings.deliveredStorageGB);
+  // Calculate delivered totals from deliveries array
+  const deliveredTotals = useMemo(() => {
+    if (!data || !data.deliveries) {
+      return {
+        deliveredVideos: 0,
+        deliveredHours: 0,
+        deliveredStorageGB: 0,
+      };
+    }
+
+    const totals = data.deliveries.reduce((acc, delivery) => {
+      acc.deliveredVideos += delivery.videoCount || 0;
+      acc.deliveredStorageGB += delivery.sizeGB || 0;
+      
+      // Calculate hours: use delivery.hours if available, otherwise calculate from sizeGB
+      const hours = delivery.hours !== null && delivery.hours !== undefined
+        ? delivery.hours
+        : (delivery.sizeGB || 0) / 15;
+      acc.deliveredHours += hours;
+      
+      return acc;
+    }, {
+      deliveredVideos: 0,
+      deliveredHours: 0,
+      deliveredStorageGB: 0,
+    });
+
+    return totals;
+  }, [data]);
+
+  // Data Delivered cards (calculated from deliveries, not editable)
   const deliveredCards = [
     {
       key: 'deliveredVideos' as const,
       label: 'Videos',
       icon: Film,
       color: 'green',
-      value: data.holdings.deliveredVideos,
+      value: deliveredTotals.deliveredVideos,
       formatValue: (v: number) => v.toLocaleString(),
+      isEditable: false,
     },
     {
       key: 'deliveredHours' as const,
       label: 'Hours of Footage',
       icon: Clock,
       color: 'green',
-      value: deliveredHoursData.value,
-      isEstimated: deliveredHoursData.isEstimated,
+      value: deliveredTotals.deliveredHours,
+      isEstimated: false, // Calculated from actual data, not estimated
       formatValue: (v: number) => v.toFixed(1),
+      isEditable: false,
     },
     {
       key: 'deliveredStorageGB' as const,
       label: 'Total Storage',
       icon: HardDrive,
       color: 'green',
-      value: data.holdings.deliveredStorageGB,
+      value: deliveredTotals.deliveredStorageGB,
       formatValue: (v: number) => formatStorage(v),
+      isEditable: false,
     },
   ];
 
@@ -551,26 +592,12 @@ export default function DataIntelligencePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {deliveredCards.map((stat) => {
               const Icon = stat.icon;
-              const isEditing = editingStat === stat.key;
-              // When editing, use the stored value from data.holdings, not the calculated display value
-              const editValue = isEditing 
-                ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
-                : stat.value;
 
               return (
                 <div
                   key={stat.key}
-                  className="bg-white border border-gray-200 rounded-xl p-6 relative group hover:shadow-md transition-shadow"
+                  className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
                 >
-                  {!isEditing && (
-                    <button
-                      onClick={() => handleEditStat(stat.key)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                  
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                       <Icon className="h-5 w-5 text-green-600" />
@@ -580,41 +607,9 @@ export default function DataIntelligencePage() {
                     </div>
                   </div>
 
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <input
-                        type="number"
-                        step={stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1'}
-                        value={editValue}
-                        onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
-                        autoFocus
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleSaveStat}
-                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
-                        >
-                          <Save className="w-4 h-4" />
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stat.formatValue(stat.value)}
-                      {stat.isEstimated && (
-                        <span className="text-sm font-normal text-gray-500 ml-2">(est.)</span>
-                      )}
-              </div>
-            )}
+                  <div className="text-2xl font-bold text-gray-900">
+                    {stat.formatValue(stat.value)}
+                  </div>
                 </div>
               );
             })}
@@ -857,7 +852,7 @@ export default function DataIntelligencePage() {
                   <div>
                     <div className="text-sm font-medium text-gray-900">
                       {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
-                    </div>
+                      </div>
                   </div>
                 <div>
                     {delivery.partnerId ? (
@@ -881,7 +876,7 @@ export default function DataIntelligencePage() {
                         day: 'numeric',
                         year: 'numeric',
                       })}
-                    </div>
+                      </div>
                   </div>
                 </div>
                 <button
