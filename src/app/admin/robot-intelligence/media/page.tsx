@@ -12,13 +12,14 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { 
   Film, RefreshCw, Play, Clock, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, ChevronDown, Square, CheckSquare, Minus, Star, X, Trash2, Database, Sparkles,
-  Smartphone, HardDrive, Tag, AlertCircle, Upload, Loader2, Search
+  Smartphone, HardDrive, Tag, AlertCircle, Upload, Loader2, Search, Filter
 } from 'lucide-react';
 import { TabNav } from '@/components/ui/TabNav';
 import { OverviewTab } from '@/components/admin/media-library/OverviewTab';
 import { BlurReviewTab } from '@/components/admin/media-library/BlurReviewTab';
 import { LabelReviewTab } from '@/components/admin/media-library/LabelReviewTab';
 import { ExportTab } from '@/components/admin/media-library/ExportTab';
+import BulkEditModal from '@/components/admin/media-library/BulkEditModal';
 
 export interface VideoItem {
   id: string;
@@ -48,6 +49,10 @@ export interface VideoItem {
   faceCount?: number;
   faceTimestamps?: { startTime: number; endTime: number }[];
   faceDetectionError?: string;
+  contributorName?: string | null;
+  contributorType?: string | null;
+  contributorId?: string | null;
+  contributorOrgId?: string | null;
 }
 
 interface Stats {
@@ -70,6 +75,8 @@ export default function MediaLibraryPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
   const [trainingFilter, setTrainingFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filterLocation, setFilterLocation] = useState<string>('');
+  const [filterContributor, setFilterContributor] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'blur' | 'labels' | 'export'>('overview');
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -96,6 +103,7 @@ export default function MediaLibraryPage() {
   
   // Google Drive import state
   const [showDriveModal, setShowDriveModal] = useState(false);
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [driveAccessToken, setDriveAccessToken] = useState<string | null>(null);
   const [driveConnected, setDriveConnected] = useState(false);
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
@@ -152,17 +160,48 @@ export default function MediaLibraryPage() {
     }
   }, [user, filter]);
   
-  // Apply training status filter client-side
-  const filteredMedia = useMemo(() => {
-    if (trainingFilter === 'all') return media;
-    
-    return media.filter((v) => {
-      if (trainingFilter === 'pending') {
-        return v.trainingStatus === 'pending' && v.aiStatus === 'completed';
+  // Extract filter options and apply filters
+  const { filteredVideos, availableLocations, availableContributors } = useMemo(() => {
+    // Extract unique locations and contributors
+    const locations = new Map<string, string>();
+    const contributors = new Set<string>();
+
+    media.forEach((v) => {
+      if (v.locationId && v.locationName) {
+        locations.set(v.locationId, v.locationName);
       }
-      return v.trainingStatus === trainingFilter;
+      if (v.contributorName) {
+        contributors.add(v.contributorName);
+      }
     });
-  }, [media, trainingFilter]);
+
+    // Apply location and contributor filters
+    let filtered = media.filter((video) => {
+      if (filterLocation && video.locationId !== filterLocation) {
+        return false;
+      }
+      if (filterContributor && video.contributorName !== filterContributor) {
+        return false;
+      }
+      return true;
+    });
+
+    // Apply training status filter
+    if (trainingFilter !== 'all') {
+      filtered = filtered.filter((v) => {
+        if (trainingFilter === 'pending') {
+          return v.trainingStatus === 'pending' && v.aiStatus === 'completed';
+        }
+        return v.trainingStatus === trainingFilter;
+      });
+    }
+
+    return {
+      filteredVideos: filtered,
+      availableLocations: Array.from(locations.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+      availableContributors: Array.from(contributors).sort(),
+    };
+  }, [media, filterLocation, filterContributor, trainingFilter]);
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
 
@@ -225,8 +264,8 @@ export default function MediaLibraryPage() {
     event.stopPropagation();
     const newSelected = new Set(selectedIds);
     if (event.shiftKey && lastSelectedId) {
-      const lastIndex = filteredMedia.findIndex(v => v.id === lastSelectedId);
-      const currentIndex = filteredMedia.findIndex(v => v.id === id);
+      const lastIndex = filteredVideos.findIndex(v => v.id === lastSelectedId);
+      const currentIndex = filteredVideos.findIndex(v => v.id === id);
       const [start, end] = [Math.min(lastIndex, currentIndex), Math.max(lastIndex, currentIndex)];
       for (let i = start; i <= end; i++) newSelected.add(filteredMedia[i].id);
     } else {
@@ -348,7 +387,7 @@ export default function MediaLibraryPage() {
       if (!response.ok) throw new Error('Action failed');
       await fetchMedia();
       if (selectedVideoIndex !== null) {
-        const nextPending = filteredMedia.findIndex((v, i) => i > selectedVideoIndex && v.aiStatus === 'completed' && v.trainingStatus === 'pending');
+        const nextPending = filteredVideos.findIndex((v, i) => i > selectedVideoIndex && v.aiStatus === 'completed' && v.trainingStatus === 'pending');
         if (nextPending !== -1) setSelectedVideoIndex(nextPending);
       }
     } catch (err: any) { setError(err.message); }
@@ -955,14 +994,25 @@ export default function MediaLibraryPage() {
 
           {/* Primary action - stands out */}
           {activeTab === 'overview' && (
-            <button 
-              onClick={processBatch} 
-              disabled={isProcessingBatch}
-              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-            >
-              <Play className="w-4 h-4" />
-              Process Batch
-            </button>
+            <>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={() => setShowBulkEditModal(true)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <Tag className="w-4 h-4" />
+                  Edit {selectedIds.size} Selected
+                </button>
+              )}
+              <button 
+                onClick={processBatch} 
+                disabled={isProcessingBatch}
+                className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+              >
+                <Play className="w-4 h-4" />
+                Process Batch
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -990,6 +1040,60 @@ export default function MediaLibraryPage() {
         return <TabNav tabs={tabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as 'overview' | 'blur' | 'labels' | 'export')} />;
       })()}
 
+      {/* Filter Bar */}
+      <div className="flex items-center gap-4 mb-6 px-4 py-3 bg-white rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Filter className="w-4 h-4" />
+          <span>Filters:</span>
+        </div>
+        
+        {/* Location Filter */}
+        <select
+          value={filterLocation}
+          onChange={(e) => setFilterLocation(e.target.value)}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Locations</option>
+          {availableLocations.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Contributor Filter */}
+        <select
+          value={filterContributor}
+          onChange={(e) => setFilterContributor(e.target.value)}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Contributors</option>
+          {availableContributors.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+
+        {/* Clear Filters */}
+        {(filterLocation || filterContributor) && (
+          <button
+            onClick={() => {
+              setFilterLocation('');
+              setFilterContributor('');
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Clear
+          </button>
+        )}
+
+        {/* Results count */}
+        <div className="ml-auto text-sm text-gray-500">
+          {filteredVideos.length} of {media.length} videos
+        </div>
+      </div>
+
       {/* Error Display */}
       {error && (
         <div className={`mb-4 p-4 border rounded-lg ${
@@ -1004,8 +1108,8 @@ export default function MediaLibraryPage() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <OverviewTab
-          media={media}
-          filteredMedia={filteredMedia}
+          media={filteredVideos}
+          filteredMedia={filteredVideos}
           stats={stats}
           totalCount={totalCount}
           filter={filter}
@@ -1031,7 +1135,7 @@ export default function MediaLibraryPage() {
       )}
       {activeTab === 'blur' && (
         <BlurReviewTab 
-          media={media}
+          media={filteredVideos}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
           onSelectAll={(ids) => setSelectedIds(new Set(ids))}
@@ -1042,33 +1146,33 @@ export default function MediaLibraryPage() {
           processingIds={processingIds}
           formatDate={formatDate}
           onVideoClick={(video) => {
-            const index = filteredMedia.findIndex(v => v.id === video.id);
+            const index = filteredVideos.findIndex(v => v.id === video.id);
             setSelectedVideoIndex(index !== -1 ? index : null);
           }}
         />
       )}
       {activeTab === 'labels' && (
         <LabelReviewTab 
-          media={media}
+          media={filteredVideos}
           onProcessBatch={processBatch}
           processing={isProcessingBatch}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
           onSelectAll={() => {
-            const needsLabels = media.filter(v => v.aiStatus === 'pending' || !v.aiStatus);
+            const needsLabels = filteredVideos.filter(v => v.aiStatus === 'pending' || !v.aiStatus);
             setSelectedIds(new Set(needsLabels.map(v => v.id)));
           }}
           formatDuration={formatDuration}
           formatDate={formatDate}
           onVideoClick={(video) => {
-            const index = filteredMedia.findIndex(v => v.id === video.id);
+            const index = filteredVideos.findIndex(v => v.id === video.id);
             setSelectedVideoIndex(index !== -1 ? index : null);
           }}
         />
       )}
       {activeTab === 'export' && (
         <ExportTab 
-          media={media}
+          media={filteredVideos}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
           onSelectAll={(ids) => setSelectedIds(new Set(ids))}
@@ -1537,6 +1641,19 @@ export default function MediaLibraryPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      {showBulkEditModal && (
+        <BulkEditModal
+          selectedIds={Array.from(selectedIds)}
+          onClose={() => setShowBulkEditModal(false)}
+          onSuccess={() => {
+            setShowBulkEditModal(false);
+            setSelectedIds(new Set());
+            fetchMedia();
+          }}
+        />
       )}
     </div>
   );

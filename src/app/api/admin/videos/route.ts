@@ -201,6 +201,10 @@ export async function GET(request: NextRequest) {
           faceCount: data.faceCount ?? 0,
           faceTimestamps: data.faceTimestamps ?? null,
           faceDetectionError: data.faceDetectionError ?? null,
+          contributorName: data.contributorName || null,
+          contributorType: data.contributorType || null,
+          contributorId: data.contributorId || null,
+          contributorOrgId: data.contributorOrgId || null,
         };
       });
 
