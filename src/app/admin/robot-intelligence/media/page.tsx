@@ -232,14 +232,14 @@ export default function MediaLibraryPage() {
       }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateModal(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); navigateModal(1); }
-      else if ((e.key === 'a' || e.key === 'A') && filteredMedia[selectedVideoIndex]?.aiStatus === 'completed') {
-        handleSingleAction(filteredMedia[selectedVideoIndex].id, 'approve');
+      else if ((e.key === 'a' || e.key === 'A') && filteredVideos[selectedVideoIndex]?.aiStatus === 'completed') {
+        handleSingleAction(filteredVideos[selectedVideoIndex].id, 'approve');
       }
-      else if ((e.key === 'r' || e.key === 'R') && filteredMedia[selectedVideoIndex]?.aiStatus === 'completed') {
-        handleSingleAction(filteredMedia[selectedVideoIndex].id, 'reject');
+      else if ((e.key === 'r' || e.key === 'R') && filteredVideos[selectedVideoIndex]?.aiStatus === 'completed') {
+        handleSingleAction(filteredVideos[selectedVideoIndex].id, 'reject');
       }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && !deleteLoading) {
-        handleSingleDelete(filteredMedia[selectedVideoIndex].id);
+        handleSingleDelete(filteredVideos[selectedVideoIndex].id);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -254,7 +254,7 @@ export default function MediaLibraryPage() {
   const navigateModal = (direction: number) => {
     if (selectedVideoIndex === null) return;
     const newIndex = selectedVideoIndex + direction;
-    if (newIndex >= 0 && newIndex < filteredMedia.length) {
+    if (newIndex >= 0 && newIndex < filteredVideos.length) {
       setSelectedVideoIndex(newIndex);
       setObjectsExpanded(false); // Reset expansion when navigating
     }
@@ -267,7 +267,7 @@ export default function MediaLibraryPage() {
       const lastIndex = filteredVideos.findIndex(v => v.id === lastSelectedId);
       const currentIndex = filteredVideos.findIndex(v => v.id === id);
       const [start, end] = [Math.min(lastIndex, currentIndex), Math.max(lastIndex, currentIndex)];
-      for (let i = start; i <= end; i++) newSelected.add(filteredMedia[i].id);
+      for (let i = start; i <= end; i++) newSelected.add(filteredVideos[i].id);
     } else {
       if (newSelected.has(id)) newSelected.delete(id);
       else newSelected.add(id);
@@ -276,9 +276,9 @@ export default function MediaLibraryPage() {
     setLastSelectedId(id);
   };
 
-  const selectAll = () => setSelectedIds(new Set(filteredMedia.map(v => v.id)));
+  const selectAll = () => setSelectedIds(new Set(filteredVideos.map(v => v.id)));
   const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedId(null); };
-  const allSelected = filteredMedia.length > 0 && filteredMedia.every(v => selectedIds.has(v.id));
+  const allSelected = filteredVideos.length > 0 && filteredVideos.every(v => selectedIds.has(v.id));
   const someSelected = selectedIds.size > 0;
 
   const handleAnalyze = async (mediaId: string) => {
@@ -423,8 +423,8 @@ export default function MediaLibraryPage() {
       });
       if (!response.ok) throw new Error('Delete failed');
       if (selectedVideoIndex !== null) {
-        if (filteredMedia.length <= 1) setSelectedVideoIndex(null);
-        else if (selectedVideoIndex >= filteredMedia.length - 1) setSelectedVideoIndex(selectedVideoIndex - 1);
+        if (filteredVideos.length <= 1) setSelectedVideoIndex(null);
+        else if (selectedVideoIndex >= filteredVideos.length - 1) setSelectedVideoIndex(selectedVideoIndex - 1);
       }
       await fetchMedia();
     } catch (err: any) { setError(err.message); }
@@ -667,7 +667,7 @@ export default function MediaLibraryPage() {
     );
   };
 
-  const selectedVideo = selectedVideoIndex !== null ? filteredMedia[selectedVideoIndex] : null;
+  const selectedVideo = selectedVideoIndex !== null ? filteredVideos[selectedVideoIndex] : null;
 
   // Helper functions
   const extractVideoDuration = (file: File): Promise<number> => {
@@ -1109,7 +1109,7 @@ export default function MediaLibraryPage() {
       {activeTab === 'overview' && (
         <OverviewTab
           media={filteredVideos}
-          filteredMedia={filteredVideos}
+          filteredVideos={filteredVideos}
           stats={stats}
           totalCount={totalCount}
           filter={filter}
@@ -1199,8 +1199,8 @@ export default function MediaLibraryPage() {
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <button onClick={() => navigateModal(-1)} disabled={selectedVideoIndex === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Previous"><ChevronLeft className="w-5 h-5" /></button>
-                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {filteredMedia.length}</span>
-                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === filteredMedia.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
+                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {filteredVideos.length}</span>
+                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === filteredVideos.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => handleSingleDelete(selectedVideo.id)} disabled={deleteLoading} className="p-2 hover:bg-red-100 text-red-600 rounded-lg" title="Delete"><Trash2 className="w-5 h-5" /></button>
