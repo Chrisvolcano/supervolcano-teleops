@@ -53,6 +53,7 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.5.1",
+    "request": "^2.88.2",
     "tailwind-merge": "^2.4.0",
     "use-debounce": "^10.0.6",
     "uuid": "^13.0.0",

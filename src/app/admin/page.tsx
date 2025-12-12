@@ -80,6 +80,81 @@ export default function DataIntelligencePage() {
   const [newDelivery, setNewDelivery] = useState({ videoCount: '', sizeGB: '', description: '', partnerId: null as string | null, partnerName: null as string | null });
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
 
+  // All useMemo hooks must be at top level, before any conditional returns
+  // Transform deliveries into cumulative chart data
+  const chartData = useMemo(() => {
+    if (!data || !data.deliveries || data.deliveries.length < 2) {
+      return [];
+    }
+
+    // Sort by date ascending
+    const sorted = [...data.deliveries].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+
+    // Calculate running total
+    let runningTotal = 0;
+    return sorted.map((delivery) => {
+      runningTotal += delivery.videoCount;
+      const date = new Date(delivery.date);
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      return {
+        date: formattedDate,
+        total: runningTotal,
+      };
+    });
+  }, [data]);
+
+  // Get unique partners that have deliveries
+  const deliveryPartners = useMemo(() => {
+    if (!data || !data.deliveries) return [];
+    
+    const partnerMap = new Map<string, { id: string; name: string; count: number }>();
+    
+    data.deliveries.forEach((delivery) => {
+      if (delivery.partnerId && delivery.partnerName) {
+        const existing = partnerMap.get(delivery.partnerId);
+        if (existing) {
+          existing.count++;
+        } else {
+          partnerMap.set(delivery.partnerId, {
+            id: delivery.partnerId,
+            name: delivery.partnerName,
+            count: 1,
+          });
+        }
+      }
+    });
+    
+    return Array.from(partnerMap.values());
+  }, [data]);
+
+  // Count internal deliveries (no partnerId)
+  const internalCount = useMemo(() => {
+    if (!data || !data.deliveries) return 0;
+    return data.deliveries.filter(d => !d.partnerId).length;
+  }, [data]);
+
+  // Filter deliveries based on partner filter
+  const filteredDeliveries = useMemo(() => {
+    if (!data || !data.deliveries) return [];
+    
+    if (partnerFilter === 'all') {
+      return data.deliveries;
+    }
+    
+    if (partnerFilter === 'internal') {
+      return data.deliveries.filter(d => !d.partnerId);
+    }
+    
+    return data.deliveries.filter(d => d.partnerId === partnerFilter);
+  }, [data, partnerFilter]);
+
   useEffect(() => {
     loadData();
     loadPartners();
@@ -269,35 +344,6 @@ export default function DataIntelligencePage() {
       value: data.holdings.totalStorageTB,
     },
   ];
-
-  // Transform deliveries into cumulative chart data
-  const chartData = useMemo(() => {
-    if (!data || data.deliveries.length < 2) {
-      return [];
-    }
-
-    // Sort by date ascending
-    const sorted = [...data.deliveries].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateA - dateB;
-    });
-
-    // Calculate running total
-    let runningTotal = 0;
-    return sorted.map((delivery) => {
-      runningTotal += delivery.videoCount;
-      const date = new Date(delivery.date);
-      const formattedDate = date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-      return {
-        date: formattedDate,
-        total: runningTotal,
-      };
-    });
-  }, [data]);
 
   return (
     <div className="space-y-6">
