@@ -163,6 +163,7 @@ export default function DataIntelligencePage() {
   const loadPartners = async () => {
     try {
       const token = await getIdToken();
+      if (!token) return;
       const response = await fetch('/api/admin/organizations', {
         headers: { 'x-firebase-token': token },
       });
