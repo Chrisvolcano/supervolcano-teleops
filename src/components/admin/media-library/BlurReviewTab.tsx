@@ -31,6 +31,8 @@ export function BlurReviewTab({
 }: BlurReviewTabProps) {
   const [reviewExpanded, setReviewExpanded] = useState(true);
   const [needsBlurExpanded, setNeedsBlurExpanded] = useState(true);
+  const [blurPreviewVideo, setBlurPreviewVideo] = useState<VideoItem | null>(null);
+  const [showBlurred, setShowBlurred] = useState(true);
 
   // Section 1: Videos that need blur applied
   const needsBlur = media.filter(v => {
@@ -101,7 +103,10 @@ export function BlurReviewTab({
                       <tr 
                         key={video.id} 
                         className="border-b hover:bg-gray-50 cursor-pointer"
-                        onClick={() => onVideoClick(video)}
+                        onClick={() => {
+                          setBlurPreviewVideo(video);
+                          setShowBlurred(true);
+                        }}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -227,6 +232,106 @@ export function BlurReviewTab({
           )
         )}
       </div>
+
+      {/* Blur Preview Modal */}
+      {blurPreviewVideo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold">{blurPreviewVideo.fileName}</h2>
+              <button 
+                onClick={() => setBlurPreviewVideo(null)} 
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Toggle Buttons */}
+            <div className="px-6 py-4 border-b flex items-center gap-3">
+              <button
+                onClick={() => setShowBlurred(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !showBlurred
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Original
+              </button>
+              <button
+                onClick={() => setShowBlurred(true)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showBlurred
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Blurred
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div className="flex-1 overflow-y-auto p-6 bg-black flex items-center justify-center">
+              {showBlurred && blurPreviewVideo.blurredUrl ? (
+                <video
+                  src={blurPreviewVideo.blurredUrl}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[60vh] object-contain rounded-lg"
+                />
+              ) : showBlurred && !blurPreviewVideo.blurredUrl ? (
+                <div className="text-center text-white">
+                  <p className="text-lg font-medium mb-2">Blurred version not available</p>
+                  <p className="text-sm text-gray-400">The blurred video URL is missing</p>
+                </div>
+              ) : (
+                <video
+                  src={blurPreviewVideo.url}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[60vh] object-contain rounded-lg"
+                />
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50">
+              <button
+                onClick={() => {
+                  setBlurPreviewVideo(null);
+                }}
+                className="px-4 py-2 text-gray-700 hover:text-gray-900"
+              >
+                Close
+              </button>
+              <button
+                onClick={async () => {
+                  await onRejectBlur(blurPreviewVideo.id);
+                  setBlurPreviewVideo(null);
+                }}
+                disabled={processingIds.has(blurPreviewVideo.id)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Reject
+              </button>
+              <button
+                onClick={async () => {
+                  await onApproveBlur(blurPreviewVideo.id);
+                  setBlurPreviewVideo(null);
+                }}
+                disabled={processingIds.has(blurPreviewVideo.id)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

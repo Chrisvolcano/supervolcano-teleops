@@ -184,6 +184,7 @@ export async function GET(request: NextRequest) {
           source: data.source || null,
           reviewStatus: data.reviewStatus || null,
           blurStatus: data.blurStatus || null,
+          blurredUrl: data.blurredUrl || null,
           importSource: data.importSource || null,
           uploadedAt: parseFirestoreTimestamp(data.uploadedAt) || parseFirestoreTimestamp(data.createdAt) || parseFirestoreTimestamp(data.timestamp),
           aiStatus,
