@@ -6,7 +6,7 @@ import {
   Database, 
   Film, 
   Send, 
-  Clock, 
+  Clock,
   HardDrive, 
   Package, 
   Plus, 
@@ -22,16 +22,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DataHoldings {
-  videosCollected: number;
-  videosDelivered: number;
-  hoursFootage: number;
-  totalStorageTB: number;
+  collectedVideos: number;
+  collectedHours: number;
+  collectedStorageGB: number;
+  deliveredVideos: number;
+  deliveredHours: number;
+  deliveredStorageGB: number;
 }
 
 interface Delivery {
   id: string;
   videoCount: number;
   sizeGB: number;
+  hours?: number;
   description: string;
   date: string;
   partnerId?: string | null;
@@ -77,7 +80,16 @@ export default function DataIntelligencePage() {
   const [editingStat, setEditingStat] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<DataHoldings>>({});
   const [showAddDelivery, setShowAddDelivery] = useState(false);
-  const [newDelivery, setNewDelivery] = useState({ videoCount: '', sizeGB: '', description: '', partnerId: null as string | null, partnerName: null as string | null });
+  const [newDelivery, setNewDelivery] = useState({ 
+    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+    videoCount: '', 
+    sizeGB: '', 
+    hours: '', 
+    description: '', 
+    partnerId: null as string | null, 
+    partnerName: null as string | null 
+  });
+  const [descriptionError, setDescriptionError] = useState<string>('');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
 
   // All useMemo hooks must be at top level, before any conditional returns
@@ -154,12 +166,12 @@ export default function DataIntelligencePage() {
     
     return data.deliveries.filter(d => d.partnerId === partnerFilter);
   }, [data, partnerFilter]);
-
+  
   useEffect(() => {
     loadData();
     loadPartners();
   }, []);
-
+  
   const loadPartners = async () => {
     try {
       const token = await getIdToken();
@@ -219,7 +231,9 @@ export default function DataIntelligencePage() {
   const handleEditStat = (statKey: keyof DataHoldings) => {
     if (!data) return;
     setEditingStat(statKey);
-    setEditValues({ [statKey]: data.holdings[statKey] as number });
+    // Use the actual stored value, not the calculated/display value
+    const storedValue = data.holdings[statKey] as number;
+    setEditValues({ [statKey]: storedValue });
   };
 
   const handleSaveStat = async () => {
@@ -251,11 +265,37 @@ export default function DataIntelligencePage() {
     setEditValues({});
   };
 
+  // Auto-calculate hours from sizeGB when sizeGB changes and hours is empty
+  useEffect(() => {
+    if (newDelivery.sizeGB && !newDelivery.hours && parseFloat(newDelivery.sizeGB) > 0) {
+      const calculatedHours = parseFloat(newDelivery.sizeGB) / 15;
+      setNewDelivery(prev => ({ ...prev, hours: calculatedHours.toFixed(1) }));
+    }
+  }, [newDelivery.sizeGB]);
+
   const handleAddDelivery = async () => {
-    if (!newDelivery.videoCount || !newDelivery.sizeGB) return;
+    // Validation
+    if (!newDelivery.videoCount || !newDelivery.sizeGB) {
+      return;
+    }
+
+    // Description is required
+    if (!newDelivery.description || newDelivery.description.trim() === '') {
+      setDescriptionError('Description is required');
+      return;
+    }
+
+    setDescriptionError('');
 
     try {
       const token = await getIdToken();
+      if (!token) return;
+
+      // Calculate hours if not provided
+      const hours = newDelivery.hours 
+        ? parseFloat(newDelivery.hours) 
+        : parseFloat(newDelivery.sizeGB) / 15;
+
       const response = await fetch('/api/admin/data-intelligence/deliveries', {
         method: 'POST',
         headers: {
@@ -263,9 +303,11 @@ export default function DataIntelligencePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          date: newDelivery.date, // Use date from picker
           videoCount: parseInt(newDelivery.videoCount),
           sizeGB: parseFloat(newDelivery.sizeGB),
-          description: newDelivery.description,
+          hours: hours,
+          description: newDelivery.description.trim(),
           partnerId: newDelivery.partnerId || null,
           partnerName: newDelivery.partnerName || null,
         }),
@@ -274,7 +316,16 @@ export default function DataIntelligencePage() {
       if (response.ok) {
         await loadData();
         setShowAddDelivery(false);
-        setNewDelivery({ videoCount: '', sizeGB: '', description: '', partnerId: null, partnerName: null });
+        setNewDelivery({ 
+          date: new Date().toISOString().split('T')[0], 
+          videoCount: '', 
+          sizeGB: '', 
+          hours: '', 
+          description: '', 
+          partnerId: null, 
+          partnerName: null 
+        });
+        setDescriptionError('');
       }
     } catch (error) {
       console.error('Failed to add delivery:', error);
@@ -298,7 +349,7 @@ export default function DataIntelligencePage() {
       console.error('Failed to delete delivery:', error);
     }
   };
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -306,7 +357,7 @@ export default function DataIntelligencePage() {
       </div>
     );
   }
-
+  
   if (!data) {
     return (
       <div className="text-center py-12">
@@ -314,35 +365,82 @@ export default function DataIntelligencePage() {
       </div>
     );
   }
+  
+  // Helper function to format storage (GB or TB)
+  const formatStorage = (storageGB: number): string => {
+    if (storageGB >= 1000) {
+      return `${(storageGB / 1000).toFixed(1)} TB`;
+    }
+    return `${storageGB.toFixed(1)} GB`;
+  };
 
-  const statCards = [
+  // Helper function to calculate hours from storage if not set
+  const getHours = (hours: number, storageGB: number, isEstimated: boolean = false): { value: number; isEstimated: boolean } => {
+    if (hours > 0) {
+      return { value: hours, isEstimated: false };
+    }
+    // Auto-calculate: storageGB / 15 (1080p 30fps estimate)
+    const calculated = storageGB / 15;
+    return { value: calculated, isEstimated: true };
+  };
+
+  // Data Collected cards
+  const collectedHoursData = getHours(data.holdings.collectedHours, data.holdings.collectedStorageGB);
+  const collectedCards = [
     {
-      key: 'videosCollected' as const,
-      label: 'Videos Collected',
+      key: 'collectedVideos' as const,
+      label: 'Videos',
       icon: Film,
       color: 'blue',
-      value: data.holdings.videosCollected,
+      value: data.holdings.collectedVideos,
+      formatValue: (v: number) => v.toLocaleString(),
     },
     {
-      key: 'videosDelivered' as const,
-      label: 'Delivered to Partners',
-      icon: Send,
-      color: 'green',
-      value: data.holdings.videosDelivered,
-    },
-    {
-      key: 'hoursFootage' as const,
-      label: 'Hours Footage',
+      key: 'collectedHours' as const,
+      label: 'Hours of Footage',
       icon: Clock,
-      color: 'purple',
-      value: data.holdings.hoursFootage,
+      color: 'blue',
+      value: collectedHoursData.value,
+      isEstimated: collectedHoursData.isEstimated,
+      formatValue: (v: number) => v.toFixed(1),
     },
     {
-      key: 'totalStorageTB' as const,
-      label: 'Total Storage TB',
+      key: 'collectedStorageGB' as const,
+      label: 'Total Storage',
       icon: HardDrive,
-      color: 'orange',
-      value: data.holdings.totalStorageTB,
+      color: 'blue',
+      value: data.holdings.collectedStorageGB,
+      formatValue: (v: number) => formatStorage(v),
+    },
+  ];
+
+  // Data Delivered cards
+  const deliveredHoursData = getHours(data.holdings.deliveredHours, data.holdings.deliveredStorageGB);
+  const deliveredCards = [
+    {
+      key: 'deliveredVideos' as const,
+      label: 'Videos',
+      icon: Film,
+      color: 'green',
+      value: data.holdings.deliveredVideos,
+      formatValue: (v: number) => v.toLocaleString(),
+    },
+    {
+      key: 'deliveredHours' as const,
+      label: 'Hours of Footage',
+      icon: Clock,
+      color: 'green',
+      value: deliveredHoursData.value,
+      isEstimated: deliveredHoursData.isEstimated,
+      formatValue: (v: number) => v.toFixed(1),
+    },
+    {
+      key: 'deliveredStorageGB' as const,
+      label: 'Total Storage',
+      icon: HardDrive,
+      color: 'green',
+      value: data.holdings.deliveredStorageGB,
+      formatValue: (v: number) => formatStorage(v),
     },
   ];
 
@@ -358,86 +456,172 @@ export default function DataIntelligencePage() {
           Track data holdings, partner deliveries, and operational metrics
         </p>
       </div>
-
+      
       {/* Data Holdings Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Holdings</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            const isEditing = editingStat === stat.key;
-            const editValue = editValues[stat.key] ?? stat.value;
-
-            return (
-              <div
-                key={stat.key}
-                className="bg-white border border-gray-200 rounded-lg p-6 relative group hover:shadow-md transition-shadow"
-              >
-                {!isEditing && (
-                  <button
-                    onClick={() => handleEditStat(stat.key)}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                )}
-                
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    stat.color === 'blue' ? 'bg-blue-100' :
-                    stat.color === 'green' ? 'bg-green-100' :
-                    stat.color === 'purple' ? 'bg-purple-100' :
-                    'bg-orange-100'
-                  }`}>
-                    <Icon className={`h-5 w-5 ${
-                      stat.color === 'blue' ? 'text-blue-600' :
-                      stat.color === 'green' ? 'text-green-600' :
-                      stat.color === 'purple' ? 'text-purple-600' :
-                      'text-orange-600'
-                    }`} />
-                  </div>
-                  <div className="text-sm font-medium text-gray-600 flex-1">
-                    {stat.label}
-                  </div>
+      <div className="space-y-6">
+        {/* Data Collected Section */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Database className="h-5 w-5 text-blue-600" />
                 </div>
+            <h2 className="text-lg font-semibold text-gray-900">Data Collected</h2>
+              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {collectedCards.map((stat) => {
+              const Icon = stat.icon;
+              const isEditing = editingStat === stat.key;
+              // When editing, use the stored value from data.holdings, not the calculated display value
+              const editValue = isEditing 
+                ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
+                : stat.value;
 
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
-                      autoFocus
-                    />
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleSaveStat}
-                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
-                      >
-                        <Save className="w-4 h-4" />
-                        Save
-                      </button>
-                      <button
-                        onClick={handleCancelEdit}
-                        className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </button>
+          return (
+            <div
+                  key={stat.key}
+                  className="bg-white border border-gray-200 rounded-xl p-6 relative group hover:shadow-md transition-shadow"
+                >
+                  {!isEditing && (
+                    <button
+                      onClick={() => handleEditStat(stat.key)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  
+              <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <Icon className="h-5 w-5 text-blue-600" />
+                </div>
+                    <div className="text-sm font-medium text-gray-600 flex-1">
+                      {stat.label}
+                </div>
+      </div>
+      
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        step={stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1'}
+                        value={editValue}
+                        onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
+                        autoFocus
+                      />
+            <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleSaveStat}
+                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900">
+                      {stat.formatValue(stat.value)}
+                      {stat.isEstimated && (
+                        <span className="text-sm font-normal text-gray-500 ml-2">(est.)</span>
+                      )}
+                    </div>
+                  )}
+                  </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Data Delivered to Partners Section */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+              <Send className="h-5 w-5 text-green-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Data Delivered to Partners</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {deliveredCards.map((stat) => {
+              const Icon = stat.icon;
+              const isEditing = editingStat === stat.key;
+              // When editing, use the stored value from data.holdings, not the calculated display value
+              const editValue = isEditing 
+                ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
+                : stat.value;
+
+              return (
+                <div
+                  key={stat.key}
+                  className="bg-white border border-gray-200 rounded-xl p-6 relative group hover:shadow-md transition-shadow"
+                >
+                  {!isEditing && (
+                    <button
+                      onClick={() => handleEditStat(stat.key)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                      <Icon className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-600 flex-1">
+                      {stat.label}
                     </div>
                   </div>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">
-                    {stat.value.toLocaleString()}
-                  </div>
-                )}
+
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        step={stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1'}
+                        value={editValue}
+                        onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleSaveStat}
+                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900">
+                      {stat.formatValue(stat.value)}
+                      {stat.isEstimated && (
+                        <span className="text-sm font-normal text-gray-500 ml-2">(est.)</span>
+                      )}
               </div>
-            );
-          })}
+            )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-
+      
       {/* Delivery Trend Chart */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Delivery Trend</h2>
@@ -524,7 +708,19 @@ export default function DataIntelligencePage() {
 
         {showAddDelivery && (
           <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={newDelivery.date}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Video Count
@@ -545,10 +741,28 @@ export default function DataIntelligencePage() {
                   type="number"
                   step="0.01"
                   value={newDelivery.sizeGB}
-                  onChange={(e) => setNewDelivery({ ...newDelivery, sizeGB: e.target.value })}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, sizeGB: e.target.value, hours: '' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hours
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newDelivery.hours}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, hours: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Auto-calculated"
+                />
+                {newDelivery.sizeGB && !newDelivery.hours && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Will calculate: {(parseFloat(newDelivery.sizeGB) / 15).toFixed(1)} hrs
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -575,23 +789,32 @@ export default function DataIntelligencePage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={newDelivery.description}
-                  onChange={(e) => setNewDelivery({ ...newDelivery, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Delivery description"
-                />
-              </div>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newDelivery.description}
+                onChange={(e) => {
+                  setNewDelivery({ ...newDelivery, description: e.target.value });
+                  if (descriptionError) setDescriptionError('');
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  descriptionError ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Delivery description"
+                required
+              />
+              {descriptionError && (
+                <p className="text-xs text-red-500 mt-1">{descriptionError}</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleAddDelivery}
-                disabled={!newDelivery.videoCount || !newDelivery.sizeGB}
+                disabled={!newDelivery.videoCount || !newDelivery.sizeGB || !newDelivery.description?.trim()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm"
               >
                 <Save className="w-4 h-4" />
@@ -600,7 +823,16 @@ export default function DataIntelligencePage() {
               <button
                 onClick={() => {
                   setShowAddDelivery(false);
-                  setNewDelivery({ videoCount: '', sizeGB: '', description: '', partnerId: null, partnerName: null });
+                  setNewDelivery({ 
+                    date: new Date().toISOString().split('T')[0], 
+                    videoCount: '', 
+                    sizeGB: '', 
+                    hours: '', 
+                    description: '', 
+                    partnerId: null, 
+                    partnerName: null 
+                  });
+                  setDescriptionError('');
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
               >
@@ -615,7 +847,7 @@ export default function DataIntelligencePage() {
             {data.deliveries.length === 0 ? 'No deliveries recorded yet' : 'No deliveries match the selected filter'}
           </div>
         ) : (
-          <div className="space-y-2">
+                  <div className="space-y-2">
             {filteredDeliveries.map((delivery) => (
               <div
                 key={delivery.id}
@@ -624,11 +856,10 @@ export default function DataIntelligencePage() {
                 <div className="flex items-center gap-6 flex-1">
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {delivery.videoCount} videos
+                      {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
                     </div>
-                    <div className="text-xs text-gray-500">{delivery.sizeGB} GB</div>
                   </div>
-                  <div>
+                <div>
                     {delivery.partnerId ? (
                       <button
                         onClick={() => router.push(`/admin/partners/${delivery.partnerId}/deliveries`)}
@@ -643,7 +874,7 @@ export default function DataIntelligencePage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm text-gray-700">{delivery.description || 'No description'}</div>
+                    <div className="text-sm text-gray-700">{delivery.description}</div>
                     <div className="text-xs text-gray-500">
                       {new Date(delivery.date).toLocaleDateString('en-US', {
                         month: 'short',
@@ -661,8 +892,8 @@ export default function DataIntelligencePage() {
                 </button>
               </div>
             ))}
-          </div>
-        )}
+                </div>
+              )}
       </div>
 
       {/* Data Sources Section */}
@@ -693,10 +924,10 @@ export default function DataIntelligencePage() {
           ))}
         </div>
       </div>
-
+      
       {/* Operations Overview - Collapsible */}
       <div className="bg-white border border-gray-200 rounded-lg">
-        <button
+            <button
           onClick={() => setOperationsExpanded(!operationsExpanded)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
         >
@@ -706,8 +937,8 @@ export default function DataIntelligencePage() {
           ) : (
             <ChevronRight className="w-5 h-5 text-gray-400" />
           )}
-        </button>
-
+            </button>
+            
         {operationsExpanded && operations && (
           <div className="p-6 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

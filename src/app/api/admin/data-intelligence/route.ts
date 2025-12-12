@@ -8,10 +8,12 @@ export const dynamic = 'force-dynamic';
 
 // Default holdings if document doesn't exist
 const DEFAULT_HOLDINGS = {
-  videosCollected: 0,
-  videosDelivered: 0,
-  hoursFootage: 0,
-  totalStorageTB: 0,
+  collectedVideos: 0,
+  collectedHours: 0,
+  collectedStorageGB: 0,
+  deliveredVideos: 0,
+  deliveredHours: 0,
+  deliveredStorageGB: 0,
 };
 
 export async function GET(request: NextRequest) {
@@ -41,23 +43,25 @@ export async function GET(request: NextRequest) {
     if (settingsDoc.exists) {
       const data = settingsDoc.data() || {};
       holdings = {
-        videosCollected: data.videosCollected ?? DEFAULT_HOLDINGS.videosCollected,
-        videosDelivered: data.videosDelivered ?? DEFAULT_HOLDINGS.videosDelivered,
-        hoursFootage: data.hoursFootage ?? DEFAULT_HOLDINGS.hoursFootage,
-        totalStorageTB: data.totalStorageTB ?? DEFAULT_HOLDINGS.totalStorageTB,
+        collectedVideos: data.collectedVideos ?? DEFAULT_HOLDINGS.collectedVideos,
+        collectedHours: data.collectedHours ?? DEFAULT_HOLDINGS.collectedHours,
+        collectedStorageGB: data.collectedStorageGB ?? DEFAULT_HOLDINGS.collectedStorageGB,
+        deliveredVideos: data.deliveredVideos ?? DEFAULT_HOLDINGS.deliveredVideos,
+        deliveredHours: data.deliveredHours ?? DEFAULT_HOLDINGS.deliveredHours,
+        deliveredStorageGB: data.deliveredStorageGB ?? DEFAULT_HOLDINGS.deliveredStorageGB,
       };
     }
 
-    // Count videos from media collection
+    // Count videos from media collection (auto-update collectedVideos)
     try {
       const mediaCountSnapshot = await adminDb.collection('media').count().get();
-      holdings.videosCollected = mediaCountSnapshot.data().count;
+      holdings.collectedVideos = mediaCountSnapshot.data().count;
     } catch (error) {
       console.error('[API] Error counting media:', error);
       // Fallback: if count() fails, use get() and count manually
       try {
         const mediaSnapshot = await adminDb.collection('media').get();
-        holdings.videosCollected = mediaSnapshot.size;
+        holdings.collectedVideos = mediaSnapshot.size;
       } catch (fallbackError) {
         console.error('[API] Fallback media count failed:', fallbackError);
       }
@@ -68,15 +72,19 @@ export async function GET(request: NextRequest) {
       .orderBy('date', 'desc')
       .get();
     
-    const deliveries = deliveriesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      videoCount: doc.data().videoCount || 0,
-      sizeGB: doc.data().sizeGB || 0,
-      description: doc.data().description || '',
-      partnerId: doc.data().partnerId || null,
-      partnerName: doc.data().partnerName || null,
-      date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date || new Date().toISOString(),
-    }));
+    const deliveries = deliveriesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        videoCount: data.videoCount || 0,
+        sizeGB: data.sizeGB || 0,
+        hours: data.hours !== undefined ? data.hours : null, // Include hours if present
+        description: data.description || '',
+        partnerId: data.partnerId || null,
+        partnerName: data.partnerName || null,
+        date: data.date?.toDate?.()?.toISOString() || data.date || new Date().toISOString(),
+      };
+    });
 
     // Fetch data sources from dataSources collection
     const sourcesSnapshot = await adminDb.collection('dataSources').get();
@@ -138,26 +146,34 @@ export async function PATCH(request: NextRequest) {
     };
 
     // Update only the provided fields
-    if (holdings.videosCollected !== undefined) {
-      updateData.videosCollected = holdings.videosCollected;
+    if (holdings.collectedVideos !== undefined) {
+      updateData.collectedVideos = holdings.collectedVideos;
     }
-    if (holdings.videosDelivered !== undefined) {
-      updateData.videosDelivered = holdings.videosDelivered;
+    if (holdings.collectedHours !== undefined) {
+      updateData.collectedHours = holdings.collectedHours;
     }
-    if (holdings.hoursFootage !== undefined) {
-      updateData.hoursFootage = holdings.hoursFootage;
+    if (holdings.collectedStorageGB !== undefined) {
+      updateData.collectedStorageGB = holdings.collectedStorageGB;
     }
-    if (holdings.totalStorageTB !== undefined) {
-      updateData.totalStorageTB = holdings.totalStorageTB;
+    if (holdings.deliveredVideos !== undefined) {
+      updateData.deliveredVideos = holdings.deliveredVideos;
+    }
+    if (holdings.deliveredHours !== undefined) {
+      updateData.deliveredHours = holdings.deliveredHours;
+    }
+    if (holdings.deliveredStorageGB !== undefined) {
+      updateData.deliveredStorageGB = holdings.deliveredStorageGB;
     }
 
     if (!settingsDoc.exists) {
       updateData.createdAt = FieldValue.serverTimestamp();
       // Set defaults for any missing fields
-      updateData.videosCollected = holdings.videosCollected ?? DEFAULT_HOLDINGS.videosCollected;
-      updateData.videosDelivered = holdings.videosDelivered ?? DEFAULT_HOLDINGS.videosDelivered;
-      updateData.hoursFootage = holdings.hoursFootage ?? DEFAULT_HOLDINGS.hoursFootage;
-      updateData.totalStorageTB = holdings.totalStorageTB ?? DEFAULT_HOLDINGS.totalStorageTB;
+      updateData.collectedVideos = holdings.collectedVideos ?? DEFAULT_HOLDINGS.collectedVideos;
+      updateData.collectedHours = holdings.collectedHours ?? DEFAULT_HOLDINGS.collectedHours;
+      updateData.collectedStorageGB = holdings.collectedStorageGB ?? DEFAULT_HOLDINGS.collectedStorageGB;
+      updateData.deliveredVideos = holdings.deliveredVideos ?? DEFAULT_HOLDINGS.deliveredVideos;
+      updateData.deliveredHours = holdings.deliveredHours ?? DEFAULT_HOLDINGS.deliveredHours;
+      updateData.deliveredStorageGB = holdings.deliveredStorageGB ?? DEFAULT_HOLDINGS.deliveredStorageGB;
     }
 
     await settingsRef.set(updateData, { merge: true });
