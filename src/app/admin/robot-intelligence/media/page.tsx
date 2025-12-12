@@ -995,7 +995,6 @@ export default function MediaLibraryPage() {
           {/* Primary action - stands out */}
           {activeTab === 'overview' && (
             <>
-              {selectedIds.size > 0 && (
               <button 
                 onClick={processBatch} 
                 disabled={isProcessingBatch}
