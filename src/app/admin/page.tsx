@@ -1,136 +1,196 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { 
-  Building2, 
-  MapPin, 
-  Users, 
-  ClipboardList,
-  TrendingUp,
-  Activity,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
+  Database, 
+  Film, 
+  Send, 
+  Clock, 
+  HardDrive, 
+  Package, 
+  Plus, 
+  Edit2, 
+  Save, 
+  X, 
+  Trash2,
+  ChevronDown,
+  ChevronRight,
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-interface AdminDashboardData {
-  // Overview metrics
+interface DataHoldings {
+  videosCollected: number;
+  videosDelivered: number;
+  hoursFootage: number;
+  totalStorageTB: number;
+}
+
+interface Delivery {
+  id: string;
+  videoCount: number;
+  sizeGB: number;
+  description: string;
+  date: string;
+}
+
+interface DataSource {
+  name: string;
+  videoCount: number;
+  hours: number;
+}
+
+interface DataIntelligenceData {
+  holdings: DataHoldings;
+  deliveries: Delivery[];
+  sources: DataSource[];
+}
+
+interface OperationsData {
   totalOrganizations: number;
   totalLocations: number;
-  totalTasks: number;
   totalTeleoperators: number;
-  
-  // Activity metrics (last 30 days)
+  totalTasks: number;
   totalCompletions: number;
   totalSessions: number;
   totalWorkMinutes: number;
-  avgCompletionsPerDay: number;
-  
-  // Today's activity
-  completionsToday: number;
-  sessionsToday: number;
   activeSessionsNow: number;
-  
-  // Top performers (last 30 days)
-  topOrganizations: Array<{
-    id: string;
-    name: string;
-    completions: number;
-    sessions: number;
-  }>;
-  
-  topTeleoperators: Array<{
-    id: string;
-    name: string;
-    organizationName: string;
-    completions: number;
-    avgDuration: number;
-  }>;
-  
-  topLocations: Array<{
-    id: string;
-    name: string;
-    address: string;
-    organizationName: string;
-    completions: number;
-  }>;
-  
-  // Recent activity
-  recentCompletions: Array<{
-    id: string;
-    taskTitle: string;
-    locationName: string;
-    teleoperatorName: string;
-    organizationName: string;
-    completedAt: any; // Can be Firestore Timestamp, serialized timestamp, or Date
-    status: string;
-    duration: number;
-  }>;
-  
-  recentSessions: Array<{
-    id: string;
-    locationName: string;
-    teleoperatorName: string;
-    organizationName: string;
-    date: string;
-    totalTasks: number;
-    totalDuration: number;
-  }>;
-  
-  // Problem areas
-  locationsWithoutTasks: Array<{
-    id: string;
-    name: string;
-    organizationName: string;
-  }>;
-  
-  organizationsWithoutActivity: Array<{
-    id: string;
-    name: string;
-    locationCount: number;
-    lastActivity?: {
-      toDate: () => Date;
-    };
-  }>;
 }
 
-export default function AdminDashboardPage() {
-  const router = useRouter();
+export default function DataIntelligencePage() {
   const { getIdToken } = useAuth();
-  const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [data, setData] = useState<DataIntelligenceData | null>(null);
+  const [operations, setOperations] = useState<OperationsData | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [operationsExpanded, setOperationsExpanded] = useState(false);
+  const [editingStat, setEditingStat] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Partial<DataHoldings>>({});
+  const [showAddDelivery, setShowAddDelivery] = useState(false);
+  const [newDelivery, setNewDelivery] = useState({ videoCount: '', sizeGB: '', description: '' });
+
   useEffect(() => {
-    loadDashboardData();
+    loadData();
   }, []);
-  
-  async function loadDashboardData() {
+
+  const loadData = async () => {
     try {
+      setLoading(true);
       const token = await getIdToken();
-      const response = await fetch('/api/v1/admin/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      
+      // Load data intelligence
+      const dataRes = await fetch('/api/admin/data-intelligence', {
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to load dashboard data');
+      if (dataRes.ok) {
+        const dataJson = await dataRes.json();
+        setData(dataJson);
       }
-      
-      const dashboardData = await response.json();
-      setData(dashboardData);
+
+      // Load operations data
+      const opsRes = await fetch('/api/v1/admin/dashboard', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (opsRes.ok) {
+        const opsJson = await opsRes.json();
+        setOperations({
+          totalOrganizations: opsJson.totalOrganizations || 0,
+          totalLocations: opsJson.totalLocations || 0,
+          totalTeleoperators: opsJson.totalTeleoperators || 0,
+          totalTasks: opsJson.totalTasks || 0,
+          totalCompletions: opsJson.totalCompletions || 0,
+          totalSessions: opsJson.totalSessions || 0,
+          totalWorkMinutes: opsJson.totalWorkMinutes || 0,
+          activeSessionsNow: opsJson.activeSessionsNow || 0,
+        });
+      }
     } catch (error) {
-      console.error('Failed to load dashboard:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
-  }
-  
+  };
+
+  const handleEditStat = (statKey: keyof DataHoldings) => {
+    if (!data) return;
+    setEditingStat(statKey);
+    setEditValues({ [statKey]: data.holdings[statKey] as number });
+  };
+
+  const handleSaveStat = async () => {
+    if (!data || !editingStat) return;
+    
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/data-intelligence', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ holdings: editValues }),
+      });
+
+      if (response.ok) {
+        await loadData();
+        setEditingStat(null);
+        setEditValues({});
+      }
+    } catch (error) {
+      console.error('Failed to update holdings:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStat(null);
+    setEditValues({});
+  };
+
+  const handleAddDelivery = async () => {
+    if (!newDelivery.videoCount || !newDelivery.sizeGB) return;
+
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/data-intelligence/deliveries', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoCount: parseInt(newDelivery.videoCount),
+          sizeGB: parseFloat(newDelivery.sizeGB),
+          description: newDelivery.description,
+        }),
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowAddDelivery(false);
+        setNewDelivery({ videoCount: '', sizeGB: '', description: '' });
+      }
+    } catch (error) {
+      console.error('Failed to add delivery:', error);
+    }
+  };
+
+  const handleDeleteDelivery = async (id: string) => {
+    if (!confirm('Delete this delivery entry?')) return;
+
+    try {
+      const token = await getIdToken();
+      const response = await fetch(`/api/admin/data-intelligence/deliveries/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to delete delivery:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -138,74 +198,43 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
-  
+
   if (!data) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-600">Failed to load dashboard data</p>
+        <p className="text-gray-600">Failed to load data intelligence</p>
       </div>
     );
   }
-  
-  const overviewMetrics = [
+
+  const statCards = [
     {
-      label: 'Organizations',
-      value: data.totalOrganizations,
-      icon: Building2,
+      key: 'videosCollected' as const,
+      label: 'Videos Collected',
+      icon: Film,
       color: 'blue',
-      link: '/admin/organizations',
+      value: data.holdings.videosCollected,
     },
     {
-      label: 'Locations',
-      value: data.totalLocations,
-      icon: MapPin,
-      color: 'purple',
-      link: '/admin/locations',
-    },
-    {
-      label: 'Teleoperators',
-      value: data.totalTeleoperators,
-      icon: Users,
+      key: 'videosDelivered' as const,
+      label: 'Delivered to Partners',
+      icon: Send,
       color: 'green',
-      link: '/admin/users',
+      value: data.holdings.videosDelivered,
     },
     {
-      label: 'Total Tasks',
-      value: data.totalTasks,
-      icon: ClipboardList,
-      color: 'orange',
-      link: '/admin/locations',
-    },
-  ];
-  
-  const activityMetrics = [
-    {
-      label: 'Completions Today',
-      value: data.completionsToday,
-      icon: CheckCircle2,
-      color: 'green',
-      subtext: `${data.avgCompletionsPerDay}/day avg`,
-    },
-    {
-      label: 'Sessions Today',
-      value: data.sessionsToday,
-      icon: Activity,
-      color: 'blue',
-      subtext: `${data.totalSessions} this month`,
-    },
-    {
-      label: 'Total Work Time',
-      value: `${Math.round(data.totalWorkMinutes / 60)}h`,
+      key: 'hoursFootage' as const,
+      label: 'Hours Footage',
       icon: Clock,
       color: 'purple',
-      subtext: 'Last 30 days',
+      value: data.holdings.hoursFootage,
     },
     {
-      label: 'Active Now',
-      value: data.activeSessionsNow,
-      icon: TrendingUp,
+      key: 'totalStorageTB' as const,
+      label: 'Total Storage TB',
+      icon: HardDrive,
       color: 'orange',
-      subtext: 'Live sessions',
+      value: data.holdings.totalStorageTB,
     },
   ];
 
@@ -213,345 +242,307 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <p className="text-sm text-gray-500 uppercase tracking-wide font-medium mb-2">
-          Admin
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <Database className="h-8 w-8 text-gray-600" />
+          <h1 className="text-3xl font-bold text-gray-900">Data Intelligence</h1>
+        </div>
         <p className="text-gray-600">
-          Monitor operations at a glance and jump into areas that need attention.
+          Track data holdings, partner deliveries, and operational metrics
         </p>
       </div>
-      
-      {/* Overview Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {overviewMetrics.map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <button
-              key={metric.label}
-              onClick={() => router.push(metric.link)}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow text-left group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                  metric.color === 'blue' ? 'bg-blue-100' :
-                  metric.color === 'purple' ? 'bg-purple-100' :
-                  metric.color === 'green' ? 'bg-green-100' :
-                  'bg-orange-100'
-                }`}>
-                  <Icon className={`h-6 w-6 ${
-                    metric.color === 'blue' ? 'text-blue-600' :
-                    metric.color === 'purple' ? 'text-purple-600' :
-                    metric.color === 'green' ? 'text-green-600' :
-                    'text-orange-600'
-                  }`} />
-                </div>
-                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
-              </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">
-                {metric.value}
-              </div>
-              <div className="text-sm text-gray-600">{metric.label}</div>
-            </button>
-          );
-        })}
-      </div>
-      
-      {/* Activity Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {activityMetrics.map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <div
-              key={metric.label}
-              className="bg-white border border-gray-200 rounded-lg p-6"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  metric.color === 'blue' ? 'bg-blue-100' :
-                  metric.color === 'purple' ? 'bg-purple-100' :
-                  metric.color === 'green' ? 'bg-green-100' :
-                  'bg-orange-100'
-                }`}>
-                  <Icon className={`h-5 w-5 ${
-                    metric.color === 'blue' ? 'text-blue-600' :
-                    metric.color === 'purple' ? 'text-purple-600' :
-                    metric.color === 'green' ? 'text-green-600' :
-                    'text-orange-600'
-                  }`} />
-                </div>
-                <div className="text-sm font-medium text-gray-600">
-                  {metric.label}
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {metric.value}
-              </div>
-              <div className="text-xs text-gray-500">{metric.subtext}</div>
-            </div>
-          );
-        })}
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Performers */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-gray-600" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                Top Performing Organizations
-              </h3>
-            </div>
-          </div>
-          <div className="p-6">
-            {data.topOrganizations.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No activity yet
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {data.topOrganizations.map((org, index) => (
-                  <div
-                    key={org.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/admin/organizations/${org.id}`)}
+
+      {/* Data Holdings Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Holdings</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((stat) => {
+            const Icon = stat.icon;
+            const isEditing = editingStat === stat.key;
+            const editValue = editValues[stat.key] ?? stat.value;
+
+            return (
+              <div
+                key={stat.key}
+                className="bg-white border border-gray-200 rounded-lg p-6 relative group hover:shadow-md transition-shadow"
+              >
+                {!isEditing && (
+                  <button
+                    onClick={() => handleEditStat(stat.key)}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-semibold text-sm">
-                        #{index + 1}
-                      </div>
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
+                
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    stat.color === 'blue' ? 'bg-blue-100' :
+                    stat.color === 'green' ? 'bg-green-100' :
+                    stat.color === 'purple' ? 'bg-purple-100' :
+                    'bg-orange-100'
+                  }`}>
+                    <Icon className={`h-5 w-5 ${
+                      stat.color === 'blue' ? 'text-blue-600' :
+                      stat.color === 'green' ? 'text-green-600' :
+                      stat.color === 'purple' ? 'text-purple-600' :
+                      'text-orange-600'
+                    }`} />
+                  </div>
+                  <div className="text-sm font-medium text-gray-600 flex-1">
+                    {stat.label}
+                  </div>
+                </div>
+
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      value={editValue}
+                      onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveStat}
+                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-900">
+                    {stat.value.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Delivery Log Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Delivery Log</h2>
+          </div>
+          {!showAddDelivery && (
+            <button
+              onClick={() => setShowAddDelivery(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Entry
+            </button>
+          )}
+        </div>
+
+        {showAddDelivery && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
               <div>
-                        <p className="font-medium text-gray-900">{org.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {org.sessions} sessions
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        {org.completions}
-                      </p>
-                      <p className="text-xs text-gray-500">completions</p>
-                    </div>
-                  </div>
-                ))}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Video Count
+                </label>
+                <input
+                  type="number"
+                  value={newDelivery.videoCount}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, videoCount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                />
               </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Recent Activity */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="p-6 border-b border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Size (GB)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newDelivery.sizeGB}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, sizeGB: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={newDelivery.description}
+                  onChange={(e) => setNewDelivery({ ...newDelivery, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Delivery description"
+                />
+              </div>
+            </div>
             <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-gray-600" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                Recent Completions
-              </h3>
+              <button
+                onClick={handleAddDelivery}
+                disabled={!newDelivery.videoCount || !newDelivery.sizeGB}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+              >
+                <Save className="w-4 h-4" />
+                Save Entry
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddDelivery(false);
+                  setNewDelivery({ videoCount: '', sizeGB: '', description: '' });
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-          <div className="p-6">
-            {data.recentCompletions.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No recent activity
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {data.recentCompletions.slice(0, 5).map((completion) => (
-                  <div
-                    key={completion.id}
-                    className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-                      completion.status === 'completed' ? 'bg-green-100' :
-                      completion.status === 'incomplete' ? 'bg-yellow-100' :
-                      'bg-red-100'
-                    }`}>
-                      <CheckCircle2 className={`h-4 w-4 ${
-                        completion.status === 'completed' ? 'text-green-600' :
-                        completion.status === 'incomplete' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`} />
+        )}
+
+        {data.deliveries.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No deliveries recorded yet
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {data.deliveries.map((delivery) => (
+              <div
+                key={delivery.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 group transition-colors"
+              >
+                <div className="flex items-center gap-6 flex-1">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {delivery.videoCount} videos
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">
-                        {completion.taskTitle}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {completion.teleoperatorName} • {completion.locationName}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {formatTimeAgo(parseTimestamp(completion.completedAt))}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0 text-xs text-gray-600">
-                      {completion.duration}m
+                    <div className="text-xs text-gray-500">{delivery.sizeGB} GB</div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-700">{delivery.description || 'No description'}</div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(delivery.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
                     </div>
                   </div>
-                ))}
+                </div>
+                <button
+                  onClick={() => handleDeleteDelivery(delivery.id)}
+                  className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            )}
+            ))}
           </div>
+        )}
+      </div>
+
+      {/* Data Sources Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Sources</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div>
+              <div className="font-medium text-gray-900">Portal Uploads</div>
+              <div className="text-sm text-gray-500">
+                {data.sources.find(s => s.name === 'Portal Uploads')?.videoCount || 0} videos • {' '}
+                {data.sources.find(s => s.name === 'Portal Uploads')?.hours || 0} hours
+              </div>
+            </div>
+          </div>
+          {data.sources.filter(s => s.name !== 'Portal Uploads').map((source) => (
+            <div
+              key={source.name}
+              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+            >
+              <div>
+                <div className="font-medium text-gray-900">{source.name}</div>
+                <div className="text-sm text-gray-500">
+                  {source.videoCount} videos • {source.hours} hours
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-      
-      {/* Problem Areas */}
-      {(data.locationsWithoutTasks.length > 0 || data.organizationsWithoutActivity.length > 0) && (
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                Areas Needing Attention
-              </h3>
-            </div>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Locations without tasks */}
-              {data.locationsWithoutTasks.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">
-                    Locations Without Tasks ({data.locationsWithoutTasks.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {data.locationsWithoutTasks.map((location) => (
-                      <div
-                        key={location.id}
-                        className="p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
-                        onClick={() => router.push(`/admin/locations/${location.id}`)}
-                      >
-                        <p className="font-medium text-gray-900 text-sm">
-                          {location.name}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {location.organizationName}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Organizations without activity */}
-              {data.organizationsWithoutActivity.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">
-                    Inactive Organizations ({data.organizationsWithoutActivity.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {data.organizationsWithoutActivity.map((org) => (
-                      <div
-                        key={org.id}
-                        className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
-                        onClick={() => router.push(`/admin/organizations/${org.id}`)}
-                      >
-                        <p className="font-medium text-gray-900 text-sm">
-                          {org.name}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {org.locationCount} locations • No recent activity
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Quick Actions */}
+
+      {/* Operations Overview - Collapsible */}
       <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => router.push('/admin/organizations/new')}
-              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors text-left group"
-            >
-              <Building2 className="h-6 w-6 text-gray-400 group-hover:text-blue-600 mb-2" />
-              <p className="font-medium text-gray-900 group-hover:text-blue-600">
-                Add Organization
-              </p>
-              <p className="text-xs text-gray-500">
-                Create a new organization
-              </p>
-            </button>
-            
-            <button
-              onClick={() => router.push('/admin/locations/new')}
-              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-colors text-left group"
-            >
-              <MapPin className="h-6 w-6 text-gray-400 group-hover:text-purple-600 mb-2" />
-              <p className="font-medium text-gray-900 group-hover:text-purple-600">
-                Add Location
-              </p>
-              <p className="text-xs text-gray-500">
-                Create a new location
-              </p>
-            </button>
-            
-            <button
-              onClick={() => router.push('/admin/users/new')}
-              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors text-left group"
-            >
-              <Users className="h-6 w-6 text-gray-400 group-hover:text-green-600 mb-2" />
-              <p className="font-medium text-gray-900 group-hover:text-green-600">
-                Add User
-              </p>
-              <p className="text-xs text-gray-500">
-                Invite a new team member
-              </p>
-            </button>
+        <button
+          onClick={() => setOperationsExpanded(!operationsExpanded)}
+          className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Operations Overview</h2>
+          {operationsExpanded ? (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+
+        {operationsExpanded && operations && (
+          <div className="p-6 border-t border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Organizations</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalOrganizations}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Locations</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalLocations}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Teleoperators</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalTeleoperators}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Tasks</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalTasks}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Completions</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalCompletions}</div>
+                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Sessions</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.totalSessions}</div>
+                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Work Time</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {Math.round(operations.totalWorkMinutes / 60)}h
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Active Now</div>
+                <div className="text-2xl font-bold text-gray-900">{operations.activeSessionsNow}</div>
+                <div className="text-xs text-gray-500 mt-1">Live sessions</div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
-}
-
-function parseTimestamp(timestamp: any): Date {
-  // If it's already a Date object
-  if (timestamp instanceof Date) {
-    return timestamp;
-  }
-  
-  // If it has a toDate method (Firestore Timestamp)
-  if (timestamp && typeof timestamp.toDate === 'function') {
-    return timestamp.toDate();
-  }
-  
-  // If it's a serialized Firestore timestamp with _seconds
-  if (timestamp && typeof timestamp._seconds === 'number') {
-    return new Date(timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000);
-  }
-  
-  // If it's a string (ISO date)
-  if (typeof timestamp === 'string') {
-    return new Date(timestamp);
-  }
-  
-  // If it's a number (milliseconds)
-  if (typeof timestamp === 'number') {
-    return new Date(timestamp);
-  }
-  
-  // Fallback to current date
-  return new Date();
-}
-
-function formatTimeAgo(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  
-  return date.toLocaleDateString();
 }
