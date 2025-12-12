@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAuth } from 'firebase/auth';
-import { User, Building2, Users, HelpCircle } from 'lucide-react';
+import { MapPin, Building2, Users, HelpCircle } from 'lucide-react';
 
 export type ContributorType = 'location_owner' | 'cleaning_company' | 'individual' | 'other';
 
@@ -20,7 +20,7 @@ interface ContributorSelectorProps {
 }
 
 export default function ContributorSelector({ value, onChange, compact = false }: ContributorSelectorProps) {
-  const [locationOwners, setLocationOwners] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,15 +36,14 @@ export default function ContributorSelector({ value, onChange, compact = false }
 
       const token = await user.getIdToken();
 
-      // Fetch location owners
-      const usersRes = await fetch('/api/admin/users?role=location_owner', {
+      // Fetch locations (for Location Owner attribution)
+      const locsRes = await fetch('/api/v1/locations', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const usersData = await usersRes.json();
-      setLocationOwners((usersData.users || []).map((u: any) => ({
-        id: u.uid,
-        name: u.displayName || u.firestore?.displayName || u.email?.split('@')[0] || 'Unknown',
-        email: u.email,
+      const locsData = await locsRes.json();
+      setLocations((locsData.locations || []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
       })));
 
       // Fetch organizations (cleaning companies)
@@ -75,14 +74,14 @@ export default function ContributorSelector({ value, onChange, compact = false }
   const handleSelectionChange = (id: string, name: string) => {
     onChange({
       ...value,
-      contributorId: value.contributorType === 'location_owner' || value.contributorType === 'individual' ? id : null,
+      contributorId: value.contributorType === 'location_owner' ? id : null,
       contributorOrgId: value.contributorType === 'cleaning_company' ? id : null,
       contributorName: name,
     });
   };
 
   const contributorTypes = [
-    { type: 'location_owner' as const, label: 'Location Owner', icon: User },
+    { type: 'location_owner' as const, label: 'Location Owner', icon: MapPin },
     { type: 'cleaning_company' as const, label: 'Cleaning Company', icon: Building2 },
     { type: 'individual' as const, label: 'Individual Contributor', icon: Users },
     { type: 'other' as const, label: 'Other', icon: HelpCircle },
@@ -119,24 +118,25 @@ export default function ContributorSelector({ value, onChange, compact = false }
         {value.contributorType === 'location_owner' && (
           <>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Location Owner
+              Select Location
             </label>
             <select
               value={value.contributorId || ''}
               onChange={(e) => {
-                const owner = locationOwners.find(o => o.id === e.target.value);
-                if (owner) handleSelectionChange(owner.id, owner.name);
+                const loc = locations.find(l => l.id === e.target.value);
+                if (loc) handleSelectionChange(loc.id, loc.name);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             >
-              <option value="">Select owner...</option>
-              {locationOwners.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.name} ({owner.email})
+              <option value="">Select location...</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500">Attribution: Owner of this location</p>
           </>
         )}
 
@@ -182,4 +182,3 @@ export default function ContributorSelector({ value, onChange, compact = false }
     </div>
   );
 }
-
