@@ -166,7 +166,37 @@ export default function DataIntelligencePage() {
     
     return data.deliveries.filter(d => d.partnerId === partnerFilter);
   }, [data, partnerFilter]);
-  
+
+  // Calculate delivered totals from deliveries array
+  const deliveredTotals = useMemo(() => {
+    if (!data || !data.deliveries) {
+      return {
+        deliveredVideos: 0,
+        deliveredHours: 0,
+        deliveredStorageGB: 0,
+      };
+    }
+
+    const totals = data.deliveries.reduce((acc, delivery) => {
+      acc.deliveredVideos += delivery.videoCount || 0;
+      acc.deliveredStorageGB += delivery.sizeGB || 0;
+      
+      // Calculate hours: use delivery.hours if available, otherwise calculate from sizeGB
+      const hours = delivery.hours !== null && delivery.hours !== undefined
+        ? delivery.hours
+        : (delivery.sizeGB || 0) / 15;
+      acc.deliveredHours += hours;
+      
+      return acc;
+    }, {
+      deliveredVideos: 0,
+      deliveredHours: 0,
+      deliveredStorageGB: 0,
+    });
+
+    return totals;
+  }, [data]);
+
   useEffect(() => {
     loadData();
     loadPartners();
@@ -422,36 +452,6 @@ export default function DataIntelligencePage() {
       formatValue: (v: number) => formatStorage(v),
     },
   ];
-
-  // Calculate delivered totals from deliveries array
-  const deliveredTotals = useMemo(() => {
-    if (!data || !data.deliveries) {
-      return {
-        deliveredVideos: 0,
-        deliveredHours: 0,
-        deliveredStorageGB: 0,
-      };
-    }
-
-    const totals = data.deliveries.reduce((acc, delivery) => {
-      acc.deliveredVideos += delivery.videoCount || 0;
-      acc.deliveredStorageGB += delivery.sizeGB || 0;
-      
-      // Calculate hours: use delivery.hours if available, otherwise calculate from sizeGB
-      const hours = delivery.hours !== null && delivery.hours !== undefined
-        ? delivery.hours
-        : (delivery.sizeGB || 0) / 15;
-      acc.deliveredHours += hours;
-      
-      return acc;
-    }, {
-      deliveredVideos: 0,
-      deliveredHours: 0,
-      deliveredStorageGB: 0,
-    });
-
-    return totals;
-  }, [data]);
 
   // Data Delivered cards (calculated from deliveries, not editable)
   const deliveredCards = [
