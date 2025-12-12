@@ -73,6 +73,8 @@ export async function GET(request: NextRequest) {
       videoCount: doc.data().videoCount || 0,
       sizeGB: doc.data().sizeGB || 0,
       description: doc.data().description || '',
+      partnerId: doc.data().partnerId || null,
+      partnerName: doc.data().partnerName || null,
       date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date || new Date().toISOString(),
     }));
 

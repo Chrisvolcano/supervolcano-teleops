@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Database, 
   Film, 
@@ -18,6 +19,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DataHoldings {
   videosCollected: number;
@@ -32,6 +34,13 @@ interface Delivery {
   sizeGB: number;
   description: string;
   date: string;
+  partnerId?: string | null;
+  partnerName?: string | null;
+}
+
+interface Partner {
+  id: string;
+  name: string;
 }
 
 interface DataSource {
@@ -59,18 +68,39 @@ interface OperationsData {
 
 export default function DataIntelligencePage() {
   const { getIdToken } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<DataIntelligenceData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [operationsExpanded, setOperationsExpanded] = useState(false);
   const [editingStat, setEditingStat] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<DataHoldings>>({});
   const [showAddDelivery, setShowAddDelivery] = useState(false);
-  const [newDelivery, setNewDelivery] = useState({ videoCount: '', sizeGB: '', description: '' });
+  const [newDelivery, setNewDelivery] = useState({ videoCount: '', sizeGB: '', description: '', partnerId: null as string | null, partnerName: null as string | null });
+  const [partnerFilter, setPartnerFilter] = useState<string>('all');
 
   useEffect(() => {
     loadData();
+    loadPartners();
   }, []);
+
+  const loadPartners = async () => {
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/organizations', {
+        headers: { 'x-firebase-token': token },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Response format: { success: true, organizations: [...], total: number }
+        const orgs = data.organizations || [];
+        setPartners(orgs.map((org: any) => ({ id: org.id, name: org.name })));
+      }
+    } catch (error) {
+      console.error('Failed to load partners:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -160,13 +190,15 @@ export default function DataIntelligencePage() {
           videoCount: parseInt(newDelivery.videoCount),
           sizeGB: parseFloat(newDelivery.sizeGB),
           description: newDelivery.description,
+          partnerId: newDelivery.partnerId || null,
+          partnerName: newDelivery.partnerName || null,
         }),
       });
 
       if (response.ok) {
         await loadData();
         setShowAddDelivery(false);
-        setNewDelivery({ videoCount: '', sizeGB: '', description: '' });
+        setNewDelivery({ videoCount: '', sizeGB: '', description: '', partnerId: null, partnerName: null });
       }
     } catch (error) {
       console.error('Failed to add delivery:', error);
@@ -237,6 +269,35 @@ export default function DataIntelligencePage() {
       value: data.holdings.totalStorageTB,
     },
   ];
+
+  // Transform deliveries into cumulative chart data
+  const chartData = useMemo(() => {
+    if (!data || data.deliveries.length < 2) {
+      return [];
+    }
+
+    // Sort by date ascending
+    const sorted = [...data.deliveries].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+
+    // Calculate running total
+    let runningTotal = 0;
+    return sorted.map((delivery) => {
+      runningTotal += delivery.videoCount;
+      const date = new Date(delivery.date);
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      return {
+        date: formattedDate,
+        total: runningTotal,
+      };
+    });
+  }, [data]);
 
   return (
     <div className="space-y-6">
@@ -330,6 +391,53 @@ export default function DataIntelligencePage() {
         </div>
       </div>
 
+      {/* Delivery Trend Chart */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Delivery Trend</h2>
+        {chartData.length < 2 ? (
+          <div className="flex items-center justify-center h-[200px] text-gray-500">
+            <p className="text-sm">Delivery trend will appear as you log deliveries</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#e5e7eb' }}
+              />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#e5e7eb' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+                labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '4px' }}
+                formatter={(value: number) => [`${value} videos`, 'Total']}
+              />
+              <Area
+                type="monotone"
+                dataKey="total"
+                stroke="#3b82f6"
+                fillOpacity={1}
+                fill="url(#colorTotal)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       {/* Delivery Log Section */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
@@ -337,20 +445,39 @@ export default function DataIntelligencePage() {
             <Package className="h-5 w-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">Delivery Log</h2>
           </div>
-          {!showAddDelivery && (
-            <button
-              onClick={() => setShowAddDelivery(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Add Entry
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {!showAddDelivery && (
+              <>
+                <select
+                  value={partnerFilter}
+                  onChange={(e) => setPartnerFilter(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Partners ({data.deliveries.length})</option>
+                  {internalCount > 0 && (
+                    <option value="internal">Internal ({internalCount})</option>
+                  )}
+                  {deliveryPartners.map(partner => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.name} ({partner.count})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddDelivery(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Entry
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {showAddDelivery && (
           <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Video Count
@@ -378,6 +505,31 @@ export default function DataIntelligencePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Partner
+                </label>
+                <select
+                  value={newDelivery.partnerId || ''}
+                  onChange={(e) => {
+                    const selectedId = e.target.value || null;
+                    const selectedPartner = partners.find(p => p.id === selectedId);
+                    setNewDelivery({
+                      ...newDelivery,
+                      partnerId: selectedId,
+                      partnerName: selectedPartner?.name || null,
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Internal / No Partner</option>
+                  {partners.map(partner => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <input
@@ -401,7 +553,7 @@ export default function DataIntelligencePage() {
               <button
                 onClick={() => {
                   setShowAddDelivery(false);
-                  setNewDelivery({ videoCount: '', sizeGB: '', description: '' });
+                  setNewDelivery({ videoCount: '', sizeGB: '', description: '', partnerId: null, partnerName: null });
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
               >
@@ -411,13 +563,13 @@ export default function DataIntelligencePage() {
           </div>
         )}
 
-        {data.deliveries.length === 0 ? (
+        {filteredDeliveries.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No deliveries recorded yet
+            {data.deliveries.length === 0 ? 'No deliveries recorded yet' : 'No deliveries match the selected filter'}
           </div>
         ) : (
           <div className="space-y-2">
-            {data.deliveries.map((delivery) => (
+            {filteredDeliveries.map((delivery) => (
               <div
                 key={delivery.id}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 group transition-colors"
@@ -428,6 +580,20 @@ export default function DataIntelligencePage() {
                       {delivery.videoCount} videos
                     </div>
                     <div className="text-xs text-gray-500">{delivery.sizeGB} GB</div>
+                  </div>
+                  <div>
+                    {delivery.partnerId ? (
+                      <button
+                        onClick={() => router.push(`/admin/partners/${delivery.partnerId}/deliveries`)}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                      >
+                        {delivery.partnerName || 'Partner'}
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        Internal
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <div className="text-sm text-gray-700">{delivery.description || 'No description'}</div>

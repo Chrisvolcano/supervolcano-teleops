@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     requireRole(claims, ['superadmin', 'admin']);
 
     const body = await request.json();
-    const { videoCount, sizeGB, description } = body;
+    const { videoCount, sizeGB, description, partnerId, partnerName } = body;
 
     if (typeof videoCount !== 'number' || typeof sizeGB !== 'number') {
       return NextResponse.json({ error: 'Invalid videoCount or sizeGB' }, { status: 400 });
@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
       videoCount,
       sizeGB,
       description: description || '',
+      partnerId: partnerId || null,
+      partnerName: partnerName || null,
       date: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     });
