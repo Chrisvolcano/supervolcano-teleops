@@ -1109,7 +1109,6 @@ export default function MediaLibraryPage() {
       {activeTab === 'overview' && (
         <OverviewTab
           media={filteredVideos}
-          filteredMedia={filteredVideos}
           stats={stats}
           totalCount={totalCount}
           filter={filter}
@@ -1154,7 +1153,6 @@ export default function MediaLibraryPage() {
       {activeTab === 'labels' && (
         <LabelReviewTab 
           media={filteredVideos}
-          filteredMedia={filteredVideos}
           onProcessBatch={processBatch}
           processing={isProcessingBatch}
           selectedIds={selectedIds}
@@ -1174,7 +1172,6 @@ export default function MediaLibraryPage() {
       {activeTab === 'export' && (
         <ExportTab 
           media={filteredVideos}
-          filteredMedia={filteredVideos}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelection}
           onSelectAll={(ids) => setSelectedIds(new Set(ids))}
