@@ -996,14 +996,6 @@ export default function MediaLibraryPage() {
           {activeTab === 'overview' && (
             <>
               {selectedIds.size > 0 && (
-                <button
-                  onClick={() => setShowBulkEditModal(true)}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  <Tag className="w-4 h-4" />
-                  Edit {selectedIds.size} Selected
-                </button>
-              )}
               <button 
                 onClick={processBatch} 
                 disabled={isProcessingBatch}
@@ -1187,6 +1179,7 @@ export default function MediaLibraryPage() {
           <div className="flex items-center gap-2"><CheckSquare className="w-5 h-5 text-blue-400" /><span className="font-medium">{selectedIds.size} selected</span></div>
           <div className="w-px h-6 bg-gray-700" />
           <button onClick={clearSelection} className="px-3 py-1 text-sm hover:bg-gray-800 rounded">Clear</button>
+          <button onClick={() => setShowBulkEditModal(true)} className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 rounded flex items-center gap-1"><Tag className="w-4 h-4" />Edit</button>
           <button onClick={handleBulkDelete} disabled={bulkActionLoading} className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded flex items-center gap-1"><Trash2 className="w-4 h-4" />Delete</button>
           <button onClick={() => handleBulkAction('reject')} disabled={bulkActionLoading} className="px-3 py-1 text-sm bg-orange-600 hover:bg-orange-700 rounded">Reject</button>
           <button onClick={() => handleBulkAction('approve')} disabled={bulkActionLoading} className="px-4 py-1 text-sm bg-green-600 hover:bg-green-700 rounded flex items-center gap-1">{bulkActionLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}Approve</button>
