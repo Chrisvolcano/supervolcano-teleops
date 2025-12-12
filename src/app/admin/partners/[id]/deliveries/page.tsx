@@ -47,6 +47,7 @@ export default function PartnerDeliveriesPage() {
       setLoading(true);
       setError(null);
       const token = await getIdToken();
+      if (!token) throw new Error('Not authenticated');
 
       // Fetch partner info
       const partnerRes = await fetch(`/api/admin/organizations/${partnerId}`, {
