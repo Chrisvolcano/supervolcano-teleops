@@ -24,6 +24,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { DriveFolderPicker } from '@/components/admin/DriveFolderPicker';
+import { useToast } from '@/components/ui/Toast';
+import { SkeletonDashboard, SkeletonCard } from '@/components/ui/Skeleton';
 
 interface DataHoldings {
   collectedVideos: number;
@@ -237,10 +239,12 @@ export default function DataIntelligencePage() {
   const { getIdToken } = useAuth();
   const router = useRouter();
   const { theme } = useTheme();
+  const { addToast } = useToast();
   const [data, setData] = useState<DataIntelligenceData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [operationsExpanded, setOperationsExpanded] = useState(false);
   const [editingStat, setEditingStat] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<DataHoldings>>({});
@@ -588,9 +592,14 @@ export default function DataIntelligencePage() {
           }
           return [...prev, sourceData];
         });
+        addToast('success', 'Drive synced', `Found ${responseData.videoCount} videos (${responseData.totalSizeGB.toFixed(1)} GB)`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        addToast('error', 'Sync failed', errorData.error || 'Could not sync Drive folder');
       }
     } catch (error) {
       console.error('Sync failed:', error);
+      addToast('error', 'Sync failed', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setSyncingSourceId(null);
     }
@@ -681,9 +690,13 @@ export default function DataIntelligencePage() {
         await loadData();
         setEditingStat(null);
         setEditValues({});
+        addToast('success', 'Holdings updated', 'Data collected values have been saved');
+      } else {
+        addToast('error', 'Update failed', 'Could not save holdings');
       }
     } catch (error) {
       console.error('Failed to update holdings:', error);
+      addToast('error', 'Update failed', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -753,9 +766,14 @@ export default function DataIntelligencePage() {
           partnerName: null 
         });
         setDescriptionError('');
+        addToast('success', 'Delivery logged', `${newDelivery.videoCount} videos recorded`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        addToast('error', 'Failed to add delivery', errorData.error || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to add delivery:', error);
+      addToast('error', 'Failed to add delivery', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -771,51 +789,18 @@ export default function DataIntelligencePage() {
 
       if (response.ok) {
         await loadData();
+        addToast('success', 'Delivery deleted', 'Delivery entry has been removed');
+      } else {
+        addToast('error', 'Delete failed', 'Could not delete delivery entry');
       }
     } catch (error) {
       console.error('Failed to delete delivery:', error);
+      addToast('error', 'Delete failed', error instanceof Error ? error.message : 'Unknown error');
     }
   };
   
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6 animate-fadeIn">
-        {/* Header skeleton */}
-        <div>
-          <div className="h-8 w-40 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-2" style={{ animationDelay: '0ms' }}></div>
-          <div className="h-5 w-64 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '50ms' }}></div>
-        </div>
-
-        {/* Data Holdings skeleton */}
-        <div className="space-y-6">
-          {/* Data Collected section */}
-          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
-            <div className="h-6 w-40 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '100ms' }}></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-full rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${150 + i * 20}ms`, minHeight: '160px' }}></div>
-              ))}
-            </div>
-          </div>
-
-          {/* Data Delivered section */}
-          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
-            <div className="h-6 w-48 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '300ms' }}></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-full rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${350 + i * 20}ms`, minHeight: '160px' }}></div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Chart skeleton */}
-        <div className="h-64 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '500ms' }}></div>
-
-        {/* Delivery log skeleton */}
-        <div className="h-48 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '550ms' }}></div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
   
   if (!data) {
@@ -915,24 +900,38 @@ export default function DataIntelligencePage() {
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
               <Database className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Data Intelligence</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
             Track data holdings, partner deliveries, and operational metrics
           </p>
         </div>
+        <button
+          onClick={async () => {
+            setIsRefreshing(true);
+            await loadData();
+            await loadDriveSources();
+            setIsRefreshing(false);
+            addToast('success', 'Data refreshed', 'All data has been updated');
+          }}
+          disabled={isRefreshing}
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+          title="Refresh data"
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
         {/* Data Collected Section */}
-        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
           <div className="flex items-center gap-3 mb-6">
-            <div className="text-orange-500">
-              <Database className="h-5 w-5" />
-              </div>
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <Database className="h-5 w-5 text-blue-500" />
+            </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
-              </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {collectedCards.map((stat, index) => {
               const isEditing = editingStat === stat.key;
@@ -964,10 +963,10 @@ export default function DataIntelligencePage() {
       </div>
       
         {/* Data Delivered to Partners Section */}
-        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
           <div className="flex items-center gap-3 mb-6">
-            <div className="text-orange-500">
-              <Send className="h-5 w-5" />
+            <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+              <Send className="h-5 w-5 text-green-500" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
           </div>
@@ -1041,7 +1040,7 @@ export default function DataIntelligencePage() {
       </div>
       
       {/* Delivery Trend Chart */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Trend</h2>
           <button
@@ -1107,7 +1106,7 @@ export default function DataIntelligencePage() {
       </div>
 
       {/* Delivery Log Section */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1339,7 +1338,7 @@ export default function DataIntelligencePage() {
       </div>
 
       {/* Data Sources Section */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FolderSync className="w-5 h-5 text-orange-500" />
@@ -1407,11 +1406,17 @@ export default function DataIntelligencePage() {
                   className="px-3 py-1.5 text-sm border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 disabled:opacity-50 flex items-center gap-2 transition-colors"
                 >
                   {syncingSourceId === source.folderId ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="relative flex h-2 w-2 ml-1">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                      </span>
+                    </>
                   ) : (
                     <RefreshCw className="w-4 h-4" />
                   )}
-                  Sync
+                  {syncingSourceId === source.folderId ? 'Syncing...' : 'Sync Now'}
             </button>
               </div>
             </div>
@@ -1428,7 +1433,7 @@ export default function DataIntelligencePage() {
       </div>
       
       {/* Operations Overview - Collapsible */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
             <button
           onClick={() => setOperationsExpanded(!operationsExpanded)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors rounded-t-2xl"

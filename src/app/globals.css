@@ -195,17 +195,36 @@ body {
     animation: slide-in 0.3s ease-out;
   }
   
-  /* Custom scrollbar */
+  /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 10px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-neutral-100;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-neutral-300 hover:bg-neutral-400;
+    background: #d1d5db;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #374151;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+  }
+
+  /* Glowing focus states */
+  input:focus, select:focus, textarea:focus {
+    @apply ring-2 ring-orange-500/20 border-orange-500;
   }
   
   /* Respect reduced motion preference */

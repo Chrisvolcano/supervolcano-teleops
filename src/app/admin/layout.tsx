@@ -9,6 +9,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -127,24 +128,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-      <AdminHeader 
-        collapsed={collapsed} 
-        onToggleSidebar={() => setCollapsed(!collapsed)}
-        currentSection={currentSection}
-      />
-      <div className="flex">
-        <AdminSidebar collapsed={collapsed} />
-        <main 
-          className={`flex-1 transition-all duration-200 pt-16 ${
-            collapsed ? 'ml-[72px]' : 'ml-[256px]'
-          }`}
-        >
-          <div className="p-6">
-            {children}
-          </div>
-        </main>
+    <ToastProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+        <AdminHeader 
+          collapsed={collapsed} 
+          onToggleSidebar={() => setCollapsed(!collapsed)}
+          currentSection={currentSection}
+        />
+        <div className="flex">
+          <AdminSidebar collapsed={collapsed} />
+          <main 
+            className={`flex-1 transition-all duration-200 pt-16 ${
+              collapsed ? 'ml-[72px]' : 'ml-[256px]'
+            }`}
+          >
+            <div className="p-6">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
