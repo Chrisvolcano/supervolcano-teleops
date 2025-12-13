@@ -91,7 +91,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
     <div className="space-y-4">
       {/* Type Selection */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Contributor Type
         </label>
         <div className={compact ? "flex flex-wrap gap-2" : "grid grid-cols-2 gap-2"}>
@@ -102,8 +102,8 @@ export default function ContributorSelector({ value, onChange, compact = false }
               onClick={() => handleTypeChange(type)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
                 value.contributorType === type
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                  ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400'
+                  : 'border-gray-200 dark:border-[#2a2a2a] hover:border-gray-300 dark:hover:border-[#3a3a3a] text-gray-600 dark:text-gray-400 bg-white dark:bg-[#1f1f1f]'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -117,7 +117,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
       <div>
         {value.contributorType === 'location_owner' && (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Location
             </label>
             <select
@@ -126,7 +126,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
                 const loc = locations.find(l => l.id === e.target.value);
                 if (loc) handleSelectionChange(loc.id, loc.name);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             >
               <option value="">Select location...</option>
@@ -136,13 +136,13 @@ export default function ContributorSelector({ value, onChange, compact = false }
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-gray-500">Attribution: Owner of this location</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Attribution: Owner of this location</p>
           </>
         )}
 
         {value.contributorType === 'cleaning_company' && (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Company
             </label>
             <select
@@ -151,7 +151,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
                 const org = organizations.find(o => o.id === e.target.value);
                 if (org) handleSelectionChange(org.id, org.name);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             >
               <option value="">Select company...</option>
@@ -166,7 +166,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
 
         {(value.contributorType === 'individual' || value.contributorType === 'other') && (
           <>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {value.contributorType === 'individual' ? 'Contributor Name' : 'Attribution'}
             </label>
             <input
@@ -174,7 +174,7 @@ export default function ContributorSelector({ value, onChange, compact = false }
               value={value.contributorName}
               onChange={(e) => onChange({ ...value, contributorName: e.target.value })}
               placeholder={value.contributorType === 'individual' ? 'e.g., John Smith' : 'e.g., Field Test December'}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </>
         )}

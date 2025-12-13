@@ -196,7 +196,7 @@ export function SettingsForms() {
   return (
     <div className="space-y-8">
       <section>
-        <Card className="border-neutral-200">
+        <Card className="border-neutral-200 dark:border-[#1f1f1f]">
           <CardHeader>
             <CardTitle>Partner &amp; Roles</CardTitle>
           </CardHeader>
@@ -204,17 +204,17 @@ export function SettingsForms() {
             {usersError ? (
               <EmptyState title="Unable to load users" description={usersError} />
             ) : usersLoading ? (
-              <p className="text-sm text-neutral-500">Loading users…</p>
+              <p className="text-sm text-neutral-500 dark:text-gray-400">Loading users…</p>
             ) : users.length ? (
               <div className="space-y-2 text-sm">
                 {users.map((account) => (
                   <div
                     key={account.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-[#1f1f1f] bg-neutral-50 dark:bg-[#1a1a1a] px-4 py-3"
                   >
                     <div>
-                      <p className="font-medium text-neutral-900">{account.email}</p>
-                      <p className="text-xs text-neutral-500">Role: {account.role}</p>
+                      <p className="font-medium text-neutral-900 dark:text-white">{account.email}</p>
+                      <p className="text-xs text-neutral-500 dark:text-gray-400">Role: {account.role}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -244,12 +244,12 @@ export function SettingsForms() {
       </section>
 
       <section>
-        <Card className="border-neutral-200">
+        <Card className="border-neutral-200 dark:border-[#1f1f1f]">
           <CardHeader>
             <CardTitle>Task taxonomy</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-neutral-500">Configure color tags for difficulty levels.</p>
+            <p className="text-sm text-neutral-500 dark:text-gray-400">Configure color tags for difficulty levels.</p>
             <div className="grid gap-4 md:grid-cols-3">
               {(["easy", "mid", "high"] as const).map((level) => (
                 <div key={level} className="space-y-2">
@@ -270,15 +270,15 @@ export function SettingsForms() {
       </section>
 
       <section>
-        <Card className="border-neutral-200">
+        <Card className="border-neutral-200 dark:border-[#1f1f1f]">
           <CardHeader>
             <CardTitle>Operations defaults</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-[#1f1f1f] bg-neutral-50 dark:bg-[#1a1a1a] px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-neutral-900">Require QC rating on close-out</p>
-                <p className="text-xs text-neutral-500">Operators must provide a rating before completing sessions.</p>
+                <p className="text-sm font-medium text-neutral-900 dark:text-white">Require QC rating on close-out</p>
+                <p className="text-xs text-neutral-500 dark:text-gray-400">Operators must provide a rating before completing sessions.</p>
               </div>
               <Switch
                 checked={settingsDoc?.requireQcOnClose ?? false}
@@ -322,11 +322,11 @@ export function SettingsForms() {
       </section>
 
       <section>
-        <Card className="border-neutral-200">
+        <Card className="border-neutral-200 dark:border-[#1f1f1f]">
           <CardHeader>
             <CardTitle>Storage &amp; media</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-neutral-600">
+          <CardContent className="space-y-2 text-sm text-neutral-600 dark:text-gray-400">
             <p>Bucket: {bucketName}</p>
             <p>Usage metrics are not available in this environment.</p>
           </CardContent>
@@ -334,15 +334,15 @@ export function SettingsForms() {
       </section>
 
       <section>
-        <Card className="border-neutral-200">
+        <Card className="border-neutral-200 dark:border-[#1f1f1f]">
           <CardHeader>
             <CardTitle>Dangerous</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-[#1f1f1f] bg-neutral-50 dark:bg-[#1a1a1a] px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-neutral-900">Recount task template counters</p>
-                <p className="text-xs text-neutral-500">Rebuild assignment and completion totals from task history.</p>
+                <p className="text-sm font-medium text-neutral-900 dark:text-white">Recount task template counters</p>
+                <p className="text-xs text-neutral-500 dark:text-gray-400">Rebuild assignment and completion totals from task history.</p>
               </div>
               <ConfirmDialog
                 title="Recount template stats"
@@ -356,11 +356,11 @@ export function SettingsForms() {
                 </Button>
               </ConfirmDialog>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-[#1f1f1f] bg-neutral-50 dark:bg-[#1a1a1a] px-4 py-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-neutral-900">Export sessions CSV</p>
-                <p className="text-xs text-neutral-500">Choose an optional range and export QC data for audits.</p>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
+                <p className="text-sm font-medium text-neutral-900 dark:text-white">Export sessions CSV</p>
+                <p className="text-xs text-neutral-500 dark:text-gray-400">Choose an optional range and export QC data for audits.</p>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-600 dark:text-gray-400">
                   <label className="flex items-center gap-2">
                     From
                     <Input
