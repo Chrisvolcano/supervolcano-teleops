@@ -654,7 +654,7 @@ export default function MediaLibraryPage() {
     switch (status) {
       case 'approved': return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">Approved</span>;
       case 'rejected': return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700">Rejected</span>;
-      default: return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">-</span>;
+      default: return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-500/20 text-gray-500 dark:text-gray-400">-</span>;
     }
   };
   const renderStars = (score: number | null) => {
@@ -665,7 +665,7 @@ export default function MediaLibraryPage() {
         {[...Array(5)].map((_, i) => (
           <Star key={i} className={`w-3 h-3 ${i < stars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
         ))}
-        <span className="text-xs text-gray-500 ml-1">{Math.round(score * 100)}%</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{Math.round(score * 100)}%</span>
       </div>
     );
   };
@@ -944,11 +944,11 @@ export default function MediaLibraryPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 dark:bg-[#0a0a0a]">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Media Library</h1>
-          <p className="text-gray-500 mt-1">Manage and process video content for AI analysis</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Media Library</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and process video content for AI analysis</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Secondary actions - subtle styling */}
@@ -957,7 +957,7 @@ export default function MediaLibraryPage() {
             <div className="relative">
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowImportDropdown(!showImportDropdown); }}
-                className="px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
+                className="px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 text-sm font-medium"
               >
                 <Upload className="w-4 h-4" />
                 Import
@@ -965,19 +965,19 @@ export default function MediaLibraryPage() {
           </button>
               
               {showImportDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-lg border border-gray-200 dark:border-[#2a2a2a] z-10">
                   <button
                     onClick={() => { setShowImportModal(true); setShowImportDropdown(false); }}
-                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 rounded-t-lg"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 rounded-t-lg"
                   >
-                    <Upload className="w-4 h-4 text-gray-500" />
+                    <Upload className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     From Device
                   </button>
                   <button
                     onClick={() => { setShowDriveModal(true); setShowImportDropdown(false); }}
-                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 rounded-b-lg"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 rounded-b-lg"
                   >
-                    <HardDrive className="w-4 h-4 text-gray-500" />
+                    <HardDrive className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     From Google Drive
           </button>
         </div>
@@ -988,7 +988,7 @@ export default function MediaLibraryPage() {
             <button 
               onClick={fetchMedia} 
               disabled={loading} 
-              className="ml-2 p-2 text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700"
+              className="ml-2 p-2 text-gray-500 dark:text-gray-400 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] hover:text-gray-700 dark:hover:text-gray-300"
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -1035,8 +1035,8 @@ export default function MediaLibraryPage() {
       })()}
 
       {/* Filter Bar */}
-      <div className="flex items-center gap-4 mb-6 px-4 py-3 bg-white rounded-lg border border-gray-200">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-4 mb-6 px-4 py-3 bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f]">
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <Filter className="w-4 h-4" />
           <span>Filters:</span>
         </div>
@@ -1045,7 +1045,7 @@ export default function MediaLibraryPage() {
         <select
           value={filterLocation}
           onChange={(e) => setFilterLocation(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 text-sm bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Locations</option>
           {availableLocations.map((loc) => (
@@ -1059,7 +1059,7 @@ export default function MediaLibraryPage() {
         <select
           value={filterContributor}
           onChange={(e) => setFilterContributor(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 text-sm bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Contributors</option>
           {availableContributors.map((name) => (
@@ -1076,14 +1076,14 @@ export default function MediaLibraryPage() {
               setFilterLocation('');
               setFilterContributor('');
             }}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
           >
             Clear
           </button>
         )}
 
         {/* Results count */}
-        <div className="ml-auto text-sm text-gray-500">
+        <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
           {filteredVideos.length} of {media.length} videos
         </div>
       </div>
@@ -1190,39 +1190,39 @@ export default function MediaLibraryPage() {
 
       {selectedVideo && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedVideoIndex(null)}>
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+          <div className="bg-white dark:bg-[#141414] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#1f1f1f] sticky top-0 bg-white dark:bg-[#141414] z-10">
               <div className="flex items-center gap-3">
-                <button onClick={() => navigateModal(-1)} disabled={selectedVideoIndex === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Previous"><ChevronLeft className="w-5 h-5" /></button>
-                <span className="text-sm text-gray-500">{(selectedVideoIndex ?? 0) + 1} of {filteredVideos.length}</span>
-                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === filteredVideos.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5" /></button>
+                <button onClick={() => navigateModal(-1)} disabled={selectedVideoIndex === 0} className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg disabled:opacity-30" title="Previous"><ChevronLeft className="w-5 h-5 text-gray-900 dark:text-white" /></button>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{(selectedVideoIndex ?? 0) + 1} of {filteredVideos.length}</span>
+                <button onClick={() => navigateModal(1)} disabled={selectedVideoIndex === filteredVideos.length - 1} className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg disabled:opacity-30" title="Next"><ChevronRight className="w-5 h-5 text-gray-900 dark:text-white" /></button>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => handleSingleDelete(selectedVideo.id)} disabled={deleteLoading} className="p-2 hover:bg-red-100 text-red-600 rounded-lg" title="Delete"><Trash2 className="w-5 h-5" /></button>
-                <button onClick={() => setSelectedVideoIndex(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+                <button onClick={() => handleSingleDelete(selectedVideo.id)} disabled={deleteLoading} className="p-2 hover:bg-red-100 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg" title="Delete"><Trash2 className="w-5 h-5" /></button>
+                <button onClick={() => setSelectedVideoIndex(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg"><X className="w-5 h-5 text-gray-900 dark:text-white" /></button>
               </div>
             </div>
             <div className="p-4 bg-black flex items-center justify-center"><video src={selectedVideo.url} controls autoPlay className="max-h-[60vh] max-w-full object-contain" /></div>
             <div className="p-6 space-y-4">
-              <div><h2 className="text-lg font-semibold">{selectedVideo.fileName}</h2><p className="text-sm text-gray-500">{selectedVideo.locationName || 'Unknown location'} • {formatDate(selectedVideo.uploadedAt)}</p></div>
+              <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedVideo.fileName}</h2><p className="text-sm text-gray-500 dark:text-gray-400">{selectedVideo.locationName || 'Unknown location'} • {formatDate(selectedVideo.uploadedAt)}</p></div>
               <div className="grid grid-cols-4 gap-4 text-sm">
-                <div><div className="text-gray-500">Duration</div><div className="font-medium">{formatDuration(selectedVideo.duration)}</div></div>
-                <div><div className="text-gray-500">Size</div><div className="font-medium">{formatSize(selectedVideo.size)}</div></div>
-                <div><div className="text-gray-500">AI Status</div><div className="font-medium flex items-center gap-1">{getStatusIcon(selectedVideo.aiStatus)}<span className="capitalize">{selectedVideo.aiStatus}</span></div></div>
-                <div><div className="text-gray-500">Training</div><div>{getTrainingBadge(selectedVideo.trainingStatus)}</div></div>
+                <div><div className="text-gray-500 dark:text-gray-400">Duration</div><div className="font-medium text-gray-900 dark:text-white">{formatDuration(selectedVideo.duration)}</div></div>
+                <div><div className="text-gray-500 dark:text-gray-400">Size</div><div className="font-medium text-gray-900 dark:text-white">{formatSize(selectedVideo.size)}</div></div>
+                <div><div className="text-gray-500 dark:text-gray-400">AI Status</div><div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">{getStatusIcon(selectedVideo.aiStatus)}<span className="capitalize">{selectedVideo.aiStatus}</span></div></div>
+                <div><div className="text-gray-500 dark:text-gray-400">Training</div><div>{getTrainingBadge(selectedVideo.trainingStatus)}</div></div>
               </div>
 
               {/* Analyze Section - Show when pending */}
               {selectedVideo.aiStatus === 'pending' && (
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-500/20 border border-slate-200 dark:border-slate-500/30 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-slate-600" />
+                      <div className="w-10 h-10 bg-slate-200 dark:bg-slate-500/30 rounded-full flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <div className="font-medium text-slate-900">Ready for AI Analysis</div>
-                        <div className="text-sm text-slate-500">Extract labels, detect actions, and score quality</div>
+                        <div className="font-medium text-slate-900 dark:text-white">Ready for AI Analysis</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Extract labels, detect actions, and score quality</div>
                       </div>
                     </div>
                     <button 
@@ -1248,12 +1248,12 @@ export default function MediaLibraryPage() {
 
               {/* Processing Section - Show when processing */}
               {selectedVideo.aiStatus === 'processing' && (
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
+                  <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 rounded-lg">
+                    <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
                     <div>
-                      <div className="font-medium text-blue-900">Analysis in Progress</div>
-                      <div className="text-sm text-blue-600">This may take a few moments...</div>
+                      <div className="font-medium text-blue-900 dark:text-blue-400">Analysis in Progress</div>
+                      <div className="text-sm text-blue-600 dark:text-blue-400">This may take a few moments...</div>
                     </div>
                   </div>
                 </div>
@@ -1261,13 +1261,13 @@ export default function MediaLibraryPage() {
 
               {/* Failed Section - Show when failed */}
               {selectedVideo.aiStatus === 'failed' && (
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
+                  <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/30 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <XCircle className="w-5 h-5 text-red-600" />
+                      <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
                       <div>
-                        <div className="font-medium text-red-900">Analysis Failed</div>
-                        <div className="text-sm text-red-600">{selectedVideo.aiError || 'An error occurred during processing'}</div>
+                        <div className="font-medium text-red-900 dark:text-red-400">Analysis Failed</div>
+                        <div className="text-sm text-red-600 dark:text-red-400">{selectedVideo.aiError || 'An error occurred during processing'}</div>
                       </div>
                     </div>
                     <button 
@@ -1284,18 +1284,18 @@ export default function MediaLibraryPage() {
 
               {/* AI Analysis Results - Show when completed or reanalyzing */}
               {reanalyzingId === selectedVideo.id ? (
-                <div className="border-t pt-4 mt-4">
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
                   <div className="flex items-center justify-center gap-3 py-8">
                     <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
                     <div>
-                      <div className="font-medium">Re-analyzing video...</div>
-                      <div className="text-sm text-gray-500">This may take 1-2 minutes</div>
+                      <div className="font-medium text-gray-900 dark:text-white">Re-analyzing video...</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">This may take 1-2 minutes</div>
                     </div>
                   </div>
                 </div>
               ) : selectedVideo.aiStatus === 'completed' ? (
-                <div className="border-t pt-4 mt-4">
-                  <h3 className="font-medium mb-3 flex items-center justify-between">
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
+                  <h3 className="font-medium mb-3 text-gray-900 dark:text-white flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
                       AI Analysis
@@ -1303,24 +1303,24 @@ export default function MediaLibraryPage() {
                     <button
                       onClick={() => handleReanalyze(selectedVideo.id)}
                       disabled={reanalyzingId === selectedVideo.id}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1 disabled:opacity-50"
                     >
                       <RefreshCw className={`w-3 h-3 ${reanalyzingId === selectedVideo.id ? 'animate-spin' : ''}`} />
                       {reanalyzingId === selectedVideo.id ? 'Processing...' : 'Re-analyze'}
                     </button>
                   </h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><div className="text-gray-500 mb-1">Quality Score</div>{renderStars(selectedVideo.aiQualityScore)}</div>
-                    <div><div className="text-gray-500 mb-1">Room Type</div><div className="font-medium capitalize">{selectedVideo.aiRoomType?.replace(/_/g, ' ') || 'Unknown'}</div></div>
-                    {selectedVideo.aiActionTypes?.length > 0 && <div><div className="text-gray-500 mb-1">Actions</div><div className="font-medium capitalize">{selectedVideo.aiActionTypes.join(', ')}</div></div>}
+                    <div><div className="text-gray-500 dark:text-gray-400 mb-1">Quality Score</div>{renderStars(selectedVideo.aiQualityScore)}</div>
+                    <div><div className="text-gray-500 dark:text-gray-400 mb-1">Room Type</div><div className="font-medium text-gray-900 dark:text-white capitalize">{selectedVideo.aiRoomType?.replace(/_/g, ' ') || 'Unknown'}</div></div>
+                    {selectedVideo.aiActionTypes?.length > 0 && <div><div className="text-gray-500 dark:text-gray-400 mb-1">Actions</div><div className="font-medium text-gray-900 dark:text-white capitalize">{selectedVideo.aiActionTypes.join(', ')}</div></div>}
                     {selectedVideo.aiObjectLabels?.length > 0 && (
                       <div className="col-span-2">
-                        <div className="text-gray-500 mb-1 flex items-center justify-between">
+                        <div className="text-gray-500 dark:text-gray-400 mb-1 flex items-center justify-between">
                           <span>Objects ({selectedVideo.aiObjectLabels.length})</span>
                           {selectedVideo.aiObjectLabels.length > 8 && (
                             <button 
                               onClick={() => setObjectsExpanded(!objectsExpanded)}
-                              className="text-xs text-blue-600 hover:text-blue-800"
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                             >
                               {objectsExpanded ? 'Show less' : 'Show all'}
                             </button>
@@ -1328,12 +1328,12 @@ export default function MediaLibraryPage() {
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {(objectsExpanded ? selectedVideo.aiObjectLabels : selectedVideo.aiObjectLabels.slice(0, 8)).map((label, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs">{label}</span>
+                            <span key={i} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-500/20 rounded text-xs text-gray-900 dark:text-white">{label}</span>
                           ))}
                           {!objectsExpanded && selectedVideo.aiObjectLabels.length > 8 && (
                             <button 
                               onClick={() => setObjectsExpanded(true)}
-                              className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500 hover:bg-gray-200"
+                              className="px-2 py-0.5 bg-gray-100 dark:bg-gray-500/20 rounded text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-500/30"
                             >
                               +{selectedVideo.aiObjectLabels.length - 8} more
                             </button>
@@ -1347,21 +1347,21 @@ export default function MediaLibraryPage() {
 
               {/* Training Corpus Section - Show when completed */}
               {selectedVideo.aiStatus === 'completed' && (
-                <div className="border-t pt-4 mt-4">
-                  <h3 className="font-medium mb-3 flex items-center gap-2"><Database className="w-4 h-4 text-blue-500" />Training Corpus</h3>
+                <div className="border-t border-gray-200 dark:border-[#1f1f1f] pt-4 mt-4">
+                  <h3 className="font-medium mb-3 text-gray-900 dark:text-white flex items-center gap-2"><Database className="w-4 h-4 text-blue-500" />Training Corpus</h3>
                   {selectedVideo.trainingStatus === 'pending' && (
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">Ready for review. Approve to add to training corpus.</div>
-                      <button onClick={() => handleSingleAction(selectedVideo.id, 'reject')} disabled={singleActionLoading} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm">Reject (R)</button>
+                      <div className="flex-1 p-3 bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 rounded-lg text-sm text-amber-700 dark:text-amber-400">Ready for review. Approve to add to training corpus.</div>
+                      <button onClick={() => handleSingleAction(selectedVideo.id, 'reject')} disabled={singleActionLoading} className="px-4 py-2 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-sm">Reject (R)</button>
                       <button onClick={() => handleSingleAction(selectedVideo.id, 'approve')} disabled={singleActionLoading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm">{singleActionLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}Approve (A)</button>
                     </div>
                   )}
-                  {selectedVideo.trainingStatus === 'approved' && <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" />Added to training corpus</div>}
-                  {selectedVideo.trainingStatus === 'rejected' && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2"><XCircle className="w-4 h-4" />Rejected from training corpus</div>}
+                  {selectedVideo.trainingStatus === 'approved' && <div className="p-3 bg-green-50 dark:bg-green-500/20 border border-green-200 dark:border-green-500/30 rounded-lg text-sm text-green-700 dark:text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />Added to training corpus</div>}
+                  {selectedVideo.trainingStatus === 'rejected' && <div className="p-3 bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/30 rounded-lg text-sm text-red-700 dark:text-red-400 flex items-center gap-2"><XCircle className="w-4 h-4" />Rejected from training corpus</div>}
                 </div>
               )}
 
-              <div className="text-xs text-gray-400 border-t pt-3 mt-4">Keyboard: ← → navigate • A approve • R reject • Del delete • Esc close</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500 border-t border-gray-200 dark:border-[#1f1f1f] pt-3 mt-4">Keyboard: ← → navigate • A approve • R reject • Del delete • Esc close</div>
             </div>
           </div>
         </div>
@@ -1370,22 +1370,22 @@ export default function MediaLibraryPage() {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg p-6 space-y-4">
+          <div className="bg-white dark:bg-[#141414] rounded-xl w-full max-w-lg p-6 space-y-4 border border-gray-200 dark:border-[#1f1f1f]">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Import Videos</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import Videos</h3>
               <button 
                 onClick={() => {
                   setShowImportModal(false);
                   setImportFiles([]);
                   setImportProgress(new Map());
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Import videos directly as admin. Videos will be auto-approved and ready for face blurring.
             </p>
             
@@ -1393,7 +1393,7 @@ export default function MediaLibraryPage() {
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleImportDrop}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer"
+              className="border-2 border-dashed border-gray-300 dark:border-[#2a2a2a] rounded-lg p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition cursor-pointer"
               onClick={() => document.getElementById('import-file-input')?.click()}
             >
               <input
@@ -1404,14 +1404,14 @@ export default function MediaLibraryPage() {
                 onChange={handleImportFiles}
                 className="hidden"
               />
-              <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+              <Upload className="w-10 h-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
               {importFiles.length === 0 ? (
                 <>
-                  <p className="text-gray-600 font-medium">Drop videos here or click to select</p>
-                  <p className="text-sm text-gray-400 mt-1">MP4, MOV, WebM supported</p>
+                  <p className="text-gray-600 dark:text-gray-400 font-medium">Drop videos here or click to select</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">MP4, MOV, WebM supported</p>
                 </>
               ) : (
-                <p className="text-blue-600 font-medium">{importFiles.length} video(s) selected</p>
+                <p className="text-blue-600 dark:text-blue-400 font-medium">{importFiles.length} video(s) selected</p>
               )}
             </div>
             
@@ -1419,11 +1419,11 @@ export default function MediaLibraryPage() {
             {importFiles.length > 0 && (
               <div className="max-h-32 overflow-y-auto space-y-2">
                 {importFiles.map((file, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
-                    <span className="truncate flex-1">{file.name}</span>
-                    <span className="text-gray-400 ml-2">{formatFileSize(file.size)}</span>
+                  <div key={i} className="flex items-center justify-between text-sm bg-gray-50 dark:bg-[#1a1a1a] rounded-lg px-3 py-2">
+                    <span className="truncate flex-1 text-gray-900 dark:text-white">{file.name}</span>
+                    <span className="text-gray-400 dark:text-gray-500 ml-2">{formatFileSize(file.size)}</span>
                     {importProgress.get(file.name) !== undefined && (
-                      <span className="text-blue-600 ml-2">{Math.round(importProgress.get(file.name) || 0)}%</span>
+                      <span className="text-blue-600 dark:text-blue-400 ml-2">{Math.round(importProgress.get(file.name) || 0)}%</span>
                     )}
                   </div>
                 ))}
@@ -1432,15 +1432,15 @@ export default function MediaLibraryPage() {
             
             {/* Attribution */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Attribution <span className="text-gray-400 font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Attribution <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
               </label>
               <input
                 type="text"
                 value={importAttribution}
                 onChange={(e) => setImportAttribution(e.target.value)}
                 placeholder="Contributor name or leave blank for 'Admin Import'"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             
@@ -1451,7 +1451,7 @@ export default function MediaLibraryPage() {
                   setImportFiles([]);
                   setImportProgress(new Map());
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                className="flex-1 px-4 py-2 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition"
               >
                 Cancel
               </button>
