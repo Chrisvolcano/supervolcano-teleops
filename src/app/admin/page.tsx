@@ -1452,7 +1452,7 @@ export default function DataIntelligencePage() {
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No Google Drive folders connected</p>
-              <p className="text-sm">Click "Add Drive Folder" to sync external data</p>
+              <p className="text-sm">Click &quot;Add Drive Folder&quot; to sync external data</p>
             </div>
           )}
         </div>
