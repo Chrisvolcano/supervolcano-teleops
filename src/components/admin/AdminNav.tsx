@@ -43,7 +43,7 @@ export function AdminNav() {
       <nav className="hidden w-64 flex-shrink-0 lg:block pl-3">
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="h-10 animate-pulse rounded-lg bg-neutral-100" />
+            <div key={index} className="h-10 animate-pulse rounded-lg bg-neutral-100 dark:bg-[#1f1f1f]" />
           ))}
         </div>
       </nav>
@@ -69,9 +69,11 @@ export function AdminNav() {
                 href={href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-2 rounded-lg px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
-                  "hover:translate-x-0.5 hover:bg-neutral-100",
-                  isActive && "bg-neutral-900 text-white hover:bg-neutral-900",
+                  "group flex items-center gap-2 rounded-lg px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-600",
+                  "hover:translate-x-0.5",
+                  isActive
+                    ? "bg-gray-100 dark:bg-[#1f1f1f] text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#1f1f1f]"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1f1f1f]",
                 )}
               >
                 <Icon className="h-4 w-4 transition group-hover:scale-105" />

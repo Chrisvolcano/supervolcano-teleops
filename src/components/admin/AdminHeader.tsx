@@ -1,42 +1,172 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { 
+  PanelLeftClose, 
+  PanelLeftOpen, 
+  Sun, 
+  Moon, 
+  HelpCircle,
+  LogOut,
+  User,
+  ChevronDown,
+  ExternalLink,
+  Keyboard,
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
-export function AdminHeader() {
+interface AdminHeaderProps {
+  collapsed: boolean;
+  onToggleSidebar: () => void;
+  currentSection: string;
+}
+
+export function AdminHeader({ collapsed, onToggleSidebar, currentSection }: AdminHeaderProps) {
+  const router = useRouter();
   const { user, claims, logout } = useAuth();
-  const role = (claims?.role as string | undefined) ?? "operator";
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const role = (claims?.role as string | undefined) ?? 'admin';
+
+  async function handleSignOut() {
+    await logout().catch(() => undefined);
+    router.push('/login');
+  }
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4">
-        <div className="flex items-center gap-6">
-          <Link href="/admin" className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500">
-            SuperVolcano
-          </Link>
-          <nav className="hidden items-center gap-4 text-sm text-neutral-500 md:flex">
-            {role === "admin" && (
-              <Link href="/admin" className="font-medium text-neutral-900">
-                Admin
-              </Link>
-            )}
-            <Link href="/docs" className="transition hover:text-neutral-900">
-              Docs
-            </Link>
-            <Link href="mailto:tony@supervolcano.ai" className="transition hover:text-neutral-900">
-              Support
-            </Link>
-          </nav>
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f] z-40 flex items-center justify-between px-4">
+      {/* Left side */}
+      <div className="flex items-center gap-4">
+        {/* Sidebar toggle */}
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          ) : (
+            <PanelLeftClose className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          )}
+        </button>
+
+        {/* Logo + Section */}
+        <div className="flex items-center gap-3">
+          <span className="text-gray-400 dark:text-gray-500 tracking-[0.2em] text-sm font-medium">
+            SUPERVOLCANO
+          </span>
+          <span className="text-gray-300 dark:text-gray-600 text-lg">|</span>
+          <span className="text-gray-900 dark:text-white tracking-[0.2em] text-sm font-semibold">
+            {currentSection}
+          </span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <div className="text-right">
-            <p className="font-medium text-neutral-900">{user?.email ?? "Unknown user"}</p>
-            <p className="text-xs uppercase tracking-wider text-neutral-500">{role}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => logout().catch(() => undefined)}>
-            Sign out
-          </Button>
+      </div>
+
+      {/* Right side */}
+      <div className="flex items-center gap-2">
+        {/* Dark mode toggle */}
+        {mounted && (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <Moon className="w-5 h-5 text-gray-600" />
+            )}
+          </button>
+        )}
+
+        {/* Help menu */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowHelpMenu(!showHelpMenu); setShowUserMenu(false); }}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+            aria-label="Help"
+          >
+            <HelpCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          </button>
+          
+          {showHelpMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowHelpMenu(false)} />
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-xl shadow-lg z-20 py-2">
+                <a
+                  href="https://docs.supervolcano.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Documentation
+                </a>
+                <a
+                  href="mailto:support@supervolcano.ai"
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Support
+                </a>
+                <div className="border-t border-gray-200 dark:border-[#2a2a2a] my-2" />
+                <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <Keyboard className="w-3 h-3" />
+                    <span>⌘/Ctrl + B: Toggle sidebar</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* User menu */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowUserMenu(!showUserMenu); setShowHelpMenu(false); }}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+          >
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {user?.email || 'Admin'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                {role}
+              </p>
+            </div>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          </button>
+
+          {showUserMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-xl shadow-lg z-20 py-2">
+                <button
+                  onClick={() => { router.push('/admin/settings'); setShowUserMenu(false); }}
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                >
+                  <User className="w-4 h-4" />
+                  Profile Settings
+                </button>
+                <div className="border-t border-gray-200 dark:border-[#2a2a2a] my-2" />
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

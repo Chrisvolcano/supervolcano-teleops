@@ -17,14 +17,12 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  Sun,
-  Moon,
   RefreshCw,
   FolderSync,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from 'next-themes';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { DriveFolderPicker } from '@/components/admin/DriveFolderPicker';
 
 interface DataHoldings {
   collectedVideos: number;
@@ -171,10 +169,10 @@ function AnimatedStatCard({
   
   return (
     <div 
-      className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none relative group transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a]"
+      className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none relative group transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] h-full flex flex-col"
       style={{ 
-        animation: 'fadeInUp 0.4s ease-out forwards',
-        animationDelay: `${delay}ms`,
+        animation: 'fadeInUp 0.3s ease-out forwards',
+        animationDelay: `${Math.min(delay, 50)}ms`,
         opacity: 0 
       }}
     >
@@ -193,41 +191,43 @@ function AnimatedStatCard({
         </div>
       </div>
 
-      {isEditing ? (
-        <div className="space-y-2">
-          <input
-            type="number"
-            step={editStep}
-            value={editValue ?? 0}
-            onChange={(e) => onEditValueChange?.(parseFloat(e.target.value) || 0)}
-            className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-2xl font-bold"
-            autoFocus
-          />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onSave}
-              className="flex-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              Save
-            </button>
-            <button
-              onClick={onCancel}
-              className="flex-1 px-3 py-1.5 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </button>
+      <div className="flex-1 flex flex-col">
+        {isEditing ? (
+          <div className="space-y-2">
+            <input
+              type="number"
+              step={editStep}
+              value={editValue ?? 0}
+              onChange={(e) => onEditValueChange?.(parseFloat(e.target.value) || 0)}
+              className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-2xl font-bold"
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onSave}
+                className="flex-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                Save
+              </button>
+              <button
+                onClick={onCancel}
+                className="flex-1 px-3 py-1.5 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white">
-            {format(animatedValue)}{suffix}
+        ) : (
+          <div>
+            <div className="text-3xl font-bold text-gray-900 dark:text-white">
+              {format(animatedValue)}{suffix}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -258,12 +258,7 @@ export default function DataIntelligencePage() {
   const [showComparison, setShowComparison] = useState(false);
   const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
   const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
-  const [showAddSource, setShowAddSource] = useState(false);
-  const [newSource, setNewSource] = useState({ folderId: '', name: '' });
-
-  // Theme setup
-  const { theme, setTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
+  const [showDrivePicker, setShowDrivePicker] = useState(false);
 
   // Custom chart tooltip component
   function CustomTooltip({ active, payload, label }: any) {
@@ -317,46 +312,75 @@ export default function DataIntelligencePage() {
   // All useMemo hooks must be at top level, before any conditional returns
   // Transform deliveries into cumulative chart data with comparison
   const { chartData, comparisonData } = useMemo(() => {
-    if (!data || !data.deliveries || data.deliveries.length < 2) {
+    console.log('[Chart] Data check:', { 
+      hasData: !!data, 
+      hasDeliveries: !!(data?.deliveries), 
+      deliveryCount: data?.deliveries?.length || 0,
+      deliveries: data?.deliveries 
+    });
+
+    if (!data || !data.deliveries || data.deliveries.length === 0) {
+      console.log('[Chart] No deliveries, returning empty');
       return { chartData: [], comparisonData: [] };
     }
 
-    // Sort by date ascending
+    // Sort by date ascending - handle both string dates and Date objects
     const sorted = [...data.deliveries].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      
+      // Check for invalid dates
+      if (isNaN(dateA) || isNaN(dateB)) {
+        console.warn('[Chart] Invalid date found:', { dateA: a.date, dateB: b.date });
+      }
+      
       return dateA - dateB;
     });
 
-    const midpoint = Math.floor(sorted.length / 2);
+    console.log('[Chart] Sorted deliveries:', sorted);
 
-    // Current period (recent half)
-    let currentTotal = 0;
-    const current = sorted.slice(midpoint).map(d => {
-      currentTotal += d.videoCount;
-      const date = new Date(d.date);
+    // Calculate cumulative totals for all deliveries
+    let cumulativeTotal = 0;
+    const chartDataPoints = sorted.map(d => {
+      cumulativeTotal += d.videoCount || 0;
+      const date = d.date ? new Date(d.date) : new Date();
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('[Chart] Invalid date, using current date:', d.date);
+      }
+      
       const formattedDate = date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       });
+      
       return {
         date: formattedDate,
-        total: currentTotal,
+        total: cumulativeTotal,
       };
     });
 
-    // Previous period (older half) - align to same x positions
-    let prevTotal = 0;
-    const previous = sorted.slice(0, midpoint).map((d, i) => ({
-      date: current[i]?.date || '',
-      previousTotal: prevTotal += d.videoCount,
-    }));
+    console.log('[Chart] Chart data points:', chartDataPoints);
 
-    // Merge for chart
-    const merged = current.map((c, i) => ({
+    // For comparison, split into two periods if we have enough data
+    const midpoint = Math.floor(sorted.length / 2);
+    let prevTotal = 0;
+    const previous = sorted.slice(0, midpoint).map((d, i) => {
+      prevTotal += d.videoCount || 0;
+      return {
+        date: chartDataPoints[i]?.date || '',
+        previousTotal: prevTotal,
+      };
+    });
+
+    // Merge comparison data
+    const merged = chartDataPoints.map((c, i) => ({
       ...c,
       previousTotal: previous[i]?.previousTotal || 0,
     }));
+
+    console.log('[Chart] Final chart data:', merged);
 
     return { chartData: merged, comparisonData: previous };
   }, [data]);
@@ -486,7 +510,6 @@ export default function DataIntelligencePage() {
   }, [data]);
   
   useEffect(() => {
-    setThemeMounted(true);
     loadData();
     loadPartners();
     loadDriveSources();
@@ -571,11 +594,8 @@ export default function DataIntelligencePage() {
     }
   }
 
-  async function addDriveSource() {
-    if (!newSource.folderId || !newSource.name) return;
-    await syncDriveSource(newSource.folderId, newSource.name);
-    setNewSource({ folderId: '', name: '' });
-    setShowAddSource(false);
+  async function handleDriveFolderSelected(folderId: string, folderName: string, sourceName: string) {
+    await syncDriveSource(folderId, sourceName);
   }
 
   function formatTimeAgo(date: Date): string {
@@ -769,9 +789,9 @@ export default function DataIntelligencePage() {
           {/* Data Collected section */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
             <div className="h-6 w-40 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '100ms' }}></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-40 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${150 + i * 50}ms` }}></div>
+                <div key={i} className="h-full rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${150 + i * 20}ms`, minHeight: '160px' }}></div>
               ))}
             </div>
           </div>
@@ -779,9 +799,9 @@ export default function DataIntelligencePage() {
           {/* Data Delivered section */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
             <div className="h-6 w-48 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '300ms' }}></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-40 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${350 + i * 50}ms` }}></div>
+                <div key={i} className="h-full rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${350 + i * 20}ms`, minHeight: '160px' }}></div>
               ))}
             </div>
           </div>
@@ -885,10 +905,10 @@ export default function DataIntelligencePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+      <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
               <Database className="h-6 w-6 text-white" />
@@ -899,20 +919,6 @@ export default function DataIntelligencePage() {
             Track data holdings, partner deliveries, and operational metrics
           </p>
         </div>
-        {/* Theme Toggle */}
-        {themeMounted && (
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-lg bg-gray-100 dark:bg-[#1f1f1f] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            ) : (
-              <Moon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
-        )}
       </div>
       
       {/* Data Holdings Section */}
@@ -925,7 +931,7 @@ export default function DataIntelligencePage() {
               </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
               </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {collectedCards.map((stat, index) => {
               const isEditing = editingStat === stat.key;
               const editValue = isEditing 
@@ -940,7 +946,7 @@ export default function DataIntelligencePage() {
                   label={stat.label + (stat.isEstimated ? ' (est.)' : '')}
                   icon={stat.icon}
                   format={stat.formatValue}
-                  delay={index * 50}
+                  delay={index * 20}
                   editable={true}
                   onEdit={() => handleEditStat(stat.key)}
                   isEditing={isEditing}
@@ -950,8 +956,8 @@ export default function DataIntelligencePage() {
                   onEditValueChange={(value) => setEditValues({ [stat.key]: value })}
                   editStep={editStep}
                 />
-              );
-            })}
+          );
+        })}
           </div>
       </div>
       
@@ -963,7 +969,7 @@ export default function DataIntelligencePage() {
             </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {deliveredCards.map((stat, index) => {
               // Calculate delta badge
               const current = index === 0 ? deliveredTotals.deliveredVideos 
@@ -985,48 +991,50 @@ export default function DataIntelligencePage() {
                 );
               }
 
-              return (
-                <div
+          return (
+            <div
                   key={stat.key}
-                  className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a]"
+                  className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] h-full flex flex-col"
                   style={{ 
-                    animation: 'fadeInUp 0.4s ease-out forwards',
-                    animationDelay: `${(index + 3) * 50}ms`,
+                    animation: 'fadeInUp 0.3s ease-out forwards',
+                    animationDelay: `${Math.min((index + 3) * 20, 100)}ms`,
                     opacity: 0 
                   }}
                 >
                   <div className="mb-4">
                     <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
                       <stat.icon className="h-6 w-6 text-orange-500" />
-                    </div>
-                  </div>
+                </div>
+                </div>
 
-                  <div className="flex items-end justify-between">
+                  <div className="flex items-end justify-between flex-1">
                     <div className="flex-1">
                       <div className="text-3xl font-bold text-gray-900 dark:text-white">
                         <AnimatedValue
                           value={isMounted ? stat.value : 0}
                           format={stat.formatValue}
                         />
-                      </div>
+              </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {stat.label}
-                      </div>
+              </div>
                       {deltaBadge}
                     </div>
-                    {index === 0 && sparklineData.videos.length >= 2 && (
-                      <Sparkline data={sparklineData.videos} />
-                    )}
-                    {index === 1 && sparklineData.hours.length >= 2 && (
-                      <Sparkline data={sparklineData.hours} />
-                    )}
-                    {index === 2 && sparklineData.storage.length >= 2 && (
-                      <Sparkline data={sparklineData.storage} />
-                    )}
+                    <div className="flex-shrink-0 ml-4">
+                      {index === 0 && sparklineData.videos.length >= 2 && (
+                        <Sparkline data={sparklineData.videos} />
+                      )}
+                      {index === 1 && sparklineData.hours.length >= 2 && (
+                        <Sparkline data={sparklineData.hours} />
+                      )}
+                      {index === 2 && sparklineData.storage.length >= 2 && (
+                        <Sparkline data={sparklineData.storage} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+            </div>
+          );
+        })}
           </div>
       </div>
       
@@ -1045,7 +1053,7 @@ export default function DataIntelligencePage() {
             Compare to last period
           </button>
             </div>
-        {chartData.length < 2 ? (
+        {chartData.length === 0 ? (
           <div className="flex items-center justify-center h-[200px] text-gray-500 dark:text-gray-400">
             <p className="text-sm">Delivery trend will appear as you log deliveries</p>
           </div>
@@ -1335,55 +1343,13 @@ export default function DataIntelligencePage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
           </div>
           <button
-            onClick={() => setShowAddSource(true)}
-            className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 transition-colors"
+            onClick={() => setShowDrivePicker(true)}
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Drive Folder
           </button>
       </div>
-      
-        {/* Add Source Form */}
-        {showAddSource && (
-          <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] bg-gray-50 dark:bg-[#0a0a0a]">
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Folder ID</label>
-                <input
-                  type="text"
-                  value={newSource.folderId}
-                  onChange={(e) => setNewSource(prev => ({ ...prev, folderId: e.target.value }))}
-                  placeholder="1ABC123xyz..."
-                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">From the Google Drive folder URL</p>
-            </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source Name</label>
-                <input
-                  type="text"
-                  value={newSource.name}
-                  onChange={(e) => setNewSource(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Training Videos Q4"
-                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-                />
-          </div>
-              <button
-                onClick={addDriveSource}
-                disabled={!newSource.folderId || !newSource.name}
-                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
-              >
-                Add & Sync
-              </button>
-              <button
-                onClick={() => { setShowAddSource(false); setNewSource({ folderId: '', name: '' }); }}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-                  </div>
-                </div>
-              )}
               
         <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
           {/* Portal Uploads - always show */}
@@ -1448,7 +1414,7 @@ export default function DataIntelligencePage() {
             </div>
           ))}
 
-          {driveSources.length === 0 && !showAddSource && (
+          {driveSources.length === 0 && !showDrivePicker && (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No Google Drive folders connected</p>
@@ -1460,7 +1426,7 @@ export default function DataIntelligencePage() {
       
       {/* Operations Overview - Collapsible */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
-        <button
+            <button
           onClick={() => setOperationsExpanded(!operationsExpanded)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors rounded-t-2xl"
         >
@@ -1470,7 +1436,7 @@ export default function DataIntelligencePage() {
           ) : (
             <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           )}
-        </button>
+            </button>
             
         {operationsExpanded && operations && (
           <div className="p-6 border-t border-gray-200 dark:border-[#1f1f1f]">
@@ -1478,11 +1444,11 @@ export default function DataIntelligencePage() {
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Organizations</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalOrganizations}</div>
-              </div>
+          </div>
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Locations</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalLocations}</div>
-              </div>
+        </div>
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Teleoperators</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTeleoperators}</div>
@@ -1520,7 +1486,13 @@ export default function DataIntelligencePage() {
           </div>
         )}
       </div>
-      </div>
+
+      {/* Drive Folder Picker Modal */}
+      <DriveFolderPicker
+        isOpen={showDrivePicker}
+        onClose={() => setShowDrivePicker(false)}
+        onSelect={handleDriveFolderSelected}
+      />
     </div>
   );
 }

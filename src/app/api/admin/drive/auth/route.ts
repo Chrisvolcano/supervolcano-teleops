@@ -1,48 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getUserClaims } from '@/lib/utils/auth';
+import { getUserClaims, requireRole } from '@/lib/utils/auth';
 
-// Force dynamic rendering to prevent build-time execution
 export const dynamic = 'force-dynamic';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_DRIVE_CLIENT_ID,
   process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-  `${process.env.NEXT_PUBLIC_APP_URL || 'https://supervolcano-teleops.vercel.app'}/auth/google-drive/callback`
+  `${process.env.NEXT_PUBLIC_APP_URL || 'https://supervolcano-teleops.vercel.app'}/api/admin/drive/callback`
 );
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/drive.readonly',
+];
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
     const claims = await getUserClaims(token);
+    if (!claims) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    requireRole(claims, ['superadmin', 'admin']);
 
-    if (!claims || !['admin', 'superadmin', 'partner_admin'].includes(claims.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Get user ID from token
+    const { adminAuth } = await import('@/lib/firebaseAdmin');
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const userId = decodedToken.uid;
 
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+      prompt: 'consent',
+      state: userId, // Pass user ID for callback
+    });
 
-    if (action === 'getAuthUrl') {
-      const authUrl = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: [
-          'https://www.googleapis.com/auth/drive.readonly',
-        ],
-        prompt: 'consent',
-      });
-
-      return NextResponse.json({ authUrl });
-    }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ authUrl });
   } catch (error: any) {
-    console.error('[Drive Auth] Error:', error);
+    console.error('[drive/auth] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
