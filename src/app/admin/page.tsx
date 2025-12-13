@@ -261,7 +261,8 @@ export default function DataIntelligencePage() {
   const [descriptionError, setDescriptionError] = useState<string>('');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [isMounted, setIsMounted] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
+  const [showComparison, setShowComparison] = useState(true);
+  const [comparisonPeriod, setComparisonPeriod] = useState<string>('week');
   const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
   const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -279,7 +280,7 @@ export default function DataIntelligencePage() {
       <div className="bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-lg p-3 shadow-lg">
         <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{label}</p>
         <p className="text-gray-900 dark:text-white font-semibold">{current} videos</p>
-        {previous !== undefined && showComparison && (
+        {previous !== undefined && previous > 0 && (
           <>
             <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">vs {previous} prev</p>
             {delta !== null && deltaPercent !== null && (
@@ -369,27 +370,63 @@ export default function DataIntelligencePage() {
 
     console.log('[Chart] Chart data points:', chartDataPoints);
 
-    // For comparison, split into two periods if we have enough data
-    const midpoint = Math.floor(sorted.length / 2);
+    // For comparison, use the selected period
+    const now = new Date();
+    let cutoffDate: Date;
+    
+    switch (comparisonPeriod) {
+      case 'week':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Calculate previous period data
+    const periodDuration = now.getTime() - cutoffDate.getTime();
+    const previousCutoff = new Date(cutoffDate.getTime() - periodDuration);
+    
     let prevTotal = 0;
-    const previous = sorted.slice(0, midpoint).map((d, i) => {
-      prevTotal += d.videoCount || 0;
+    const previous = sorted
+      .filter(d => {
+        const deliveryDate = new Date(d.date);
+        return deliveryDate >= previousCutoff && deliveryDate < cutoffDate;
+      })
+      .map((d) => {
+        prevTotal += d.videoCount || 0;
+        const date = new Date(d.date);
+        const formattedDate = date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+        return {
+          date: formattedDate,
+          previousTotal: prevTotal,
+        };
+      });
+
+    // Merge comparison data - align by date
+    const merged = chartDataPoints.map((c) => {
+      const matchingPrevious = previous.find(p => p.date === c.date);
       return {
-        date: chartDataPoints[i]?.date || '',
-        previousTotal: prevTotal,
+        ...c,
+        previousTotal: matchingPrevious?.previousTotal || 0,
       };
     });
-
-    // Merge comparison data
-    const merged = chartDataPoints.map((c, i) => ({
-      ...c,
-      previousTotal: previous[i]?.previousTotal || 0,
-    }));
 
     console.log('[Chart] Final chart data:', merged);
 
     return { chartData: merged, comparisonData: previous };
-  }, [data]);
+  }, [data, comparisonPeriod]);
 
   // Get unique partners that have deliveries
   const deliveryPartners = useMemo(() => {
@@ -449,18 +486,33 @@ export default function DataIntelligencePage() {
       };
     }
 
-    const sorted = [...data.deliveries].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateA - dateB;
+    const now = new Date();
+    let cutoffDate: Date;
+    
+    switch (comparisonPeriod) {
+      case 'week':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Calculate current period totals
+    const currentDeliveries = data.deliveries.filter(d => {
+      const deliveryDate = new Date(d.date);
+      return deliveryDate >= cutoffDate;
     });
 
-    const midpoint = Math.floor(sorted.length / 2);
-    const currentPeriod = sorted.slice(midpoint);
-    const previousPeriod = sorted.slice(0, midpoint);
-
-    // Current period totals
-    const currentTotals = currentPeriod.reduce((acc, delivery) => {
+    const currentTotals = currentDeliveries.reduce((acc, delivery) => {
       acc.deliveredVideos += delivery.videoCount || 0;
       acc.deliveredStorageGB += delivery.sizeGB || 0;
       
@@ -476,8 +528,16 @@ export default function DataIntelligencePage() {
       deliveredStorageGB: 0,
     });
 
-    // Previous period totals
-    const previousTotals = previousPeriod.reduce((acc, delivery) => {
+    // Calculate previous period totals (same duration before cutoff)
+    const periodDuration = now.getTime() - cutoffDate.getTime();
+    const previousCutoff = new Date(cutoffDate.getTime() - periodDuration);
+    
+    const previousDeliveries = data.deliveries.filter(d => {
+      const deliveryDate = new Date(d.date);
+      return deliveryDate >= previousCutoff && deliveryDate < cutoffDate;
+    });
+
+    const previousTotals = previousDeliveries.reduce((acc, delivery) => {
       acc.previousVideos += delivery.videoCount || 0;
       acc.previousStorageGB += delivery.sizeGB || 0;
       
@@ -497,7 +557,7 @@ export default function DataIntelligencePage() {
       ...currentTotals,
       ...previousTotals,
     };
-  }, [data]);
+  }, [data, comparisonPeriod]);
 
   // Create sparkline data from deliveries
   const sparklineData = useMemo(() => {
@@ -904,9 +964,9 @@ export default function DataIntelligencePage() {
           </div>
           <p className="text-gray-600 dark:text-gray-400">
             Track data holdings, partner deliveries, and operational metrics
-          </p>
-        </div>
-        <button
+        </p>
+      </div>
+            <button
           onClick={async () => {
             setIsRefreshing(true);
             await loadData();
@@ -920,7 +980,7 @@ export default function DataIntelligencePage() {
         >
           <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
-      </div>
+                </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
@@ -929,9 +989,9 @@ export default function DataIntelligencePage() {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
               <Database className="h-5 w-5 text-blue-500" />
-            </div>
+              </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
-          </div>
+              </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {collectedCards.map((stat, index) => {
               const isEditing = editingStat === stat.key;
@@ -981,13 +1041,20 @@ export default function DataIntelligencePage() {
                 : deliveredTotals.previousStorageGB;
               
               let deltaBadge = null;
-              if (previous > 0 && (showComparison || (data?.deliveries && data.deliveries.length >= 4))) {
+              if (previous > 0) {
                 const delta = current - previous;
                 const deltaPercent = ((delta / previous) * 100).toFixed(1);
                 const isPositive = delta >= 0;
                 deltaBadge = (
                   <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
                     {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
+                  </div>
+                );
+              } else if (current > 0 && previous === 0) {
+                // Show 100% increase if there's current data but no previous period data
+                deltaBadge = (
+                  <div className="text-sm font-medium mt-1 text-green-600 dark:text-green-500">
+                    ↑ 100%
                   </div>
                 );
               }
@@ -1043,17 +1110,20 @@ export default function DataIntelligencePage() {
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Trend</h2>
-          <button
-            onClick={() => setShowComparison(!showComparison)}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              showComparison 
-                ? 'bg-orange-500 text-white' 
-                : 'bg-gray-100 dark:bg-[#1f1f1f] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2a2a2a]'
-            }`}
-          >
-            Compare to last period
-          </button>
+          <div className="relative">
+            <select
+              value={comparisonPeriod}
+              onChange={(e) => setComparisonPeriod(e.target.value)}
+              className="appearance-none bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:border-gray-300 dark:hover:border-[#3a3a3a] transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+            >
+              <option value="week">vs Last Week</option>
+              <option value="month">vs Last Month</option>
+              <option value="quarter">vs Last Quarter</option>
+              <option value="year">vs Last Year</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
             </div>
+          </div>
         {chartData.length === 0 ? (
           <div className="flex items-center justify-center h-[200px] text-gray-500 dark:text-gray-400">
             <p className="text-sm">Delivery trend will appear as you log deliveries</p>
@@ -1089,7 +1159,7 @@ export default function DataIntelligencePage() {
                 strokeWidth={2.5}
                 animationDuration={1500}
               />
-              {showComparison && (
+              {showComparison && chartData.some(d => d.previousTotal > 0) && (
                 <Line
                   type="monotone"
                   dataKey="previousTotal"
@@ -1336,14 +1406,14 @@ export default function DataIntelligencePage() {
           </div>
         </div>
       </div>
-
+      
       {/* Data Sources Section */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FolderSync className="w-5 h-5 text-orange-500" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
-          </div>
+            </div>
           <button
             onClick={() => setShowDrivePicker(true)}
             className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
@@ -1351,7 +1421,7 @@ export default function DataIntelligencePage() {
             <Plus className="w-4 h-4" />
             Add Drive Folder
           </button>
-      </div>
+          </div>
               
         <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
           {/* Portal Uploads - always show */}
@@ -1376,7 +1446,7 @@ export default function DataIntelligencePage() {
                   </div>
                 </div>
               )}
-
+              
           {/* Drive Sources */}
           {driveSources.map((source) => (
             <div key={source.id} className="p-4 flex items-center justify-between group">
@@ -1390,16 +1460,16 @@ export default function DataIntelligencePage() {
                     {source.lastSync 
                       ? `Last sync: ${formatTimeAgo(new Date(source.lastSync))}`
                       : 'Never synced'}
-                  </p>
-          </div>
-        </div>
+                        </p>
+                      </div>
+                  </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <p className="font-semibold text-gray-900 dark:text-white">{source.videoCount} videos</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {source.totalSizeGB} GB • {source.estimatedHours} hrs
                   </p>
-        </div>
+                </div>
             <button
                   onClick={() => syncDriveSource(source.folderId, source.name)}
                   disabled={syncingSourceId === source.folderId}
@@ -1418,8 +1488,8 @@ export default function DataIntelligencePage() {
                   )}
                   {syncingSourceId === source.folderId ? 'Syncing...' : 'Sync Now'}
             </button>
-              </div>
             </div>
+          </div>
           ))}
 
           {driveSources.length === 0 && !showDrivePicker && (
@@ -1427,8 +1497,8 @@ export default function DataIntelligencePage() {
               <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No Google Drive folders connected</p>
               <p className="text-sm">Click &quot;Add Drive Folder&quot; to sync external data</p>
-            </div>
-          )}
+        </div>
+      )}
         </div>
       </div>
       
@@ -1460,11 +1530,11 @@ export default function DataIntelligencePage() {
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Teleoperators</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTeleoperators}</div>
-              </div>
+      </div>
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Tasks</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTasks}</div>
-              </div>
+    </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

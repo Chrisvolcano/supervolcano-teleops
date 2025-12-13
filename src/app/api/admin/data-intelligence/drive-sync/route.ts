@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
           driveId = fileInfo.data.driveId;
         }
       } catch (e) {
+        console.error('Folder access error:', e);
         return NextResponse.json({ 
           error: 'Cannot access folder. Make sure it is shared with the service account.' 
         }, { status: 400 });
