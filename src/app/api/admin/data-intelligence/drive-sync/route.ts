@@ -20,22 +20,31 @@ async function getAuth() {
 async function scanFolderRecursive(
   drive: drive_v3.Drive,
   folderId: string,
-  videoMimeTypes: string[]
+  videoMimeTypes: string[],
+  driveId?: string  // Pass driveId for shared drive queries
 ): Promise<{ totalFiles: number; totalSize: number }> {
   let totalFiles = 0;
   let totalSize = 0;
 
+  // Query parameters for shared drive support
+  const listParams: any = {
+    q: `'${folderId}' in parents and (${videoMimeTypes.map(m => `mimeType='${m}'`).join(' or ')}) and trashed=false`,
+    fields: 'nextPageToken, files(id, size)',
+    pageSize: 1000,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  };
+  
+  // If it's a shared drive, add corpora and driveId
+  if (driveId) {
+    listParams.corpora = 'drive';
+    listParams.driveId = driveId;
+  }
+
   // Get all files (videos) in this folder
   let pageToken: string | undefined;
   do {
-    const filesResponse = await drive.files.list({
-      q: `'${folderId}' in parents and (${videoMimeTypes.map(m => `mimeType='${m}'`).join(' or ')}) and trashed=false`,
-      fields: 'nextPageToken, files(id, size)',
-      pageSize: 1000,
-      pageToken,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
+    const filesResponse = await drive.files.list({ ...listParams, pageToken });
 
     const files = filesResponse.data.files || [];
     totalFiles += files.length;
@@ -43,24 +52,31 @@ async function scanFolderRecursive(
     pageToken = filesResponse.data.nextPageToken || undefined;
   } while (pageToken);
 
+  // Get subfolders with same shared drive support
+  const folderParams: any = {
+    q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: 'nextPageToken, files(id, driveId)',
+    pageSize: 100,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  };
+  
+  if (driveId) {
+    folderParams.corpora = 'drive';
+    folderParams.driveId = driveId;
+  }
+
   // Get all subfolders and scan them recursively
   let folderPageToken: string | undefined;
   do {
-    const foldersResponse = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'nextPageToken, files(id, name)',
-      pageSize: 100,
-      pageToken: folderPageToken,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
+    const foldersResponse = await drive.files.list({ ...folderParams, pageToken: folderPageToken });
 
     const subfolders = foldersResponse.data.files || [];
     
     for (const subfolder of subfolders) {
-      const subResult = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes);
-      totalFiles += subResult.totalFiles;
-      totalSize += subResult.totalSize;
+      const sub = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes, driveId || subfolder.driveId);
+      totalFiles += sub.totalFiles;
+      totalSize += sub.totalSize;
     }
     
     folderPageToken = foldersResponse.data.nextPageToken || undefined;
@@ -89,17 +105,30 @@ export async function POST(request: NextRequest) {
     const auth = await getAuth();
     const drive = google.drive({ version: 'v3', auth });
 
-    // Verify folder exists and is accessible
+    // Check if folderId is a shared drive root
+    let driveId: string | undefined;
     try {
-      await drive.files.get({ 
-        fileId: folderId, 
-        fields: 'id, name',
-        supportsAllDrives: true,
-      });
-    } catch (e) {
-      return NextResponse.json({ 
-        error: 'Cannot access folder. Make sure it is shared with the service account.' 
-      }, { status: 400 });
+      const driveInfo = await drive.drives.get({ driveId: folderId });
+      if (driveInfo.data.id) {
+        driveId = folderId; // It's a shared drive root
+      }
+    } catch {
+      // Not a shared drive root, check if it's a folder (possibly within a shared drive)
+      try {
+        const fileInfo = await drive.files.get({ 
+          fileId: folderId, 
+          fields: 'id, name, driveId',
+          supportsAllDrives: true,
+        });
+        // If folder is within a shared drive, use its driveId
+        if (fileInfo.data.driveId) {
+          driveId = fileInfo.data.driveId;
+        }
+      } catch (e) {
+        return NextResponse.json({ 
+          error: 'Cannot access folder. Make sure it is shared with the service account.' 
+        }, { status: 400 });
+      }
     }
 
     const videoMimeTypes = [
@@ -113,7 +142,7 @@ export async function POST(request: NextRequest) {
     ];
 
     // Scan folder recursively
-    const { totalFiles, totalSize } = await scanFolderRecursive(drive, folderId, videoMimeTypes);
+    const { totalFiles, totalSize } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId);
 
     // Calculate hours (15 GB/hour for 1080p 30fps)
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);

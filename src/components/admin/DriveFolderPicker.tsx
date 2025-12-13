@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Folder, FolderOpen, ChevronRight, ChevronDown, Loader2, HardDrive, Check } from 'lucide-react';
+import { X, Folder, FolderOpen, ChevronRight, ChevronDown, Loader2, HardDrive, Check, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface DriveFolder {
   id: string;
   name: string;
   hasChildren: boolean;
+  isSharedDrive?: boolean;
 }
 
 interface DriveFolderPickerProps {
@@ -214,7 +215,9 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
             className="flex-1 flex items-center gap-2"
             onClick={() => handleSelectFolder(folder)}
           >
-            {isExpanded ? (
+            {folder.isSharedDrive ? (
+              <Users className="w-5 h-5 text-blue-500" />
+            ) : isExpanded ? (
               <FolderOpen className="w-5 h-5 text-orange-500" />
             ) : (
               <Folder className="w-5 h-5 text-orange-500" />

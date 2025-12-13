@@ -24,21 +24,25 @@ export async function GET(request: NextRequest) {
 
     const drive = google.drive({ version: 'v3', auth });
 
-    // Query folders only
+    // Query folders only with Shared Drive support
     const response = await drive.files.list({
       q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name, mimeType)',
+      fields: 'files(id, name, mimeType, driveId)',
       orderBy: 'name',
       pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
 
     const folders = await Promise.all(
       (response.data.files || []).map(async (file) => {
-        // Check if folder has children
+        // Check if folder has children with Shared Drive support
         const childCheck = await drive.files.list({
           q: `'${file.id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
           fields: 'files(id)',
           pageSize: 1,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         });
 
         return {
@@ -49,7 +53,31 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ folders });
+    // If parentId === 'root', also fetch shared drives
+    let sharedDrives: Array<{ id: string; name: string; hasChildren: boolean; isSharedDrive: boolean }> = [];
+    if (parentId === 'root') {
+      try {
+        const sharedDrivesResponse = await drive.drives.list({
+          pageSize: 50,
+          fields: 'drives(id, name)',
+        });
+
+        sharedDrives = (sharedDrivesResponse.data.drives || []).map(d => ({
+          id: d.id!,
+          name: d.name!,
+          hasChildren: true,
+          isSharedDrive: true,
+        }));
+      } catch (err) {
+        // If user doesn't have access to shared drives, continue without them
+        console.warn('[drive/folders] Could not fetch shared drives:', err);
+      }
+    }
+
+    // Combine shared drives with regular folders
+    const allFolders = [...sharedDrives, ...folders];
+
+    return NextResponse.json({ folders: allFolders });
   } catch (error: any) {
     console.error('[drive/folders] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
