@@ -2,6 +2,7 @@
 
 import { Toaster } from "@/components/common/Toaster";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ThemeProvider } from "next-themes";
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -9,10 +10,12 @@ type ProvidersProps = {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <AuthProvider>
-      {children}
-      <Toaster />
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="light">
+      <AuthProvider>
+        {children}
+        <Toaster />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

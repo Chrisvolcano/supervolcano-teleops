@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Database, 
@@ -17,9 +17,12 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useTheme } from 'next-themes';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 interface DataHoldings {
   collectedVideos: number;
@@ -91,12 +94,105 @@ export default function DataIntelligencePage() {
   });
   const [descriptionError, setDescriptionError] = useState<string>('');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
+  const [isMounted, setIsMounted] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Theme setup
+  const { theme, setTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+
+  // Custom hook for animated number countup
+  function useCountUp(target: number, duration: number = 1000) {
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+      if (target === 0) { 
+        setCount(0); 
+        return; 
+      }
+
+      const startTime = Date.now();
+      const startValue = count;
+
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out
+        const current = startValue + (target - startValue) * eased;
+        
+        // Preserve decimals for non-integer values
+        if (target % 1 !== 0) {
+          setCount(parseFloat(current.toFixed(2)));
+        } else {
+          setCount(Math.floor(current));
+        }
+
+        if (progress >= 1) {
+          clearInterval(timer);
+          setCount(target);
+        }
+      }, 16);
+
+      return () => clearInterval(timer);
+    }, [target, duration]);
+
+    return count;
+  }
+
+  // Custom chart tooltip component
+  function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+
+    const current = payload.find((p: any) => p.dataKey === 'total')?.value || 0;
+    const previous = payload.find((p: any) => p.dataKey === 'previousTotal')?.value;
+    const delta = previous !== undefined ? current - previous : null;
+    const deltaPercent = previous !== undefined && previous > 0 ? ((delta! / previous) * 100).toFixed(1) : null;
+
+    return (
+      <div className="bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-lg p-3 shadow-lg">
+        <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{label}</p>
+        <p className="text-gray-900 dark:text-white font-semibold">{current} videos</p>
+        {previous !== undefined && showComparison && (
+          <>
+            <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">vs {previous} prev</p>
+            {delta !== null && deltaPercent !== null && (
+              <p className={`text-sm font-medium mt-1 ${delta >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)} ({deltaPercent}%)
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Sparkline component for mini-charts
+  function Sparkline({ data }: { data: { value: number }[] }) {
+    if (!data || data.length < 2) return null;
+
+    return (
+      <div className="h-8 w-16">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke="#f97316"
+              strokeWidth={1.5}
+              dot={false}
+              animationDuration={1000}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
 
   // All useMemo hooks must be at top level, before any conditional returns
-  // Transform deliveries into cumulative chart data
-  const chartData = useMemo(() => {
+  // Transform deliveries into cumulative chart data with comparison
+  const { chartData, comparisonData } = useMemo(() => {
     if (!data || !data.deliveries || data.deliveries.length < 2) {
-      return [];
+      return { chartData: [], comparisonData: [] };
     }
 
     // Sort by date ascending
@@ -106,20 +202,37 @@ export default function DataIntelligencePage() {
       return dateA - dateB;
     });
 
-    // Calculate running total
-    let runningTotal = 0;
-    return sorted.map((delivery) => {
-      runningTotal += delivery.videoCount;
-      const date = new Date(delivery.date);
+    const midpoint = Math.floor(sorted.length / 2);
+
+    // Current period (recent half)
+    let currentTotal = 0;
+    const current = sorted.slice(midpoint).map(d => {
+      currentTotal += d.videoCount;
+      const date = new Date(d.date);
       const formattedDate = date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       });
       return {
         date: formattedDate,
-        total: runningTotal,
+        total: currentTotal,
       };
     });
+
+    // Previous period (older half) - align to same x positions
+    let prevTotal = 0;
+    const previous = sorted.slice(0, midpoint).map((d, i) => ({
+      date: current[i]?.date || '',
+      previousTotal: prevTotal += d.videoCount,
+    }));
+
+    // Merge for chart
+    const merged = current.map((c, i) => ({
+      ...c,
+      previousTotal: previous[i]?.previousTotal || 0,
+    }));
+
+    return { chartData: merged, comparisonData: previous };
   }, [data]);
 
   // Get unique partners that have deliveries
@@ -167,21 +280,34 @@ export default function DataIntelligencePage() {
     return data.deliveries.filter(d => d.partnerId === partnerFilter);
   }, [data, partnerFilter]);
 
-  // Calculate delivered totals from deliveries array
+  // Calculate delivered totals from deliveries array with period comparison
   const deliveredTotals = useMemo(() => {
     if (!data || !data.deliveries) {
       return {
         deliveredVideos: 0,
         deliveredHours: 0,
         deliveredStorageGB: 0,
+        previousVideos: 0,
+        previousHours: 0,
+        previousStorageGB: 0,
       };
     }
 
-    const totals = data.deliveries.reduce((acc, delivery) => {
+    const sorted = [...data.deliveries].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+
+    const midpoint = Math.floor(sorted.length / 2);
+    const currentPeriod = sorted.slice(midpoint);
+    const previousPeriod = sorted.slice(0, midpoint);
+
+    // Current period totals
+    const currentTotals = currentPeriod.reduce((acc, delivery) => {
       acc.deliveredVideos += delivery.videoCount || 0;
       acc.deliveredStorageGB += delivery.sizeGB || 0;
       
-      // Calculate hours: use delivery.hours if available, otherwise calculate from sizeGB
       const hours = delivery.hours !== null && delivery.hours !== undefined
         ? delivery.hours
         : (delivery.sizeGB || 0) / 15;
@@ -194,12 +320,51 @@ export default function DataIntelligencePage() {
       deliveredStorageGB: 0,
     });
 
-    return totals;
+    // Previous period totals
+    const previousTotals = previousPeriod.reduce((acc, delivery) => {
+      acc.previousVideos += delivery.videoCount || 0;
+      acc.previousStorageGB += delivery.sizeGB || 0;
+      
+      const hours = delivery.hours !== null && delivery.hours !== undefined
+        ? delivery.hours
+        : (delivery.sizeGB || 0) / 15;
+      acc.previousHours += hours;
+      
+      return acc;
+    }, {
+      previousVideos: 0,
+      previousHours: 0,
+      previousStorageGB: 0,
+    });
+
+    return {
+      ...currentTotals,
+      ...previousTotals,
+    };
   }, [data]);
 
+  // Create sparkline data from deliveries
+  const sparklineData = useMemo(() => {
+    if (!data || !data.deliveries || data.deliveries.length < 2) {
+      return { videos: [], hours: [], storage: [] };
+    }
+
+    const sorted = [...data.deliveries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let videoTotal = 0, hourTotal = 0, storageTotal = 0;
+
+    return {
+      videos: sorted.slice(-10).map(d => ({ value: videoTotal += d.videoCount })),
+      hours: sorted.slice(-10).map(d => ({ value: hourTotal += (d.hours || d.sizeGB / 15) })),
+      storage: sorted.slice(-10).map(d => ({ value: storageTotal += d.sizeGB })),
+    };
+  }, [data]);
+  
   useEffect(() => {
+    setThemeMounted(true);
     loadData();
     loadPartners();
+    // Trigger mount animation after a brief delay
+    setTimeout(() => setIsMounted(true), 100);
   }, []);
   
   const loadPartners = async () => {
@@ -391,8 +556,41 @@ export default function DataIntelligencePage() {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6 animate-fadeIn">
+        {/* Header skeleton */}
+        <div>
+          <div className="h-8 w-40 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-2" style={{ animationDelay: '0ms' }}></div>
+          <div className="h-5 w-64 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '50ms' }}></div>
+        </div>
+
+        {/* Data Holdings skeleton */}
+        <div className="space-y-6">
+          {/* Data Collected section */}
+          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
+            <div className="h-6 w-40 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '100ms' }}></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-40 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${150 + i * 50}ms` }}></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Data Delivered section */}
+          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
+            <div className="h-6 w-48 rounded bg-gray-200 dark:bg-[#1f1f1f] animate-pulse mb-4" style={{ animationDelay: '300ms' }}></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-40 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: `${350 + i * 50}ms` }}></div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chart skeleton */}
+        <div className="h-64 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '500ms' }}></div>
+
+        {/* Delivery log skeleton */}
+        <div className="h-48 rounded-2xl bg-gray-200 dark:bg-[#1f1f1f] animate-pulse" style={{ animationDelay: '550ms' }}></div>
       </div>
     );
   }
@@ -453,6 +651,11 @@ export default function DataIntelligencePage() {
     },
   ];
 
+  // Animated values for collected cards (hooks must be at top level)
+  const collectedVideosAnimated = useCountUp(isMounted ? collectedCards[0].value : 0, 1000);
+  const collectedHoursAnimated = useCountUp(isMounted ? collectedCards[1].value : 0, 1000);
+  const collectedStorageAnimated = useCountUp(isMounted ? collectedCards[2].value : 0, 1000);
+
   // Data Delivered cards (calculated from deliveries, not editable)
   const deliveredCards = [
     {
@@ -485,60 +688,91 @@ export default function DataIntelligencePage() {
     },
   ];
 
+  // Animated values for delivered cards (hooks must be at top level)
+  const deliveredVideosAnimated = useCountUp(isMounted ? deliveredCards[0].value : 0, 1000);
+  const deliveredHoursAnimated = useCountUp(isMounted ? deliveredCards[1].value : 0, 1000);
+  const deliveredStorageAnimated = useCountUp(isMounted ? deliveredCards[2].value : 0, 1000);
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6">
       {/* Header */}
+      <div className="flex items-center justify-between">
       <div>
-        <div className="flex items-center gap-3 mb-2">
-          <Database className="h-8 w-8 text-gray-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Data Intelligence</h1>
-        </div>
-        <p className="text-gray-600">
-          Track data holdings, partner deliveries, and operational metrics
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
+              <Database className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Data Intelligence</h1>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            Track data holdings, partner deliveries, and operational metrics
         </p>
       </div>
+        {/* Theme Toggle */}
+        {themeMounted && (
+            <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-lg bg-gray-100 dark:bg-[#1f1f1f] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            ) : (
+              <Moon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            )}
+            </button>
+        )}
+                </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
         {/* Data Collected Section */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Database className="h-5 w-5 text-blue-600" />
-                </div>
-            <h2 className="text-lg font-semibold text-gray-900">Data Collected</h2>
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="text-orange-500">
+              <Database className="h-5 w-5" />
+              </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
               </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {collectedCards.map((stat) => {
+            {collectedCards.map((stat, index) => {
               const Icon = stat.icon;
               const isEditing = editingStat === stat.key;
               // When editing, use the stored value from data.holdings, not the calculated display value
               const editValue = isEditing 
                 ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
                 : stat.value;
+              
+              // Get animated value based on card index
+              const animatedValue = index === 0 ? collectedVideosAnimated 
+                : index === 1 ? collectedHoursAnimated 
+                : collectedStorageAnimated;
 
           return (
             <div
                   key={stat.key}
-                  className="bg-white border border-gray-200 rounded-xl p-6 relative group hover:shadow-md transition-shadow"
+                  className={`bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none relative group transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] ${
+                    isMounted ? '' : 'opacity-0'
+                  }`}
+                  style={isMounted ? { 
+                    animation: 'fadeInUp 0.4s ease-out forwards',
+                    animationDelay: `${index * 50}ms`
+                  } : {}}
                 >
                   {!isEditing && (
                     <button
                       onClick={() => handleEditStat(stat.key)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                   )}
                   
-              <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-blue-600" />
+              <div className="mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
+                      <Icon className="h-6 w-6 text-orange-500" />
                 </div>
-                    <div className="text-sm font-medium text-gray-600 flex-1">
-                      {stat.label}
                 </div>
-      </div>
       
                   {isEditing ? (
                     <div className="space-y-2">
@@ -547,189 +781,260 @@ export default function DataIntelligencePage() {
                         step={stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1'}
                         value={editValue}
                         onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-bold"
+                        className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-2xl font-bold"
                         autoFocus
                       />
             <div className="flex items-center gap-2">
                         <button
                           onClick={handleSaveStat}
-                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 text-sm"
+                          className="flex-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
                         >
                           <Save className="w-4 h-4" />
                           Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-1 text-sm"
+                          className="flex-1 px-3 py-1.5 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
                         >
                           <X className="w-4 h-4" />
                           Cancel
                         </button>
+              </div>
+              </div>
+                  ) : (
+                    <div>
+                      <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {stat.formatValue(animatedValue)}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {stat.label}
+                        {stat.isEstimated && (
+                          <span className="ml-2">(est.)</span>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stat.formatValue(stat.value)}
-                      {stat.isEstimated && (
-                        <span className="text-sm font-normal text-gray-500 ml-2">(est.)</span>
-                      )}
-                    </div>
                   )}
-                  </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Data Delivered to Partners Section */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <Send className="h-5 w-5 text-green-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Data Delivered to Partners</h2>
+          );
+        })}
+          </div>
+      </div>
+      
+        {/* Data Delivered to Partners Section */}
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="text-orange-500">
+              <Send className="h-5 w-5" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {deliveredCards.map((stat) => {
+            {deliveredCards.map((stat, index) => {
               const Icon = stat.icon;
+              // Get animated value based on card index
+              const animatedValue = index === 0 ? deliveredVideosAnimated 
+                : index === 1 ? deliveredHoursAnimated 
+                : deliveredStorageAnimated;
 
               return (
                 <div
                   key={stat.key}
-                  className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                  className={`bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] ${
+                    isMounted ? '' : 'opacity-0'
+                  }`}
+                  style={isMounted ? { 
+                    animation: 'fadeInUp 0.4s ease-out forwards',
+                    animationDelay: `${(index + 3) * 50}ms`
+                  } : {}}
                 >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div className="text-sm font-medium text-gray-600 flex-1">
-                      {stat.label}
-                    </div>
-                  </div>
+                  <div className="mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
+                      <Icon className="h-6 w-6 text-orange-500" />
+                      </div>
+                      </div>
 
-                  <div className="text-2xl font-bold text-gray-900">
-                    {stat.formatValue(stat.value)}
+                  <div className="flex items-end justify-between">
+                    <div className="flex-1">
+                      <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {stat.formatValue(animatedValue)}
+                    </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {stat.label}
+                    </div>
+                      {/* Delta badge */}
+                      {(() => {
+                        const current = index === 0 ? deliveredTotals.deliveredVideos 
+                          : index === 1 ? deliveredTotals.deliveredHours 
+                          : deliveredTotals.deliveredStorageGB;
+                        const previous = index === 0 ? deliveredTotals.previousVideos 
+                          : index === 1 ? deliveredTotals.previousHours 
+                          : deliveredTotals.previousStorageGB;
+                        
+                        if (previous > 0 && (showComparison || (data?.deliveries && data.deliveries.length >= 4))) {
+                          const delta = current - previous;
+                          const deltaPercent = ((delta / previous) * 100).toFixed(1);
+                          const isPositive = delta >= 0;
+                          
+                          return (
+                            <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                              {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
                   </div>
-                </div>
-              );
-            })}
+                          );
+                        }
+                        return null;
+                      })()}
+              </div>
+                    {index === 0 && sparklineData.videos.length >= 2 && (
+                      <Sparkline data={sparklineData.videos} />
+                    )}
+                    {index === 1 && sparklineData.hours.length >= 2 && (
+                      <Sparkline data={sparklineData.hours} />
+                    )}
+                    {index === 2 && sparklineData.storage.length >= 2 && (
+                      <Sparkline data={sparklineData.storage} />
+            )}
           </div>
         </div>
-      </div>
-      
-      {/* Delivery Trend Chart */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Delivery Trend</h2>
-        {chartData.length < 2 ? (
-          <div className="flex items-center justify-center h-[200px] text-gray-500">
-            <p className="text-sm">Delivery trend will appear as you log deliveries</p>
+              );
+            })}
+            </div>
           </div>
+        </div>
+        
+      {/* Delivery Trend Chart */}
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Trend</h2>
+          <button
+            onClick={() => setShowComparison(!showComparison)}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              showComparison 
+                ? 'bg-orange-500 text-white' 
+                : 'bg-gray-100 dark:bg-[#1f1f1f] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2a2a2a]'
+            }`}
+          >
+            Compare to last period
+          </button>
+                    </div>
+        {chartData.length < 2 ? (
+          <div className="flex items-center justify-center h-[200px] text-gray-500 dark:text-gray-400">
+            <p className="text-sm">Delivery trend will appear as you log deliveries</p>
+                    </div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis 
                 dataKey="date" 
                 tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#e5e7eb' }}
+                axisLine={{ stroke: theme === 'dark' ? '#1f1f1f' : '#e5e7eb' }}
               />
               <YAxis 
                 tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#e5e7eb' }}
+                axisLine={{ stroke: theme === 'dark' ? '#1f1f1f' : '#e5e7eb' }}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
-                labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '4px' }}
-                formatter={(value: number) => [`${value} videos`, 'Total']}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
                 dataKey="total"
-                stroke="#3b82f6"
-                fillOpacity={1}
-                fill="url(#colorTotal)"
+                stroke="#f97316"
+                fill="url(#orangeGradient)"
+                strokeWidth={2.5}
+                animationDuration={1500}
               />
+              {showComparison && (
+                <Line
+                  type="monotone"
+                  dataKey="previousTotal"
+                  stroke="#6b7280"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  animationDuration={1500}
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         )}
-      </div>
+                    </div>
 
       {/* Delivery Log Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Delivery Log</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            {!showAddDelivery && (
-              <>
-                <select
-                  value={partnerFilter}
-                  onChange={(e) => setPartnerFilter(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Partners ({data.deliveries.length})</option>
-                  {internalCount > 0 && (
-                    <option value="internal">Internal ({internalCount})</option>
-                  )}
-                  {deliveryPartners.map(partner => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.name} ({partner.count})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAddDelivery(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Entry
-                </button>
-              </>
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
+        <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-orange-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Log</h2>
+                  </div>
+            <div className="flex items-center gap-3">
+              {!showAddDelivery && (
+                <>
+                  <select
+                    value={partnerFilter}
+                    onChange={(e) => setPartnerFilter(e.target.value)}
+                    className="px-3 py-1.5 text-sm bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                  >
+                    <option value="all">All Partners ({data.deliveries.length})</option>
+                    {internalCount > 0 && (
+                      <option value="internal">Internal ({internalCount})</option>
+                    )}
+                    {deliveryPartners.map(partner => (
+                      <option key={partner.id} value={partner.id}>
+                        {partner.name} ({partner.count})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowAddDelivery(true)}
+                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Entry
+                  </button>
+                </>
             )}
           </div>
         </div>
-
+      </div>
+      
         {showAddDelivery && (
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f]">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date <span className="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <input
                   type="date"
                   value={newDelivery.date}
                   onChange={(e) => setNewDelivery({ ...newDelivery, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   required
                 />
-              </div>
+            </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Video Count
                 </label>
                 <input
                   type="number"
                   value={newDelivery.videoCount}
                   onChange={(e) => setNewDelivery({ ...newDelivery, videoCount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   placeholder="0"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+          </div>
+                <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Size (GB)
                 </label>
                 <input
@@ -737,12 +1042,12 @@ export default function DataIntelligencePage() {
                   step="0.01"
                   value={newDelivery.sizeGB}
                   onChange={(e) => setNewDelivery({ ...newDelivery, sizeGB: e.target.value, hours: '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   placeholder="0.00"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Hours
                 </label>
                 <input
@@ -750,17 +1055,17 @@ export default function DataIntelligencePage() {
                   step="0.1"
                   value={newDelivery.hours}
                   onChange={(e) => setNewDelivery({ ...newDelivery, hours: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   placeholder="Auto-calculated"
                 />
                 {newDelivery.sizeGB && !newDelivery.hours && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Will calculate: {(parseFloat(newDelivery.sizeGB) / 15).toFixed(1)} hrs
                   </p>
                 )}
-              </div>
+                      </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Partner
                 </label>
                 <select
@@ -774,7 +1079,7 @@ export default function DataIntelligencePage() {
                       partnerName: selectedPartner?.name || null,
                     });
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                 >
                   <option value="">Internal / No Partner</option>
                   {partners.map(partner => (
@@ -786,8 +1091,8 @@ export default function DataIntelligencePage() {
               </div>
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Description <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <input
                 type="text"
@@ -796,21 +1101,21 @@ export default function DataIntelligencePage() {
                   setNewDelivery({ ...newDelivery, description: e.target.value });
                   if (descriptionError) setDescriptionError('');
                 }}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  descriptionError ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 ${
+                  descriptionError ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-[#2a2a2a]'
                 }`}
                 placeholder="Delivery description"
                 required
               />
               {descriptionError && (
-                <p className="text-xs text-red-500 mt-1">{descriptionError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">{descriptionError}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleAddDelivery}
                 disabled={!newDelivery.videoCount || !newDelivery.sizeGB || !newDelivery.description?.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 text-sm font-medium transition-colors"
               >
                 <Save className="w-4 h-4" />
                 Save Entry
@@ -829,76 +1134,78 @@ export default function DataIntelligencePage() {
                   });
                   setDescriptionError('');
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                className="px-4 py-2 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg text-sm transition-colors"
               >
                 Cancel
               </button>
+                  </div>
+                </div>
+              )}
+              
+        <div className="p-6">
+          {filteredDeliveries.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              {data.deliveries.length === 0 ? 'No deliveries recorded yet' : 'No deliveries match the selected filter'}
             </div>
-          </div>
-        )}
-
-        {filteredDeliveries.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {data.deliveries.length === 0 ? 'No deliveries recorded yet' : 'No deliveries match the selected filter'}
-          </div>
-        ) : (
-                  <div className="space-y-2">
-            {filteredDeliveries.map((delivery) => (
-              <div
-                key={delivery.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 group transition-colors"
-              >
-                <div className="flex items-center gap-6 flex-1">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
+          ) : (
+            <div className="space-y-0">
+              {filteredDeliveries.map((delivery) => (
+                <div
+                  key={delivery.id}
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] border-b border-gray-100 dark:border-[#1f1f1f] group transition-colors animate-fadeIn last:border-b-0"
+                >
+                  <div className="flex items-center gap-6 flex-1">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
                       </div>
                   </div>
                 <div>
-                    {delivery.partnerId ? (
-                      <button
-                        onClick={() => router.push(`/admin/partners/${delivery.partnerId}/deliveries`)}
-                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                      >
-                        {delivery.partnerName || 'Partner'}
-                      </button>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        Internal
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-700">{delivery.description}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(delivery.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                      </div>
-                  </div>
+                      {delivery.partnerId ? (
+                        <button
+                          onClick={() => router.push(`/admin/partners/${delivery.partnerId}/deliveries`)}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-500 border border-orange-200 dark:border-orange-500/20 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors"
+                        >
+                          {delivery.partnerName || 'Partner'}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/20">
+                          Internal
+                        </span>
+              )}
+            </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-700 dark:text-gray-300">{delivery.description}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(delivery.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+          </div>
+        </div>
+        </div>
+            <button
+                    onClick={() => handleDeleteDelivery(delivery.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+            </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteDelivery(delivery.id)}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+              ))}
                 </div>
               )}
+        </div>
       </div>
 
       {/* Data Sources Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Sources</h2>
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Data Sources</h2>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#1f1f1f]">
             <div>
-              <div className="font-medium text-gray-900">Portal Uploads</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-medium text-gray-900 dark:text-white">Portal Uploads</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 {data.sources.find(s => s.name === 'Portal Uploads')?.videoCount || 0} videos • {' '}
                 {data.sources.find(s => s.name === 'Portal Uploads')?.hours || 0} hours
               </div>
@@ -907,11 +1214,11 @@ export default function DataIntelligencePage() {
           {data.sources.filter(s => s.name !== 'Portal Uploads').map((source) => (
             <div
               key={source.name}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#1f1f1f]"
             >
               <div>
-                <div className="font-medium text-gray-900">{source.name}</div>
-                <div className="text-sm text-gray-500">
+                <div className="font-medium text-gray-900 dark:text-white">{source.name}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {source.videoCount} videos • {source.hours} hours
                 </div>
               </div>
@@ -921,62 +1228,62 @@ export default function DataIntelligencePage() {
       </div>
       
       {/* Operations Overview - Collapsible */}
-      <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
             <button
           onClick={() => setOperationsExpanded(!operationsExpanded)}
-          className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors rounded-t-2xl"
         >
-          <h2 className="text-lg font-semibold text-gray-900">Operations Overview</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Operations Overview</h2>
           {operationsExpanded ? (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           ) : (
-            <ChevronRight className="w-5 h-5 text-gray-400" />
+            <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           )}
             </button>
             
         {operationsExpanded && operations && (
-          <div className="p-6 border-t border-gray-200">
+          <div className="p-6 border-t border-gray-200 dark:border-[#1f1f1f]">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Organizations</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalOrganizations}</div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Organizations</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalOrganizations}</div>
+          </div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Locations</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalLocations}</div>
+        </div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Teleoperators</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTeleoperators}</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Locations</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalLocations}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Teleoperators</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalTeleoperators}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Total Tasks</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalTasks}</div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Tasks</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTasks}</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Completions</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalCompletions}</div>
-                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Completions</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalCompletions}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last 30 days</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Sessions</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.totalSessions}</div>
-                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Sessions</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalSessions}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last 30 days</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Work Time</div>
-                <div className="text-2xl font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Work Time</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {Math.round(operations.totalWorkMinutes / 60)}h
                 </div>
-                <div className="text-xs text-gray-500 mt-1">Last 30 days</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last 30 days</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Active Now</div>
-                <div className="text-2xl font-bold text-gray-900">{operations.activeSessionsNow}</div>
-                <div className="text-xs text-gray-500 mt-1">Live sessions</div>
+              <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Now</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.activeSessionsNow}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Live sessions</div>
               </div>
             </div>
           </div>
