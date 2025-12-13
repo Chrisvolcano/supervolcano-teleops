@@ -108,8 +108,8 @@ export default function UsersTable() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Failed to load users</h3>
-          <p className="text-neutral-600 mb-4">{error.message}</p>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Failed to load users</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error.message}</p>
           <Button onClick={() => void refresh()} variant="outline">
             Try Again
           </Button>
@@ -123,14 +123,14 @@ export default function UsersTable() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Users className="w-6 h-6 text-neutral-700" />
-          <h2 className="text-2xl font-bold">Users</h2>
+          <Users className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Users</h2>
           <div className="flex gap-2">
-            <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 rounded-full text-sm font-medium">
+            <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full text-sm font-medium">
               {stats.total} total
             </span>
             {stats.issues > 0 && (
-              <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+              <span className="px-2.5 py-1 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-400 rounded-full text-sm font-medium">
                 {stats.issues} need sync
               </span>
             )}
@@ -173,7 +173,7 @@ export default function UsersTable() {
       {/* Search and Filters */}
       <div className="flex gap-3">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
           <Input
             type="text"
             placeholder="Search by email or name..."
@@ -182,7 +182,7 @@ export default function UsersTable() {
               setSearchQuery(e.target.value);
               handleSearch(e.target.value);
             }}
-            className="pl-10"
+            className="pl-10 bg-white dark:bg-[#1a1a1a] border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
         <Button
@@ -205,16 +205,16 @@ export default function UsersTable() {
       ) : users.length === 0 ? (
         <EmptyState onRefresh={() => void refresh()} />
       ) : (
-        <div className="border rounded-lg overflow-hidden bg-white">
+        <div className="border border-gray-200 dark:border-[#1f1f1f] rounded-xl overflow-hidden bg-white dark:bg-[#141414]">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-gray-50 dark:bg-[#0a0a0a]">
+                  <TableHead className="text-gray-500 dark:text-gray-400 uppercase">User</TableHead>
+                  <TableHead className="text-gray-500 dark:text-gray-400 uppercase">Role</TableHead>
+                  <TableHead className="text-gray-500 dark:text-gray-400 uppercase">Organization</TableHead>
+                  <TableHead className="text-gray-500 dark:text-gray-400 uppercase">Status</TableHead>
+                  <TableHead className="text-right text-gray-500 dark:text-gray-400 uppercase">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

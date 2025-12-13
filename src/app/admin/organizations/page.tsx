@@ -48,14 +48,14 @@ export default function OrganizationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Organizations</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Organizations</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Manage OEM partners and location owners
               </p>
             </div>
@@ -71,15 +71,15 @@ export default function OrganizationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b">
+      <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('oem_partners')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'oem_partners'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-500'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Factory className="w-4 h-4" />
@@ -89,8 +89,8 @@ export default function OrganizationsPage() {
               onClick={() => setActiveTab('location_owner')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'location_owner'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-500'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Building2 className="w-4 h-4" />
@@ -108,17 +108,17 @@ export default function OrganizationsPage() {
           </div>
         ) : organizations.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-[#1a1a1a] rounded-full flex items-center justify-center mx-auto mb-4">
               {activeTab === 'oem_partners' ? (
-                <Factory className="w-8 h-8 text-gray-400" />
+                <Factory className="w-8 h-8 text-gray-400 dark:text-gray-500" />
               ) : (
-                <Building2 className="w-8 h-8 text-gray-400" />
+                <Building2 className="w-8 h-8 text-gray-400 dark:text-gray-500" />
               )}
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               No {activeTab === 'oem_partners' ? 'OEM Partners' : 'Location Owners'} Yet
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Create your first organization to get started
             </p>
             <button

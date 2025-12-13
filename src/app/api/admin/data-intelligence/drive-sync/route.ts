@@ -74,7 +74,7 @@ async function scanFolderRecursive(
     const subfolders = foldersResponse.data.files || [];
     
     for (const subfolder of subfolders) {
-      const sub = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes, driveId || subfolder.driveId);
+      const sub = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes, driveId || subfolder.driveId || undefined);
       totalFiles += sub.totalFiles;
       totalSize += sub.totalSize;
     }

@@ -48,7 +48,7 @@ export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
 
   return (
     <>
-      <TableRow className="hover:bg-neutral-50 transition-colors">
+      <TableRow className="hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors border-gray-100 dark:border-[#1f1f1f]">
         {/* User Info */}
         <TableCell>
           <div className="flex items-center gap-3">
@@ -58,8 +58,8 @@ export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div className="font-medium text-neutral-900">{displayName}</div>
-              <div className="text-sm text-neutral-500">{user.email}</div>
+              <div className="font-medium text-gray-900 dark:text-white">{displayName}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
             </div>
           </div>
         </TableCell>
@@ -71,13 +71,13 @@ export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
 
         {/* Organization */}
         <TableCell>
-          <span className="text-sm text-neutral-600">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
             {organization ? (
-              <span className="px-2 py-1 bg-neutral-100 rounded text-xs font-mono">
+              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-500/20 rounded text-xs font-mono text-gray-700 dark:text-gray-400">
                 {organization.slice(0, 8)}...
               </span>
             ) : (
-              <span className="text-neutral-400">—</span>
+              <span className="text-gray-400 dark:text-gray-500">—</span>
             )}
           </span>
         </TableCell>
@@ -106,7 +106,7 @@ export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
               variant="ghost"
               size="sm"
               onClick={() => setShowDeleteModal(true)}
-              className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete
@@ -135,7 +135,7 @@ export function UserRow({ user, onEdit, onDeleted }: UserRowProps) {
 function RoleBadge({ role }: { role?: UserRole }) {
   if (!role) {
     return (
-      <span className="px-2 py-1 bg-neutral-100 text-neutral-600 rounded text-xs font-medium">
+      <span className="px-2 py-1 bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded text-xs font-medium">
         No role
       </span>
     );
@@ -145,52 +145,52 @@ function RoleBadge({ role }: { role?: UserRole }) {
     string,
     { bg: string; text: string; label: string }
   > = {
-    admin: { bg: "bg-purple-100", text: "text-purple-800", label: "Admin" },
+    admin: { bg: "bg-purple-100 dark:bg-purple-500/20", text: "text-purple-700 dark:text-purple-400", label: "Admin" },
     superadmin: {
-      bg: "bg-purple-100",
-      text: "text-purple-800",
+      bg: "bg-purple-100 dark:bg-purple-500/20",
+      text: "text-purple-700 dark:text-purple-400",
       label: "Super Admin",
     },
     org_manager: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
+      bg: "bg-blue-100 dark:bg-blue-500/20",
+      text: "text-blue-700 dark:text-blue-400",
       label: "Org Manager",
     },
     partner_manager: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
+      bg: "bg-blue-100 dark:bg-blue-500/20",
+      text: "text-blue-700 dark:text-blue-400",
       label: "Partner Manager",
     },
     partner_admin: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
+      bg: "bg-blue-100 dark:bg-blue-500/20",
+      text: "text-blue-700 dark:text-blue-400",
       label: "Partner Admin",
     },
     location_owner: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
+      bg: "bg-blue-100 dark:bg-blue-500/20",
+      text: "text-blue-700 dark:text-blue-400",
       label: "Location Owner",
     },
     oem_teleoperator: {
-      bg: "bg-green-100",
-      text: "text-green-800",
+      bg: "bg-green-100 dark:bg-green-500/20",
+      text: "text-green-700 dark:text-green-400",
       label: "OEM Teleoperator",
     },
     location_cleaner: {
-      bg: "bg-green-100",
-      text: "text-green-800",
+      bg: "bg-green-100 dark:bg-green-500/20",
+      text: "text-green-700 dark:text-green-400",
       label: "Location Cleaner",
     },
     teleoperator: {
-      bg: "bg-green-100",
-      text: "text-green-800",
+      bg: "bg-green-100 dark:bg-green-500/20",
+      text: "text-green-700 dark:text-green-400",
       label: "Teleoperator",
     },
   };
 
   const config =
     configs[role] ||
-    { bg: "bg-neutral-100", text: "text-neutral-800", label: role };
+    { bg: "bg-gray-100 dark:bg-gray-500/20", text: "text-gray-700 dark:text-gray-400", label: role };
 
   return (
     <span
@@ -212,30 +212,30 @@ function SyncStatusBadge({
   const configs = {
     synced: {
       icon: CheckCircle,
-      bg: "bg-green-50",
-      text: "text-green-700",
-      border: "border-green-200",
+      bg: "bg-green-100 dark:bg-green-500/20",
+      text: "text-green-700 dark:text-green-400",
+      border: "border-green-200 dark:border-green-500/30",
       label: "Synced",
     },
     auth_only: {
       icon: AlertCircle,
-      bg: "bg-yellow-50",
-      text: "text-yellow-700",
-      border: "border-yellow-200",
+      bg: "bg-yellow-100 dark:bg-yellow-500/20",
+      text: "text-yellow-700 dark:text-yellow-400",
+      border: "border-yellow-200 dark:border-yellow-500/30",
       label: "Auth only",
     },
     firestore_only: {
       icon: AlertCircle,
-      bg: "bg-yellow-50",
-      text: "text-yellow-700",
-      border: "border-yellow-200",
+      bg: "bg-yellow-100 dark:bg-yellow-500/20",
+      text: "text-yellow-700 dark:text-yellow-400",
+      border: "border-yellow-200 dark:border-yellow-500/30",
       label: "Firestore only",
     },
     mismatched: {
       icon: AlertCircle,
-      bg: "bg-red-50",
-      text: "text-red-700",
-      border: "border-red-200",
+      bg: "bg-red-100 dark:bg-red-500/20",
+      text: "text-red-700 dark:text-red-400",
+      border: "border-red-200 dark:border-red-500/30",
       label: "Out of sync",
     },
   };
@@ -255,7 +255,7 @@ function SyncStatusBadge({
       {/* Tooltip on hover */}
       {issues.length > 0 && (
         <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10">
-          <div className="bg-neutral-900 text-white text-xs rounded px-3 py-2 whitespace-nowrap shadow-lg">
+          <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded px-3 py-2 whitespace-nowrap shadow-lg">
             <div className="font-semibold mb-1">Issues:</div>
             {issues.map((issue, i) => (
               <div key={i}>• {issue}</div>
