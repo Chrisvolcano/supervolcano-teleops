@@ -21,6 +21,7 @@ import {
   FolderSync,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from 'next-themes';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { DriveFolderPicker } from '@/components/admin/DriveFolderPicker';
 
@@ -235,6 +236,7 @@ function AnimatedStatCard({
 export default function DataIntelligencePage() {
   const { getIdToken } = useAuth();
   const router = useRouter();
+  const { theme } = useTheme();
   const [data, setData] = useState<DataIntelligenceData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -1102,7 +1104,7 @@ export default function DataIntelligencePage() {
             </AreaChart>
           </ResponsiveContainer>
         )}
-                    </div>
+      </div>
 
       {/* Delivery Log Section */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
@@ -1334,6 +1336,7 @@ export default function DataIntelligencePage() {
             )}
           </div>
         </div>
+      </div>
 
       {/* Data Sources Section */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
