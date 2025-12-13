@@ -888,7 +888,7 @@ export default function DataIntelligencePage() {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-      <div>
+        <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
               <Database className="h-6 w-6 text-white" />
@@ -897,11 +897,11 @@ export default function DataIntelligencePage() {
           </div>
           <p className="text-gray-600 dark:text-gray-400">
             Track data holdings, partner deliveries, and operational metrics
-        </p>
-      </div>
+          </p>
+        </div>
         {/* Theme Toggle */}
         {themeMounted && (
-            <button
+          <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-2 rounded-lg bg-gray-100 dark:bg-[#1f1f1f] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
             aria-label="Toggle theme"
@@ -911,7 +911,7 @@ export default function DataIntelligencePage() {
             ) : (
               <Moon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
             )}
-            </button>
+          </button>
         )}
       </div>
       
@@ -1460,7 +1460,7 @@ export default function DataIntelligencePage() {
       
       {/* Operations Overview - Collapsible */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
-            <button
+        <button
           onClick={() => setOperationsExpanded(!operationsExpanded)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors rounded-t-2xl"
         >
@@ -1470,7 +1470,7 @@ export default function DataIntelligencePage() {
           ) : (
             <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           )}
-            </button>
+        </button>
             
         {operationsExpanded && operations && (
           <div className="p-6 border-t border-gray-200 dark:border-[#1f1f1f]">
@@ -1478,11 +1478,11 @@ export default function DataIntelligencePage() {
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Organizations</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalOrganizations}</div>
-          </div>
+              </div>
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Locations</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalLocations}</div>
-        </div>
+              </div>
               <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Teleoperators</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{operations.totalTeleoperators}</div>
@@ -1519,6 +1519,7 @@ export default function DataIntelligencePage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
