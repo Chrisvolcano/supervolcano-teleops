@@ -83,9 +83,17 @@ SQL_DATABASE=supervolcano_production
 
 # Cron Secret (generate with: openssl rand -base64 32)
 CRON_SECRET=your-super-secret-cron-key-here
+
+# Google Drive API (Optional - for Data Intelligence Drive sync)
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 **⚠️ Security Note**: Never commit `.env.local` to version control. The admin private key should retain literal `\n` characters. When copying from a JSON service account, surround the value with quotes and keep `\n` escapes.
+
+### Optional: Google Drive Sync
+
+To enable Google Drive folder sync in the Data Intelligence dashboard, see [GOOGLE_DRIVE_SETUP.md](./GOOGLE_DRIVE_SETUP.md) for detailed setup instructions.
 
 ## Project Structure
 

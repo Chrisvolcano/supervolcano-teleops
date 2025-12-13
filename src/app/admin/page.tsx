@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Database, 
@@ -19,6 +19,8 @@ import {
   Loader2,
   Sun,
   Moon,
+  RefreshCw,
+  FolderSync,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
@@ -45,14 +47,25 @@ interface Delivery {
 }
 
 interface Partner {
-  id: string;
-  name: string;
+    id: string;
+    name: string;
 }
-
+  
 interface DataSource {
-  name: string;
+    name: string;
   videoCount: number;
   hours: number;
+}
+
+interface DriveSource {
+    id: string;
+  folderId: string;
+    name: string;
+  type: 'drive';
+  videoCount: number;
+  totalSizeGB: number;
+  estimatedHours: number;
+  lastSync: string | null;
 }
 
 interface DataIntelligenceData {
@@ -65,11 +78,158 @@ interface OperationsData {
   totalOrganizations: number;
   totalLocations: number;
   totalTeleoperators: number;
-  totalTasks: number;
+    totalTasks: number;
   totalCompletions: number;
   totalSessions: number;
   totalWorkMinutes: number;
   activeSessionsNow: number;
+}
+
+// Custom hook for animated number countup - MUST be at module level
+function useCountUp(target: number, duration: number = 1000) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (target === 0) { 
+      setCount(0); 
+      return; 
+    }
+
+    const startTime = Date.now();
+    const startValue = count;
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out
+      const current = startValue + (target - startValue) * eased;
+      
+      // Preserve decimals for non-integer values
+      if (target % 1 !== 0) {
+        setCount(parseFloat(current.toFixed(2)));
+      } else {
+        setCount(Math.floor(current));
+      }
+
+      if (progress >= 1) {
+        clearInterval(timer);
+        setCount(target);
+      }
+    }, 16);
+
+    return () => clearInterval(timer);
+  }, [target, duration]);
+
+  return count;
+}
+
+// Animated Value Component - just the animated number
+function AnimatedValue({ 
+  value, 
+  format = (v: number) => v.toLocaleString(),
+}: {
+  value: number;
+  format?: (v: number) => string;
+}) {
+  const animatedValue = useCountUp(value, 1000);
+  return <>{format(animatedValue)}</>;
+}
+
+// Animated Stat Card Component - encapsulates useCountUp hook
+function AnimatedStatCard({ 
+  value, 
+  label, 
+  icon: Icon, 
+  format = (v: number) => v.toLocaleString(),
+  delay = 0,
+  editable = false,
+  onEdit,
+  suffix,
+  isEditing = false,
+  editValue,
+  onSave,
+  onCancel,
+  onEditValueChange,
+  editStep = '1',
+}: {
+  value: number;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  format?: (v: number) => string;
+  delay?: number;
+  editable?: boolean;
+  onEdit?: () => void;
+  suffix?: string;
+  isEditing?: boolean;
+  editValue?: number;
+  onSave?: () => void;
+  onCancel?: () => void;
+  onEditValueChange?: (value: number) => void;
+  editStep?: string;
+}) {
+  const animatedValue = useCountUp(value, 1000);
+  
+  return (
+    <div 
+      className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none relative group transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a]"
+      style={{ 
+        animation: 'fadeInUp 0.4s ease-out forwards',
+        animationDelay: `${delay}ms`,
+        opacity: 0 
+      }}
+    >
+      {!isEditing && editable && onEdit && (
+        <button 
+          onClick={onEdit}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded transition-all"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
+      )}
+
+      <div className="mb-4">
+        <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
+          <Icon className="h-6 w-6 text-orange-500" />
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-2">
+          <input
+            type="number"
+            step={editStep}
+            value={editValue ?? 0}
+            onChange={(e) => onEditValueChange?.(parseFloat(e.target.value) || 0)}
+            className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-2xl font-bold"
+            autoFocus
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onSave}
+              className="flex-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Save
+            </button>
+            <button
+              onClick={onCancel}
+              className="flex-1 px-3 py-1.5 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white">
+            {format(animatedValue)}{suffix}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function DataIntelligencePage() {
@@ -96,48 +256,14 @@ export default function DataIntelligencePage() {
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [isMounted, setIsMounted] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
+  const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [newSource, setNewSource] = useState({ folderId: '', name: '' });
 
   // Theme setup
   const { theme, setTheme } = useTheme();
   const [themeMounted, setThemeMounted] = useState(false);
-
-  // Custom hook for animated number countup
-  function useCountUp(target: number, duration: number = 1000) {
-    const [count, setCount] = useState(0);
-
-    useEffect(() => {
-      if (target === 0) { 
-        setCount(0); 
-        return; 
-      }
-
-      const startTime = Date.now();
-      const startValue = count;
-
-      const timer = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // ease-out
-        const current = startValue + (target - startValue) * eased;
-        
-        // Preserve decimals for non-integer values
-        if (target % 1 !== 0) {
-          setCount(parseFloat(current.toFixed(2)));
-        } else {
-          setCount(Math.floor(current));
-        }
-
-        if (progress >= 1) {
-          clearInterval(timer);
-          setCount(target);
-        }
-      }, 16);
-
-      return () => clearInterval(timer);
-    }, [target, duration]);
-
-    return count;
-  }
 
   // Custom chart tooltip component
   function CustomTooltip({ active, payload, label }: any) {
@@ -363,6 +489,7 @@ export default function DataIntelligencePage() {
     setThemeMounted(true);
     loadData();
     loadPartners();
+    loadDriveSources();
     // Trigger mount animation after a brief delay
     setTimeout(() => setIsMounted(true), 100);
   }, []);
@@ -384,6 +511,80 @@ export default function DataIntelligencePage() {
       console.error('Failed to load partners:', error);
     }
   };
+
+  async function loadDriveSources() {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const response = await fetch('/api/admin/data-intelligence/drive-sync', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDriveSources(data.sources || []);
+      }
+    } catch (error) {
+      console.error('Failed to load drive sources:', error);
+    }
+  }
+
+  async function syncDriveSource(folderId: string, name: string) {
+    setSyncingSourceId(folderId);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch('/api/admin/data-intelligence/drive-sync', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId, sourceName: name }),
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        // API returns { success: true, folderId, name, type, videoCount, totalSizeGB, estimatedHours, lastSync, ... }
+        // lastSync is already serialized as ISO string by NextResponse.json
+        const sourceData: DriveSource = {
+          id: responseData.folderId,
+          folderId: responseData.folderId,
+          name: responseData.name,
+          type: 'drive',
+          videoCount: responseData.videoCount,
+          totalSizeGB: responseData.totalSizeGB,
+          estimatedHours: responseData.estimatedHours,
+          lastSync: responseData.lastSync || null,
+        };
+        setDriveSources(prev => {
+          const existing = prev.findIndex(s => s.folderId === folderId);
+          if (existing >= 0) {
+            const updated = [...prev];
+            updated[existing] = sourceData;
+            return updated;
+          }
+          return [...prev, sourceData];
+        });
+      }
+    } catch (error) {
+      console.error('Sync failed:', error);
+    } finally {
+      setSyncingSourceId(null);
+    }
+  }
+
+  async function addDriveSource() {
+    if (!newSource.folderId || !newSource.name) return;
+    await syncDriveSource(newSource.folderId, newSource.name);
+    setNewSource({ folderId: '', name: '' });
+    setShowAddSource(false);
+  }
+
+  function formatTimeAgo(date: Date): string {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hrs ago`;
+    return `${Math.floor(seconds / 86400)} days ago`;
+  }
 
   const loadData = async () => {
     try {
@@ -651,11 +852,6 @@ export default function DataIntelligencePage() {
     },
   ];
 
-  // Animated values for collected cards (hooks must be at top level)
-  const collectedVideosAnimated = useCountUp(isMounted ? collectedCards[0].value : 0, 1000);
-  const collectedHoursAnimated = useCountUp(isMounted ? collectedCards[1].value : 0, 1000);
-  const collectedStorageAnimated = useCountUp(isMounted ? collectedCards[2].value : 0, 1000);
-
   // Data Delivered cards (calculated from deliveries, not editable)
   const deliveredCards = [
     {
@@ -688,11 +884,6 @@ export default function DataIntelligencePage() {
     },
   ];
 
-  // Animated values for delivered cards (hooks must be at top level)
-  const deliveredVideosAnimated = useCountUp(isMounted ? deliveredCards[0].value : 0, 1000);
-  const deliveredHoursAnimated = useCountUp(isMounted ? deliveredCards[1].value : 0, 1000);
-  const deliveredStorageAnimated = useCountUp(isMounted ? deliveredCards[2].value : 0, 1000);
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] space-y-6 p-6">
       {/* Header */}
@@ -722,7 +913,7 @@ export default function DataIntelligencePage() {
             )}
             </button>
         )}
-                </div>
+      </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
@@ -736,87 +927,31 @@ export default function DataIntelligencePage() {
               </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {collectedCards.map((stat, index) => {
-              const Icon = stat.icon;
               const isEditing = editingStat === stat.key;
-              // When editing, use the stored value from data.holdings, not the calculated display value
               const editValue = isEditing 
                 ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
                 : stat.value;
-              
-              // Get animated value based on card index
-              const animatedValue = index === 0 ? collectedVideosAnimated 
-                : index === 1 ? collectedHoursAnimated 
-                : collectedStorageAnimated;
+              const editStep = stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1';
 
-          return (
-            <div
+              return (
+                <AnimatedStatCard
                   key={stat.key}
-                  className={`bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none relative group transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] ${
-                    isMounted ? '' : 'opacity-0'
-                  }`}
-                  style={isMounted ? { 
-                    animation: 'fadeInUp 0.4s ease-out forwards',
-                    animationDelay: `${index * 50}ms`
-                  } : {}}
-                >
-                  {!isEditing && (
-                    <button
-                      onClick={() => handleEditStat(stat.key)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded transition-all"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                  
-              <div className="mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
-                      <Icon className="h-6 w-6 text-orange-500" />
-                </div>
-                </div>
-      
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <input
-                        type="number"
-                        step={stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1'}
-                        value={editValue}
-                        onChange={(e) => setEditValues({ [stat.key]: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-2xl font-bold"
-                        autoFocus
-                      />
-            <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleSaveStat}
-                          className="flex-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
-                        >
-                          <Save className="w-4 h-4" />
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="flex-1 px-3 py-1.5 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center gap-1 text-sm transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </button>
-              </div>
-              </div>
-                  ) : (
-                    <div>
-                      <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                        {stat.formatValue(animatedValue)}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {stat.label}
-                        {stat.isEstimated && (
-                          <span className="ml-2">(est.)</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-            </div>
-          );
-        })}
+                  value={isMounted ? stat.value : 0}
+                  label={stat.label + (stat.isEstimated ? ' (est.)' : '')}
+                  icon={stat.icon}
+                  format={stat.formatValue}
+                  delay={index * 50}
+                  editable={true}
+                  onEdit={() => handleEditStat(stat.key)}
+                  isEditing={isEditing}
+                  editValue={editValue}
+                  onSave={handleSaveStat}
+                  onCancel={handleCancelEdit}
+                  onEditValueChange={(value) => setEditValues({ [stat.key]: value })}
+                  editStep={editStep}
+                />
+              );
+            })}
           </div>
       </div>
       
@@ -830,60 +965,55 @@ export default function DataIntelligencePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {deliveredCards.map((stat, index) => {
-              const Icon = stat.icon;
-              // Get animated value based on card index
-              const animatedValue = index === 0 ? deliveredVideosAnimated 
-                : index === 1 ? deliveredHoursAnimated 
-                : deliveredStorageAnimated;
+              // Calculate delta badge
+              const current = index === 0 ? deliveredTotals.deliveredVideos 
+                : index === 1 ? deliveredTotals.deliveredHours 
+                : deliveredTotals.deliveredStorageGB;
+              const previous = index === 0 ? deliveredTotals.previousVideos 
+                : index === 1 ? deliveredTotals.previousHours 
+                : deliveredTotals.previousStorageGB;
+              
+              let deltaBadge = null;
+              if (previous > 0 && (showComparison || (data?.deliveries && data.deliveries.length >= 4))) {
+                const delta = current - previous;
+                const deltaPercent = ((delta / previous) * 100).toFixed(1);
+                const isPositive = delta >= 0;
+                deltaBadge = (
+                  <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                    {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
+                  </div>
+                );
+              }
 
               return (
                 <div
                   key={stat.key}
-                  className={`bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] ${
-                    isMounted ? '' : 'opacity-0'
-                  }`}
-                  style={isMounted ? { 
+                  className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a]"
+                  style={{ 
                     animation: 'fadeInUp 0.4s ease-out forwards',
-                    animationDelay: `${(index + 3) * 50}ms`
-                  } : {}}
+                    animationDelay: `${(index + 3) * 50}ms`,
+                    opacity: 0 
+                  }}
                 >
                   <div className="mb-4">
                     <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-3">
-                      <Icon className="h-6 w-6 text-orange-500" />
-                      </div>
-                      </div>
+                      <stat.icon className="h-6 w-6 text-orange-500" />
+                    </div>
+                  </div>
 
                   <div className="flex items-end justify-between">
                     <div className="flex-1">
                       <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                        {stat.formatValue(animatedValue)}
-                    </div>
+                        <AnimatedValue
+                          value={isMounted ? stat.value : 0}
+                          format={stat.formatValue}
+                        />
+                      </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {stat.label}
+                      </div>
+                      {deltaBadge}
                     </div>
-                      {/* Delta badge */}
-                      {(() => {
-                        const current = index === 0 ? deliveredTotals.deliveredVideos 
-                          : index === 1 ? deliveredTotals.deliveredHours 
-                          : deliveredTotals.deliveredStorageGB;
-                        const previous = index === 0 ? deliveredTotals.previousVideos 
-                          : index === 1 ? deliveredTotals.previousHours 
-                          : deliveredTotals.previousStorageGB;
-                        
-                        if (previous > 0 && (showComparison || (data?.deliveries && data.deliveries.length >= 4))) {
-                          const delta = current - previous;
-                          const deltaPercent = ((delta / previous) * 100).toFixed(1);
-                          const isPositive = delta >= 0;
-                          
-                          return (
-                            <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                              {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
-                  </div>
-                          );
-                        }
-                        return null;
-                      })()}
-              </div>
                     {index === 0 && sparklineData.videos.length >= 2 && (
                       <Sparkline data={sparklineData.videos} />
                     )}
@@ -892,15 +1022,14 @@ export default function DataIntelligencePage() {
                     )}
                     {index === 2 && sparklineData.storage.length >= 2 && (
                       <Sparkline data={sparklineData.storage} />
-            )}
-          </div>
-        </div>
+                    )}
+                  </div>
+                </div>
               );
             })}
-            </div>
           </div>
-        </div>
-        
+      </div>
+      
       {/* Delivery Trend Chart */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
         <div className="flex items-center justify-between mb-4">
@@ -915,11 +1044,11 @@ export default function DataIntelligencePage() {
           >
             Compare to last period
           </button>
-                    </div>
+            </div>
         {chartData.length < 2 ? (
           <div className="flex items-center justify-center h-[200px] text-gray-500 dark:text-gray-400">
             <p className="text-sm">Delivery trend will appear as you log deliveries</p>
-                    </div>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={chartData}>
@@ -975,7 +1104,7 @@ export default function DataIntelligencePage() {
               <Package className="h-5 w-5 text-orange-500" />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Log</h2>
                   </div>
-            <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3">
               {!showAddDelivery && (
                 <>
                   <select
@@ -1002,7 +1131,7 @@ export default function DataIntelligencePage() {
                   </button>
                 </>
             )}
-          </div>
+                      </div>
         </div>
       </div>
       
@@ -1020,7 +1149,7 @@ export default function DataIntelligencePage() {
                   className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   required
                 />
-            </div>
+                      </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Video Count
@@ -1032,7 +1161,7 @@ export default function DataIntelligencePage() {
                   className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   placeholder="0"
                 />
-          </div>
+                    </div>
                 <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Size (GB)
@@ -1063,7 +1192,7 @@ export default function DataIntelligencePage() {
                     Will calculate: {(parseFloat(newDelivery.sizeGB) / 15).toFixed(1)} hrs
                   </p>
                 )}
-                      </div>
+                    </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Partner
@@ -1109,8 +1238,8 @@ export default function DataIntelligencePage() {
               />
               {descriptionError && (
                 <p className="text-xs text-red-500 dark:text-red-400 mt-1">{descriptionError}</p>
-              )}
-            </div>
+            )}
+          </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleAddDelivery}
@@ -1138,11 +1267,11 @@ export default function DataIntelligencePage() {
               >
                 Cancel
               </button>
-                  </div>
-                </div>
+            </div>
+          </div>
               )}
               
-        <div className="p-6">
+          <div className="p-6">
           {filteredDeliveries.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               {data.deliveries.length === 0 ? 'No deliveries recorded yet' : 'No deliveries match the selected filter'}
@@ -1158,8 +1287,8 @@ export default function DataIntelligencePage() {
                     <div>
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
-                      </div>
-                  </div>
+                    </div>
+                    </div>
                 <div>
                       {delivery.partnerId ? (
                         <button
@@ -1173,7 +1302,7 @@ export default function DataIntelligencePage() {
                           Internal
                         </span>
               )}
-            </div>
+                    </div>
                     <div className="flex-1">
                       <div className="text-sm text-gray-700 dark:text-gray-300">{delivery.description}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1191,39 +1320,141 @@ export default function DataIntelligencePage() {
                   >
                     <Trash2 className="w-4 h-4" />
             </button>
-                </div>
-              ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Data Sources Section */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Data Sources</h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#1f1f1f]">
-            <div>
-              <div className="font-medium text-gray-900 dark:text-white">Portal Uploads</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {data.sources.find(s => s.name === 'Portal Uploads')?.videoCount || 0} videos • {' '}
-                {data.sources.find(s => s.name === 'Portal Uploads')?.hours || 0} hours
-              </div>
-            </div>
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none">
+        <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FolderSync className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
           </div>
-          {data.sources.filter(s => s.name !== 'Portal Uploads').map((source) => (
-            <div
-              key={source.name}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-[#1f1f1f]"
-            >
-              <div>
-                <div className="font-medium text-gray-900 dark:text-white">{source.name}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {source.videoCount} videos • {source.hours} hours
+          <button
+            onClick={() => setShowAddSource(true)}
+            className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Drive Folder
+          </button>
+      </div>
+      
+        {/* Add Source Form */}
+        {showAddSource && (
+          <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] bg-gray-50 dark:bg-[#0a0a0a]">
+            <div className="flex items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Folder ID</label>
+                <input
+                  type="text"
+                  value={newSource.folderId}
+                  onChange={(e) => setNewSource(prev => ({ ...prev, folderId: e.target.value }))}
+                  placeholder="1ABC123xyz..."
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">From the Google Drive folder URL</p>
+            </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source Name</label>
+                <input
+                  type="text"
+                  value={newSource.name}
+                  onChange={(e) => setNewSource(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Training Videos Q4"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                />
+          </div>
+              <button
+                onClick={addDriveSource}
+                disabled={!newSource.folderId || !newSource.name}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              >
+                Add & Sync
+              </button>
+              <button
+                onClick={() => { setShowAddSource(false); setNewSource({ folderId: '', name: '' }); }}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+                  </div>
                 </div>
+              )}
+              
+        <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
+          {/* Portal Uploads - always show */}
+          {data && (
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
+                  <Film className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Portal Uploads</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Direct uploads from mobile app</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {data.sources.find(s => s.name === 'Portal Uploads')?.videoCount || 0} videos
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {data.sources.find(s => s.name === 'Portal Uploads')?.hours || 0} hrs
+                </p>
+                  </div>
+                </div>
+              )}
+
+          {/* Drive Sources */}
+          {driveSources.map((source) => (
+            <div key={source.id} className="p-4 flex items-center justify-between group">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                  <HardDrive className="w-5 h-5 text-blue-500" />
+            </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{source.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {source.lastSync 
+                      ? `Last sync: ${formatTimeAgo(new Date(source.lastSync))}`
+                      : 'Never synced'}
+                  </p>
+          </div>
+        </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-white">{source.videoCount} videos</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {source.totalSizeGB} GB • {source.estimatedHours} hrs
+                  </p>
+        </div>
+            <button
+                  onClick={() => syncDriveSource(source.folderId, source.name)}
+                  disabled={syncingSourceId === source.folderId}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 disabled:opacity-50 flex items-center gap-2 transition-colors"
+                >
+                  {syncingSourceId === source.folderId ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Sync
+            </button>
               </div>
             </div>
           ))}
+
+          {driveSources.length === 0 && !showAddSource && (
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No Google Drive folders connected</p>
+              <p className="text-sm">Click "Add Drive Folder" to sync external data</p>
+            </div>
+          )}
         </div>
       </div>
       
