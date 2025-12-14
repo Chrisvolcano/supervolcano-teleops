@@ -1371,7 +1371,7 @@ export default function DataIntelligencePage() {
                 <div>
                       {delivery.partnerId ? (
                         <button
-                          onClick={() => router.push(`/admin/partners/${delivery.partnerId}/deliveries`)}
+                          onClick={() => router.push(`/admin/organizations/${delivery.partnerId}?tab=deliveries`)}
                           className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-500 border border-orange-200 dark:border-orange-500/20 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors"
                         >
                           {delivery.partnerName || 'Partner'}
