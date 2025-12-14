@@ -300,7 +300,7 @@ export default function OrganizationDetailPage() {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{organization.name}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
                     organization.status === "active"
                       ? "bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400"
                       : "bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-400"
@@ -309,7 +309,19 @@ export default function OrganizationDetailPage() {
                   {organization.status}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {organization.partnerId ? "OEM Partner" : "Location Owner"}
+                  {(() => {
+                    // Try to get type from organization object (may not be in type definition but exists in data)
+                    const orgType = (organization as any).type;
+                    if (orgType === "oem_partner") return "OEM Partner";
+                    if (orgType === "location_owner") return "Location Owner";
+                    if (orgType === "supervolcano") return "SuperVolcano";
+                    // Fallback: derive from ID prefix
+                    if (organizationId.startsWith("oem:")) return "OEM Partner";
+                    if (organizationId.startsWith("owner:")) return "Location Owner";
+                    if (organizationId.startsWith("sv:")) return "SuperVolcano";
+                    // Last fallback: check partnerId
+                    return organization.partnerId ? "OEM Partner" : "Location Owner";
+                  })()}
                 </span>
               </div>
             </div>
