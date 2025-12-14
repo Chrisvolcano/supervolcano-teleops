@@ -6,6 +6,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Building2, Mail, Phone, Edit, Trash2, MoreVertical } from 'lucide-react';
 import type { Organization } from '@/types/organization.types';
 
@@ -15,10 +16,14 @@ interface OrganizationCardProps {
 }
 
 export function OrganizationCard({ organization, onUpdate }: OrganizationCardProps) {
+  const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-6 hover:shadow-md dark:hover:shadow-none transition-shadow">
+    <div 
+      onClick={() => router.push(`/admin/organizations/${organization.id}`)}
+      className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-6 hover:shadow-md dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all cursor-pointer"
+    >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -33,19 +38,37 @@ export function OrganizationCard({ organization, onUpdate }: OrganizationCardPro
         
         <div className="relative">
           <button
-            onClick={() => setShowMenu(!showMenu)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
             className="p-1 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded"
           >
             <MoreVertical className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </button>
           
           {showMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-lg border border-gray-200 dark:border-[#2a2a2a] py-1 z-10">
-              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2">
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-lg border border-gray-200 dark:border-[#2a2a2a] py-1 z-10"
+            >
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/admin/organizations/${organization.id}/edit`);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2"
+              >
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
-              <button className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: Implement delete confirmation modal
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+              >
                 <Trash2 className="w-4 h-4" />
                 Delete
               </button>
@@ -81,4 +104,3 @@ export function OrganizationCard({ organization, onUpdate }: OrganizationCardPro
     </div>
   );
 }
-
