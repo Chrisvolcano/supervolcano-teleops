@@ -69,7 +69,7 @@ export default function OrganizationDetailPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const organizationId = params.id as string;
+  const organizationId = decodeURIComponent(params.id as string);
   const { user } = useAuth();
 
   // Initialize activeTab from URL params or default to "overview"
