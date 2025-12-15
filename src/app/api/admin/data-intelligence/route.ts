@@ -88,15 +88,71 @@ export async function GET(request: NextRequest) {
 
     // Fetch data sources from dataSources collection
     const sourcesSnapshot = await adminDb.collection('dataSources').get();
-    const sources = sourcesSnapshot.docs.map(doc => ({
-      name: doc.data().name || doc.id,
-      videoCount: doc.data().videoCount || 0,
-      hours: doc.data().hours || 0,
-    }));
+    const sources = sourcesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      const useDisplay = data.useDisplayValues === true;
+
+      return {
+        id: doc.id,
+        name: data.name || doc.id,
+        type: data.type || 'unknown',
+        folderId: data.folderId || null,
+
+        // Actual values (always include for reference)
+        actual: {
+          videoCount: data.videoCount || 0,
+          totalHours: data.totalHours || 0,
+          totalMinutes: data.totalMinutes || 0,
+          totalSizeGB: data.totalSizeGB || 0,
+          durationSource: data.durationSource || 'estimated',
+          filesWithDuration: data.filesWithDuration || 0,
+        },
+
+        // Display values (for demo mode)
+        display: {
+          videoCount: data.displayVideos ?? data.videoCount ?? 0,
+          totalHours: data.displayHours ?? data.totalHours ?? 0,
+          totalSizeGB: data.displayStorageGB ?? data.totalSizeGB ?? 0,
+        },
+
+        // Which mode to use
+        useDisplayValues: useDisplay,
+
+        // Current values based on mode
+        videoCount: useDisplay ? (data.displayVideos ?? data.videoCount ?? 0) : (data.videoCount ?? 0),
+        totalHours: useDisplay ? (data.displayHours ?? data.totalHours ?? 0) : (data.totalHours ?? 0),
+        totalSizeGB: useDisplay ? (data.displayStorageGB ?? data.totalSizeGB ?? 0) : (data.totalSizeGB ?? 0),
+
+        lastSync: data.lastSync?.toDate?.()?.toISOString() || null,
+      };
+    });
 
     // If no sources exist, add default Portal Uploads
     if (sources.length === 0) {
-      sources.push({ name: 'Portal Uploads', videoCount: 0, hours: 0 });
+      sources.push({
+        id: 'portal-uploads',
+        name: 'Portal Uploads',
+        type: 'portal',
+        folderId: null,
+        actual: {
+          videoCount: 0,
+          totalHours: 0,
+          totalMinutes: 0,
+          totalSizeGB: 0,
+          durationSource: 'estimated',
+          filesWithDuration: 0,
+        },
+        display: {
+          videoCount: 0,
+          totalHours: 0,
+          totalSizeGB: 0,
+        },
+        useDisplayValues: false,
+        videoCount: 0,
+        totalHours: 0,
+        totalSizeGB: 0,
+        lastSync: null,
+      });
     }
 
     return NextResponse.json({
@@ -131,13 +187,36 @@ export async function PATCH(request: NextRequest) {
     requireRole(claims, ['superadmin', 'admin']);
 
     const body = await request.json();
-    const { holdings } = body;
+    const { holdings, sourceId, displayVideos, displayHours, displayStorageGB, useDisplayValues } = body;
 
+    const adminDb = getAdminDb();
+
+    // Handle display values update for data sources
+    if (sourceId) {
+      if (!sourceId) {
+        return NextResponse.json({ error: 'sourceId required' }, { status: 400 });
+      }
+
+      const updateData: Record<string, any> = {
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      // Only update fields that are provided
+      if (displayVideos !== undefined) updateData.displayVideos = displayVideos;
+      if (displayHours !== undefined) updateData.displayHours = displayHours;
+      if (displayStorageGB !== undefined) updateData.displayStorageGB = displayStorageGB;
+      if (useDisplayValues !== undefined) updateData.useDisplayValues = useDisplayValues;
+
+      await adminDb.collection('dataSources').doc(sourceId).update(updateData);
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Handle holdings update (existing functionality)
     if (!holdings || typeof holdings !== 'object') {
       return NextResponse.json({ error: 'Invalid holdings data' }, { status: 400 });
     }
 
-    const adminDb = getAdminDb();
     const settingsRef = adminDb.collection('settings').doc('dataIntelligence');
     const settingsDoc = await settingsRef.get();
 

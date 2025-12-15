@@ -30,8 +30,22 @@ export function AdminHeader({ collapsed, onToggleSidebar, currentSection }: Admi
   const [mounted, setMounted] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  // Load demo mode from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('sv-demo-mode');
+    if (saved === 'true') setDemoMode(true);
+  }, []);
+
+  // Save demo mode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sv-demo-mode', demoMode.toString());
+    // Dispatch custom event so other components can listen
+    window.dispatchEvent(new CustomEvent('demo-mode-change', { detail: demoMode }));
+  }, [demoMode]);
 
   const role = (claims?.role as string | undefined) ?? 'admin';
 
@@ -71,6 +85,19 @@ export function AdminHeader({ collapsed, onToggleSidebar, currentSection }: Admi
 
       {/* Right side */}
       <div className="flex items-center gap-2">
+        {/* Demo Mode Toggle */}
+        <button
+          onClick={() => setDemoMode(!demoMode)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            demoMode
+              ? 'bg-orange-500 text-white shadow-sm'
+              : 'bg-gray-100 dark:bg-[#1f1f1f] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2a2a2a]'
+          }`}
+          title={demoMode ? 'Switch to live data' : 'Switch to demo mode'}
+        >
+          {demoMode ? 'Demo' : 'Live'}
+        </button>
+
         {/* Dark mode toggle */}
         {mounted && (
           <button

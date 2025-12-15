@@ -53,9 +53,28 @@ interface Partner {
 }
   
 interface DataSource {
-    name: string;
+  id: string;
+  name: string;
+  type: string;
+  folderId: string | null;
+  actual: {
+    videoCount: number;
+    totalHours: number;
+    totalMinutes: number;
+    totalSizeGB: number;
+    durationSource: string;
+    filesWithDuration: number;
+  };
+  display: {
+    videoCount: number;
+    totalHours: number;
+    totalSizeGB: number;
+  };
+  useDisplayValues: boolean;
   videoCount: number;
-  hours: number;
+  totalHours: number;
+  totalSizeGB: number;
+  lastSync: string | null;
 }
 
 interface DriveSource {
@@ -266,6 +285,38 @@ export default function DataIntelligencePage() {
   const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
   const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const [editingSource, setEditingSource] = useState<string | null>(null);
+  const [editDisplayValues, setEditDisplayValues] = useState<{
+    displayVideos: number;
+    displayHours: number;
+    displayStorageGB: number;
+  } | null>(null);
+  const [editableHoldings, setEditableHoldings] = useState<DataHoldings>({
+    collectedVideos: 0,
+    collectedHours: 0,
+    collectedStorageGB: 0,
+    deliveredVideos: 0,
+    deliveredHours: 0,
+    deliveredStorageGB: 0,
+  });
+
+  // Listen for demo mode changes from header
+  useEffect(() => {
+    // Load initial value
+    const saved = localStorage.getItem('sv-demo-mode');
+    if (saved === 'true') setDemoMode(true);
+
+    // Listen for changes
+    const handleDemoModeChange = (e: CustomEvent) => {
+      setDemoMode(e.detail);
+    };
+
+    window.addEventListener('demo-mode-change', handleDemoModeChange as EventListener);
+    return () => {
+      window.removeEventListener('demo-mode-change', handleDemoModeChange as EventListener);
+    };
+  }, []);
 
   // Custom chart tooltip component
   function CustomTooltip({ active, payload, label }: any) {
@@ -574,6 +625,26 @@ export default function DataIntelligencePage() {
       storage: sorted.slice(-10).map(d => ({ value: storageTotal += d.sizeGB })),
     };
   }, [data]);
+
+  // Calculate aggregated totals from data sources
+  const aggregatedData = useMemo(() => {
+    if (!data || !data.sources || data.sources.length === 0) {
+      return {
+        videos: data?.holdings?.collectedVideos || 0,
+        hours: data?.holdings?.collectedHours || 0,
+        storageGB: data?.holdings?.collectedStorageGB || 0,
+      };
+    }
+
+    return data.sources.reduce((acc, source) => {
+      const sourceData = demoMode ? source.display : source.actual;
+      return {
+        videos: acc.videos + (sourceData.videoCount || 0),
+        hours: acc.hours + (sourceData.totalHours || 0),
+        storageGB: acc.storageGB + (sourceData.totalSizeGB || 0),
+      };
+    }, { videos: 0, hours: 0, storageGB: 0 });
+  }, [data, demoMode]);
   
   useEffect(() => {
     loadData();
@@ -605,12 +676,24 @@ export default function DataIntelligencePage() {
     try {
       const token = await getIdToken();
       if (!token) return;
-      const response = await fetch('/api/admin/data-intelligence/drive-sync', {
+      // Load from main data-intelligence endpoint to get display values
+      const response = await fetch('/api/admin/data-intelligence', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
-        setDriveSources(data.sources || []);
+        // Filter to only drive sources
+        const driveOnly = (data.sources || []).filter((s: DataSource) => s.type === 'drive');
+        setDriveSources(driveOnly.map((s: DataSource) => ({
+          id: s.id,
+          folderId: s.folderId || s.id,
+          name: s.name,
+          type: 'drive' as const,
+          videoCount: s.videoCount,
+          totalSizeGB: s.totalSizeGB,
+          estimatedHours: s.totalHours,
+          lastSync: s.lastSync,
+        })));
       }
     } catch (error) {
       console.error('Failed to load drive sources:', error);
@@ -669,6 +752,71 @@ export default function DataIntelligencePage() {
     await syncDriveSource(folderId, sourceName);
   }
 
+  async function handleSaveDisplayValues(sourceId: string) {
+    if (!editDisplayValues) return;
+
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/data-intelligence', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceId,
+          displayVideos: editDisplayValues.displayVideos,
+          displayHours: editDisplayValues.displayHours,
+          displayStorageGB: editDisplayValues.displayStorageGB,
+          useDisplayValues: true,
+        }),
+      });
+
+      if (response.ok) {
+        addToast('success', 'Demo values saved', 'Display values updated successfully');
+        setEditingSource(null);
+        setEditDisplayValues(null);
+        loadData(); // Refresh data
+        loadDriveSources(); // Refresh drive sources
+      } else {
+        addToast('error', 'Failed to save', 'Could not update display values');
+      }
+    } catch (error) {
+      console.error('Failed to save display values:', error);
+      addToast('error', 'Failed to save', 'Unknown error occurred');
+    }
+  }
+
+  async function handleSaveHoldings() {
+    try {
+      const token = await getIdToken();
+      const response = await fetch('/api/admin/data-intelligence', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          holdings: {
+            collectedVideos: editableHoldings.collectedVideos,
+            collectedHours: editableHoldings.collectedHours,
+            collectedStorageGB: editableHoldings.collectedStorageGB,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        addToast('success', 'Demo values saved', 'Data collected values updated');
+        await loadData();
+      } else {
+        addToast('error', 'Failed to save', 'Could not update values');
+      }
+    } catch (error) {
+      console.error('Failed to save holdings:', error);
+      addToast('error', 'Failed to save', 'Unknown error occurred');
+    }
+  }
+
   function formatTimeAgo(date: Date): string {
     const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
     if (seconds < 60) return 'just now';
@@ -689,6 +837,27 @@ export default function DataIntelligencePage() {
       if (dataRes.ok) {
         const dataJson = await dataRes.json();
         setData(dataJson);
+        // Initialize editable holdings with current data
+        setEditableHoldings(dataJson.holdings || {
+          collectedVideos: 0,
+          collectedHours: 0,
+          collectedStorageGB: 0,
+          deliveredVideos: 0,
+          deliveredHours: 0,
+          deliveredStorageGB: 0,
+        });
+        // Also update drive sources from the same data
+        const driveOnly = (dataJson.sources || []).filter((s: DataSource) => s.type === 'drive');
+        setDriveSources(driveOnly.map((s: DataSource) => ({
+          id: s.id,
+          folderId: s.folderId || s.id,
+          name: s.name,
+          type: 'drive' as const,
+          videoCount: s.videoCount,
+          totalSizeGB: s.totalSizeGB,
+          estimatedHours: s.totalHours,
+          lastSync: s.lastSync,
+        })));
       }
 
       // Load operations data
@@ -889,15 +1058,18 @@ export default function DataIntelligencePage() {
     return { value: calculated, isEstimated: true };
   };
 
-  // Data Collected cards
-  const collectedHoursData = getHours(data.holdings.collectedHours, data.holdings.collectedStorageGB);
+  // Data Collected cards - use aggregated data in Actual mode, editable in Demo mode
+  const collectedHoursData = demoMode 
+    ? getHours(editableHoldings.collectedHours, editableHoldings.collectedStorageGB)
+    : getHours(aggregatedData.hours, aggregatedData.storageGB);
+  
   const collectedCards = [
     {
       key: 'collectedVideos' as const,
       label: 'Videos',
       icon: Film,
       color: 'blue',
-      value: data.holdings.collectedVideos,
+      value: demoMode ? editableHoldings.collectedVideos : aggregatedData.videos,
       formatValue: (v: number) => v.toLocaleString(),
     },
     {
@@ -914,7 +1086,7 @@ export default function DataIntelligencePage() {
       label: 'Total Storage',
       icon: HardDrive,
       color: 'blue',
-      value: data.holdings.collectedStorageGB,
+      value: demoMode ? editableHoldings.collectedStorageGB : aggregatedData.storageGB,
       formatValue: (v: number) => formatStorage(v),
     },
   ];
@@ -953,34 +1125,39 @@ export default function DataIntelligencePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-      <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
-              <Database className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Track data holdings, partner deliveries, and operational metrics
-        </p>
-      </div>
-            <button
-          onClick={async () => {
-            setIsRefreshing(true);
-            await loadData();
-            await loadDriveSources();
-            setIsRefreshing(false);
-            addToast('success', 'Data refreshed', 'All data has been updated');
-          }}
-          disabled={isRefreshing}
-          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
-          title="Refresh data"
-        >
-          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </button>
+      {/* Page Header */}
+      <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
+                  <Database className="h-6 w-6 text-white" />
                 </div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400">
+                Track data holdings, partner deliveries, and operational metrics
+              </p>
+            </div>
+            
+            <button
+              onClick={async () => {
+                setIsRefreshing(true);
+                await loadData();
+                await loadDriveSources();
+                setIsRefreshing(false);
+                addToast('success', 'Data refreshed', 'All data has been updated');
+              }}
+              disabled={isRefreshing}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+      </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
@@ -989,38 +1166,108 @@ export default function DataIntelligencePage() {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
               <Database className="h-5 w-5 text-blue-500" />
-              </div>
+            </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
-              </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {collectedCards.map((stat, index) => {
-              const isEditing = editingStat === stat.key;
-              const editValue = isEditing 
-                ? (editValues[stat.key] ?? data.holdings[stat.key] ?? 0)
-                : stat.value;
-              const editStep = stat.key.includes('Hours') ? '0.1' : stat.key.includes('Storage') ? '0.01' : '1';
-
-              return (
-                <AnimatedStatCard
-                  key={stat.key}
-                  value={isMounted ? stat.value : 0}
-                  label={stat.label + (stat.isEstimated ? ' (est.)' : '')}
-                  icon={stat.icon}
-                  format={stat.formatValue}
-                  delay={index * 20}
-                  editable={true}
-                  onEdit={() => handleEditStat(stat.key)}
-                  isEditing={isEditing}
-                  editValue={editValue}
-                  onSave={handleSaveStat}
-                  onCancel={handleCancelEdit}
-                  onEditValueChange={(value) => setEditValues({ [stat.key]: value })}
-                  editStep={editStep}
-                />
-          );
-        })}
           </div>
-      </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Videos Card */}
+            <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Film className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      value={editableHoldings.collectedVideos}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedVideos: parseInt(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
+                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {aggregatedData.videos.toLocaleString()}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Videos</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Hours Card */}
+            <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-green-500" />
+                </div>
+                <div className="flex-1">
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editableHoldings.collectedHours}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedHours: parseFloat(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
+                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {aggregatedData.hours.toFixed(1)}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Hours</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Storage Card */}
+            <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <HardDrive className="w-5 h-5 text-purple-500" />
+                </div>
+                <div className="flex-1">
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editableHoldings.collectedStorageGB}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedStorageGB: parseFloat(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
+                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {aggregatedData.storageGB >= 1000 
+                        ? `${(aggregatedData.storageGB / 1000).toFixed(2)} TB`
+                        : `${aggregatedData.storageGB.toFixed(1)} GB`
+                      }
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Storage</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Source indicator in Actual mode */}
+          {!demoMode && data && data.sources && data.sources.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+              Aggregated from {data.sources.length} data source{data.sources.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
       
         {/* Data Delivered to Partners Section */}
         <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
@@ -1409,96 +1656,232 @@ export default function DataIntelligencePage() {
       
       {/* Data Sources Section */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
-        <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FolderSync className="w-5 h-5 text-orange-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
+        <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <FolderSync className="w-5 h-5 text-orange-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
             </div>
-          <button
-            onClick={() => setShowDrivePicker(true)}
-            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Drive Folder
-          </button>
+            
+            {/* Add Drive Folder button */}
+            <button
+              onClick={() => setShowDrivePicker(true)}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Drive Folder
+            </button>
           </div>
+        </div>
               
         <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
           {/* Portal Uploads - always show */}
-          {data && (
-            <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
-                  <Film className="w-5 h-5 text-orange-500" />
+          {data && (() => {
+            const portalSource = data.sources.find(s => s.name === 'Portal Uploads');
+            if (!portalSource) return null;
+            return (
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
+                    <Film className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">Portal Uploads</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Direct uploads from mobile app</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Portal Uploads</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Direct uploads from mobile app</p>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {demoMode ? portalSource.display.videoCount : portalSource.actual.videoCount} videos
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {demoMode ? portalSource.display.totalHours.toFixed(1) : portalSource.actual.totalHours.toFixed(1)} hrs
+                  </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  {data.sources.find(s => s.name === 'Portal Uploads')?.videoCount || 0} videos
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {data.sources.find(s => s.name === 'Portal Uploads')?.hours || 0} hrs
-                </p>
-                  </div>
+            );
+          })()}
+              
+          {/* Drive Sources */}
+          {data && data.sources.filter(s => s.type === 'drive').map((source) => (
+            <div
+              key={source.id}
+              className="bg-white dark:bg-[#141414] p-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-purple-500" />
+                  <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                </div>
+                <button
+                  onClick={() => syncDriveSource(source.folderId || source.id, source.name)}
+                  disabled={syncingSourceId === (source.folderId || source.id)}
+                  className="text-sm text-blue-600 dark:text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-2"
+                >
+                  {syncingSourceId === (source.folderId || source.id) ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Syncing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Sync</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                {/* Videos */}
+                <div 
+                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
+                  onClick={() => {
+                    if (demoMode) {
+                      setEditingSource(source.id);
+                      setEditDisplayValues({
+                        displayVideos: source.display.videoCount,
+                        displayHours: source.display.totalHours,
+                        displayStorageGB: source.display.totalSizeGB,
+                      });
+                    }
+                  }}
+                >
+                  {demoMode && editingSource === source.id ? (
+                    <input
+                      type="number"
+                      value={editDisplayValues?.displayVideos ?? source.display.videoCount}
+                      onChange={(e) => setEditDisplayValues(prev => ({
+                        ...prev!,
+                        displayVideos: parseInt(e.target.value) || 0,
+                      }))}
+                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
+                      {demoMode ? source.display.videoCount : source.actual.videoCount}
+                      {demoMode && (
+                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Videos</p>
+                </div>
+                
+                {/* Hours */}
+                <div 
+                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
+                  onClick={() => {
+                    if (demoMode) {
+                      setEditingSource(source.id);
+                      setEditDisplayValues({
+                        displayVideos: source.display.videoCount,
+                        displayHours: source.display.totalHours,
+                        displayStorageGB: source.display.totalSizeGB,
+                      });
+                    }
+                  }}
+                >
+                  {demoMode && editingSource === source.id ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editDisplayValues?.displayHours ?? source.display.totalHours}
+                      onChange={(e) => setEditDisplayValues(prev => ({
+                        ...prev!,
+                        displayHours: parseFloat(e.target.value) || 0,
+                      }))}
+                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
+                      {(demoMode ? source.display.totalHours : source.actual.totalHours).toFixed(1)}
+                      {demoMode && (
+                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Hours</p>
+                </div>
+                
+                {/* Storage */}
+                <div 
+                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
+                  onClick={() => {
+                    if (demoMode) {
+                      setEditingSource(source.id);
+                      setEditDisplayValues({
+                        displayVideos: source.display.videoCount,
+                        displayHours: source.display.totalHours,
+                        displayStorageGB: source.display.totalSizeGB,
+                      });
+                    }
+                  }}
+                >
+                  {demoMode && editingSource === source.id ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editDisplayValues?.displayStorageGB ?? source.display.totalSizeGB}
+                      onChange={(e) => setEditDisplayValues(prev => ({
+                        ...prev!,
+                        displayStorageGB: parseFloat(e.target.value) || 0,
+                      }))}
+                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                    />
+                  ) : (
+                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
+                      {(demoMode ? source.display.totalSizeGB : source.actual.totalSizeGB).toFixed(1)}
+                      {demoMode && (
+                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">GB</p>
+                </div>
+              </div>
+              
+              {/* Save/Cancel buttons when editing */}
+              {demoMode && editingSource === source.id && (
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-[#1f1f1f]">
+                  <button
+                    onClick={() => {
+                      setEditingSource(null);
+                      setEditDisplayValues(null);
+                    }}
+                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSaveDisplayValues(source.id)}
+                    className="px-3 py-1.5 text-sm bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors"
+                  >
+                    Save
+                  </button>
                 </div>
               )}
               
-          {/* Drive Sources */}
-          {driveSources.map((source) => (
-            <div key={source.id} className="p-4 flex items-center justify-between group">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                  <HardDrive className="w-5 h-5 text-blue-500" />
-            </div>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{source.name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {source.lastSync 
-                      ? `Last sync: ${formatTimeAgo(new Date(source.lastSync))}`
-                      : 'Never synced'}
-                        </p>
-                      </div>
-                  </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">{source.videoCount} videos</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {source.totalSizeGB} GB • {source.estimatedHours} hrs
+              {/* Duration source indicator (only in Actual mode) */}
+              {!demoMode && source.actual.durationSource && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-[#1f1f1f]">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Duration: {source.actual.durationSource === 'exact' ? '✓ Verified' : 
+                               source.actual.durationSource === 'mixed' ? `⚡ ${source.actual.filesWithDuration}/${source.actual.videoCount} verified` :
+                               '⏱ Estimated'}
                   </p>
                 </div>
-            <button
-                  onClick={() => syncDriveSource(source.folderId, source.name)}
-                  disabled={syncingSourceId === source.folderId}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 disabled:opacity-50 flex items-center gap-2 transition-colors"
-                >
-                  {syncingSourceId === source.folderId ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="relative flex h-2 w-2 ml-1">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                      </span>
-                    </>
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  {syncingSourceId === source.folderId ? 'Syncing...' : 'Sync Now'}
-            </button>
+              )}
             </div>
-          </div>
           ))}
 
-          {driveSources.length === 0 && !showDrivePicker && (
+          {(!data || data.sources.filter(s => s.type === 'drive').length === 0) && !showDrivePicker && (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No Google Drive folders connected</p>
               <p className="text-sm">Click &quot;Add Drive Folder&quot; to sync external data</p>
-        </div>
-      )}
+            </div>
+          )}
         </div>
       </div>
       

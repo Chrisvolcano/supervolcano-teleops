@@ -22,14 +22,16 @@ async function scanFolderRecursive(
   folderId: string,
   videoMimeTypes: string[],
   driveId?: string  // Pass driveId for shared drive queries
-): Promise<{ totalFiles: number; totalSize: number }> {
+): Promise<{ totalFiles: number; totalSize: number; totalDurationMs: number; filesWithDuration: number }> {
   let totalFiles = 0;
   let totalSize = 0;
+  let totalDurationMs = 0;
+  let filesWithDuration = 0;
 
   // Query parameters for shared drive support
   const listParams: any = {
     q: `'${folderId}' in parents and (${videoMimeTypes.map(m => `mimeType='${m}'`).join(' or ')}) and trashed=false`,
-    fields: 'nextPageToken, files(id, size)',
+    fields: 'nextPageToken, files(id, size, videoMediaMetadata)',
     pageSize: 1000,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
@@ -48,7 +50,13 @@ async function scanFolderRecursive(
 
     const files = filesResponse.data.files || [];
     totalFiles += files.length;
-    totalSize += files.reduce((sum, f) => sum + parseInt(f.size || '0'), 0);
+    for (const file of files) {
+      totalSize += parseInt(file.size || '0');
+      if (file.videoMediaMetadata?.durationMillis) {
+        totalDurationMs += parseInt(file.videoMediaMetadata.durationMillis);
+        filesWithDuration++;
+      }
+    }
     pageToken = filesResponse.data.nextPageToken || undefined;
   } while (pageToken);
 
@@ -77,12 +85,14 @@ async function scanFolderRecursive(
       const sub = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes, driveId || subfolder.driveId || undefined);
       totalFiles += sub.totalFiles;
       totalSize += sub.totalSize;
+      totalDurationMs += sub.totalDurationMs;
+      filesWithDuration += sub.filesWithDuration;
     }
     
     folderPageToken = foldersResponse.data.nextPageToken || undefined;
   } while (folderPageToken);
 
-  return { totalFiles, totalSize };
+  return { totalFiles, totalSize, totalDurationMs, filesWithDuration };
 }
 
 export async function POST(request: NextRequest) {
@@ -143,11 +153,28 @@ export async function POST(request: NextRequest) {
     ];
 
     // Scan folder recursively
-    const { totalFiles, totalSize } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId);
+    const { totalFiles, totalSize, totalDurationMs, filesWithDuration } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId);
 
-    // Calculate hours (15 GB/hour for 1080p 30fps)
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);
-    const estimatedHours = totalSizeGB / 15;
+    // Use real duration if available, otherwise estimate
+    let totalHours: number;
+    let durationSource: 'exact' | 'estimated' | 'mixed';
+    if (filesWithDuration === totalFiles && totalFiles > 0) {
+      // All files have duration metadata
+      totalHours = totalDurationMs / (1000 * 60 * 60);
+      durationSource = 'exact';
+    } else if (filesWithDuration === 0) {
+      // No files have duration, estimate from size
+      totalHours = totalSizeGB / 15;
+      durationSource = 'estimated';
+    } else {
+      // Some files have duration, calculate weighted estimate
+      const avgDurationPerFile = totalDurationMs / filesWithDuration;
+      const filesWithoutDuration = totalFiles - filesWithDuration;
+      const estimatedMissingMs = avgDurationPerFile * filesWithoutDuration;
+      totalHours = (totalDurationMs + estimatedMissingMs) / (1000 * 60 * 60);
+      durationSource = 'mixed';
+    }
 
     // Save to Firestore
     const db = getAdminDb();
@@ -158,7 +185,11 @@ export async function POST(request: NextRequest) {
       videoCount: totalFiles,
       totalSizeBytes: totalSize,
       totalSizeGB: Math.round(totalSizeGB * 100) / 100,
-      estimatedHours: Math.round(estimatedHours * 10) / 10,
+      totalHours: Math.round(totalHours * 100) / 100,
+      totalMinutes: Math.round(totalHours * 60),
+      durationSource,
+      filesWithDuration,
+      totalDurationMs,
       lastSync: new Date(),
       syncedBy: userId,
     };
