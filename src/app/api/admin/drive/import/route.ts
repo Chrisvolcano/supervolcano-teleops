@@ -41,11 +41,39 @@ export async function POST(request: NextRequest) {
     const bucket = adminStorage.bucket();
     const adminDb = getAdminDb();
 
-    const results: Array<{ fileId: string; fileName: string; success: boolean; error?: string; mediaId?: string }> = [];
+    const results: Array<{ fileId: string; fileName: string; success: boolean; skipped?: boolean; reason?: string; error?: string; mediaId?: string }> = [];
 
     for (const file of files) {
       try {
+        // Check for duplicate by driveFileId
+        const existingDoc = await adminDb.collection('media')
+          .where('driveFileId', '==', file.id)
+          .limit(1)
+          .get();
+        
+        if (!existingDoc.empty) {
+          console.log(`[Drive Import] Skipping duplicate: ${file.name}`);
+          results.push({ 
+            fileId: file.id, 
+            fileName: file.name, 
+            success: true, 
+            skipped: true,
+            reason: 'Already imported' 
+          });
+          continue;
+        }
+
         console.log(`[Drive Import] Downloading: ${file.name}`);
+
+        // Get file with video metadata
+        const fileMetadata = await drive.files.get({
+          fileId: file.id,
+          fields: 'videoMediaMetadata',
+          supportsAllDrives: true,
+        });
+
+        const durationMs = fileMetadata.data.videoMediaMetadata?.durationMillis;
+        const durationSeconds = durationMs ? Math.round(parseInt(String(durationMs)) / 1000) : 0;
 
         // Download file from Drive
         const response = await drive.files.get(
@@ -94,7 +122,8 @@ export async function POST(request: NextRequest) {
           mimeType: file.mimeType,
           url,
           storagePath,
-          durationSeconds: 0, // Can't extract from Drive easily
+          durationSeconds: durationSeconds, // Use extracted duration
+          duration: durationSeconds, // For compatibility
           locationText: null,
           source: 'web_contribute',
           reviewStatus: 'approved',
@@ -118,13 +147,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter(r => r.success && !r.skipped).length;
+    const skipCount = results.filter(r => r.skipped).length;
     const failCount = results.filter(r => !r.success).length;
 
     return NextResponse.json({
       success: true,
-      message: `Imported ${successCount} of ${files.length} files`,
+      message: `Imported ${successCount} files, skipped ${skipCount} duplicates`,
       successCount,
+      skipCount,
       failCount,
       results,
     });

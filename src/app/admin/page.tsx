@@ -1607,46 +1607,51 @@ export default function DataIntelligencePage() {
               {filteredDeliveries.map((delivery) => (
                 <div
                   key={delivery.id}
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] border-b border-gray-100 dark:border-[#1f1f1f] group transition-colors animate-fadeIn last:border-b-0"
+                  className="grid grid-cols-[200px_100px_1fr_120px] gap-4 items-center py-4 border-b border-gray-100 dark:border-[#1f1f1f] last:border-0 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] group transition-colors animate-fadeIn"
                 >
-                  <div className="flex items-center gap-6 flex-1">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB} GB
-                    </div>
-                    </div>
-                <div>
-                      {delivery.partnerId ? (
-                        <button
-                          onClick={() => router.push(`/admin/organizations/${delivery.partnerId}?tab=deliveries`)}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-500 border border-orange-200 dark:border-orange-500/20 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors"
-                        >
-                          {delivery.partnerName || 'Partner'}
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/20">
-                          Internal
-                        </span>
-              )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-700 dark:text-gray-300">{delivery.description}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(delivery.date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-          </div>
-        </div>
-        </div>
-            <button
-                    onClick={() => handleDeleteDelivery(delivery.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-            </button>
+                  {/* Stats column - fixed width */}
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB?.toFixed(0)} GB
                   </div>
+
+                  {/* Partner badge column - fixed width */}
+                  <div>
+                    {delivery.partnerId ? (
+                      <button
+                        onClick={() => router.push(`/admin/organizations/${delivery.partnerId}?tab=deliveries`)}
+                        className="px-2.5 py-1 text-xs font-medium bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-200 dark:hover:bg-orange-500/30 transition-colors"
+                      >
+                        {delivery.partnerName || 'Partner'}
+                      </button>
+                    ) : (
+                      <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-[#1f1f1f] text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-[#2a2a2a]">
+                        Internal
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Description column - flexible */}
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">{delivery.description}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(delivery.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions column - fixed width */}
+                  <div className="text-right">
+                    <button
+                      onClick={() => handleDeleteDelivery(delivery.id)}
+                      className="opacity-0 group-hover:opacity-100 p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
                 ))}
               </div>
             )}
