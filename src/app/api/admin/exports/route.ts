@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       status: 'completed',
       createdAt: FieldValue.serverTimestamp(),
       exportedAt: FieldValue.serverTimestamp(),
-      exportedBy: claims.userId || claims.sub || 'unknown',
+      exportedBy: 'admin',
       notes: notes || `Exported ${videoIds.length} videos from Media Library`,
     });
 
