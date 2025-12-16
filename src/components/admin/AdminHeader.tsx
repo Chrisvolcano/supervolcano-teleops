@@ -159,40 +159,50 @@ export function AdminHeader({ collapsed, onToggleSidebar, currentSection }: Admi
         <div className="relative">
           <button
             onClick={() => { setShowUserMenu(!showUserMenu); setShowHelpMenu(false); }}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
           >
-            {!demoMode && (
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.email || 'Admin'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">
-                  {role}
-                </p>
-              </div>
-            )}
-            <ChevronDown className="w-4 h-4 text-gray-500" />
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {role}
+            </span>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
           </button>
 
           {showUserMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-xl shadow-lg z-20 py-2">
-                <button
-                  onClick={() => { router.push('/admin/settings'); setShowUserMenu(false); }}
-                  className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
-                >
-                  <User className="w-4 h-4" />
-                  Profile Settings
-                </button>
-                <div className="border-t border-gray-200 dark:border-[#2a2a2a] my-2" />
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-xl shadow-lg z-20 py-2">
+                {/* Email header */}
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-[#2a2a2a]">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {user?.email || 'Admin'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mt-0.5">
+                    {role}
+                  </p>
+                </div>
+                
+                {/* Menu items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => { router.push('/admin/settings'); setShowUserMenu(false); }}
+                    className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                  >
+                    <User className="w-4 h-4" />
+                    Profile Settings
+                  </button>
+                </div>
+                
+                <div className="border-t border-gray-200 dark:border-[#2a2a2a]" />
+                
+                <div className="py-1">
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               </div>
             </>
           )}

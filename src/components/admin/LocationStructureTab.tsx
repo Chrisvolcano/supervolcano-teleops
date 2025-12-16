@@ -102,17 +102,17 @@ function ContextMenu({
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1 hover:bg-gray-200 rounded transition-colors"
+        className="p-1 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded transition-colors"
       >
-        <MoreVertical className="w-4 h-4 text-gray-400" />
+        <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-lg dark:shadow-none border border-gray-200 dark:border-[#2a2a2a] py-1 z-50">
           {onEdit && (
             <button
               onClick={() => { onEdit(); setIsOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
             >
               <Edit className="w-4 h-4" />
               Edit
@@ -121,7 +121,7 @@ function ContextMenu({
           {onMoveUp && canMoveUp && (
             <button
               onClick={() => { onMoveUp(); setIsOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
             >
               <ArrowUp className="w-4 h-4" />
               Move Up
@@ -130,7 +130,7 @@ function ContextMenu({
           {onMoveDown && canMoveDown && (
             <button
               onClick={() => { onMoveDown(); setIsOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
             >
               <ArrowDown className="w-4 h-4" />
               Move Down
@@ -138,10 +138,10 @@ function ContextMenu({
           )}
           {onDelete && (
             <>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-gray-100 dark:border-[#1f1f1f] my-1" />
               <button
                 onClick={() => { onDelete(); setIsOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -605,11 +605,11 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
     return (
       <div className="space-y-4">
         {/* Skeleton stats bar */}
-        <div className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+        <div className="h-14 bg-gray-100 dark:bg-[#1f1f1f] rounded-xl animate-pulse" />
         
         {/* Skeleton floors */}
-        <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-        <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+        <div className="h-48 bg-gray-100 dark:bg-[#1f1f1f] rounded-xl animate-pulse" />
+        <div className="h-32 bg-gray-100 dark:bg-[#1f1f1f] rounded-xl animate-pulse" />
       </div>
     );
   }
@@ -617,21 +617,21 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
   return (
     <div className="p-6">
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800">{error}</p>
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg">
+          <p className="text-red-800 dark:text-red-400">{error}</p>
         </div>
       )}
 
       {/* Empty state */}
       {(!structure || structure.length === 0) && !loading && (
         <div className="text-center py-16">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-blue-600" />
+          <div className="w-16 h-16 bg-orange-500/10 dark:bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-orange-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             No structure configured
           </h3>
-          <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+          <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
             Set up floors, rooms, and cleaning targets for this location to get started.
           </p>
           <div className="flex items-center justify-center gap-4">
@@ -639,17 +639,17 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
               <>
                 <button
                   onClick={onRunWizard}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-6 py-3 bg-orange-500 dark:bg-orange-600 text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 transition-colors"
                 >
                   <Sparkles className="w-5 h-5" />
                   Run Setup Wizard
                 </button>
-                <span className="text-gray-400">or</span>
+                <span className="text-gray-400 dark:text-gray-500">or</span>
               </>
             )}
             <button
               onClick={() => setShowAddFloorModal(true)}
-              className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors"
             >
               <Plus className="w-5 h-5" />
               Add Floor Manually
@@ -660,39 +660,39 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
       {/* Stats summary bar */}
       {structure && structure.length > 0 && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-[#1f1f1f] rounded-xl border border-gray-200 dark:border-[#2a2a2a]">
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              <span className="font-medium text-gray-700">
+              <Building2 className="w-4 h-4 text-orange-500" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {stats.floors} floor{stats.floors !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="w-px h-4 bg-gray-300" />
+            <div className="w-px h-4 bg-gray-300 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <LayoutGrid className="w-4 h-4 text-purple-600" />
-              <span className="font-medium text-gray-700">
+              <LayoutGrid className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {stats.rooms} room{stats.rooms !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="w-px h-4 bg-gray-300" />
+            <div className="w-px h-4 bg-gray-300 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-orange-600" />
-              <span className="font-medium text-gray-700">
+              <Target className="w-4 h-4 text-orange-600 dark:text-orange-500" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {stats.targets} target{stats.targets !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="w-px h-4 bg-gray-300" />
+            <div className="w-px h-4 bg-gray-300 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="font-medium text-gray-700">
+              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {stats.actions} action{stats.actions !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="w-px h-4 bg-gray-300" />
+            <div className="w-px h-4 bg-gray-300 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="font-medium text-gray-700">
+              <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 ~{stats.totalMinutes} min total
               </span>
             </div>
@@ -703,20 +703,20 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
       {/* Toolbar */}
       {structure && structure.length > 0 && (
         <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             {structure.length} floor{structure.length !== 1 ? 's' : ''}
           </div>
           <div className="flex items-center gap-2 text-sm">
             <button
               onClick={expandAll}
-              className="px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-md transition-colors"
             >
               Expand All
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 dark:text-[#2a2a2a]">|</span>
             <button
               onClick={collapseAll}
-              className="px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-md transition-colors"
             >
               Collapse All
             </button>
@@ -758,9 +758,9 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
         {/* Add Floor - Inline Form */}
         {isAddingFloor ? (
-          <div className="border-2 border-blue-200 bg-blue-50 rounded-xl p-4">
+          <div className="border-2 border-orange-500/30 dark:border-orange-500/20 bg-orange-500/10 dark:bg-orange-500/10 rounded-xl p-4">
             <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-blue-500" />
+              <Building2 className="h-5 w-5 text-orange-500" />
               <input
                 type="text"
                 value={newFloorName}
@@ -773,27 +773,27 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
                   if (e.key === 'Escape') cancelAddFloor();
                 }}
                 placeholder="Enter floor name (e.g., Second Floor, Basement)"
-                className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="flex-1 px-3 py-2 border border-orange-500/30 dark:border-orange-500/20 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 autoFocus
                 disabled={loading}
               />
               <button
                 onClick={handleInlineAddFloor}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-orange-500 dark:bg-orange-600 text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 font-medium disabled:opacity-50"
               >
                 Add
               </button>
               <button
                 onClick={cancelAddFloor}
                 disabled={loading}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg disabled:opacity-50"
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-[#1f1f1f] rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             {addFloorError && (
-              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                 <span>⚠️</span> {addFloorError}
               </p>
             )}
@@ -802,7 +802,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
           structure && structure.length > 0 && (
             <button
               onClick={() => setIsAddingFloor(true)}
-              className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-[#2a2a2a] rounded-xl text-gray-400 dark:text-gray-500 hover:border-orange-500/50 dark:hover:border-orange-500/30 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-500/10 dark:hover:bg-orange-500/10 transition-all flex items-center justify-center gap-2"
             >
               <Plus className="h-5 w-5" />
               Add Floor
@@ -818,19 +818,19 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
          intelligence.preferences?.length > 0 || 
          intelligence.restrictions?.length > 0) && (
           <div className="mt-8 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               Location Intelligence
             </h3>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Access Info Card */}
               {intelligence.accessInfo?.entryMethod && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
+                <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-400 flex items-center gap-2 mb-2">
                     <Key className="h-4 w-4" /> Access Info
                   </h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
+                  <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
                     <li>Entry: {intelligence.accessInfo.entryMethod}</li>
                     {intelligence.accessInfo.alarmCode && <li>Alarm: Configured ✓</li>}
                     {intelligence.accessInfo.wifiNetwork && <li>WiFi: {intelligence.accessInfo.wifiNetwork}</li>}
@@ -843,16 +843,16 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
               {/* Storage Map Card */}
               {intelligence.storageLocations?.length > 0 && (
-                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <h4 className="font-semibold text-purple-900 flex items-center gap-2 mb-2">
+                <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-4">
+                  <h4 className="font-semibold text-purple-900 dark:text-purple-400 flex items-center gap-2 mb-2">
                     <Package className="h-4 w-4" /> Storage Map
                   </h4>
-                  <ul className="text-sm text-purple-800 space-y-1">
+                  <ul className="text-sm text-purple-800 dark:text-purple-300 space-y-1">
                     {intelligence.storageLocations.slice(0, 4).map((item: any) => (
                       <li key={item.id}>• {item.itemType}: {item.location}</li>
                     ))}
                     {intelligence.storageLocations.length > 4 && (
-                      <li className="text-purple-600">+ {intelligence.storageLocations.length - 4} more</li>
+                      <li className="text-purple-600 dark:text-purple-400">+ {intelligence.storageLocations.length - 4} more</li>
                     )}
                   </ul>
                 </div>
@@ -860,11 +860,11 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
               {/* Preferences Card */}
               {intelligence.preferences?.length > 0 && (
-                <div className="bg-pink-50 border border-pink-200 rounded-xl p-4">
-                  <h4 className="font-semibold text-pink-900 flex items-center gap-2 mb-2">
+                <div className="bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/30 rounded-xl p-4">
+                  <h4 className="font-semibold text-pink-900 dark:text-pink-400 flex items-center gap-2 mb-2">
                     <Heart className="h-4 w-4" /> Preferences
                   </h4>
-                  <ul className="text-sm text-pink-800 space-y-1">
+                  <ul className="text-sm text-pink-800 dark:text-pink-300 space-y-1">
                     {intelligence.preferences.slice(0, 3).map((pref: any) => (
                       <li key={pref.id} className="flex items-start gap-1">
                         {pref.priority === 'must' && <span className="text-red-500">⚠️</span>}
@@ -872,7 +872,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
                       </li>
                     ))}
                     {intelligence.preferences.length > 3 && (
-                      <li className="text-pink-600">+ {intelligence.preferences.length - 3} more</li>
+                      <li className="text-pink-600 dark:text-pink-400">+ {intelligence.preferences.length - 3} more</li>
                     )}
                   </ul>
                 </div>
@@ -880,11 +880,11 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
               {/* Restrictions Card */}
               {intelligence.restrictions?.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <h4 className="font-semibold text-red-900 flex items-center gap-2 mb-2">
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4">
+                  <h4 className="font-semibold text-red-900 dark:text-red-400 flex items-center gap-2 mb-2">
                     <AlertOctagon className="h-4 w-4" /> Restrictions
                   </h4>
-                  <ul className="text-sm text-red-800 space-y-1">
+                  <ul className="text-sm text-red-800 dark:text-red-300 space-y-1">
                     {intelligence.restrictions.slice(0, 3).map((r: any) => (
                       <li key={r.id} className="flex items-start gap-1">
                         {r.severity === 'critical' && <span>🛑</span>}
@@ -893,7 +893,7 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
                       </li>
                     ))}
                     {intelligence.restrictions.length > 3 && (
-                      <li className="text-red-600">+ {intelligence.restrictions.length - 3} more</li>
+                      <li className="text-red-600 dark:text-red-400">+ {intelligence.restrictions.length - 3} more</li>
                     )}
                   </ul>
                 </div>
@@ -905,15 +905,15 @@ export default function LocationStructureTab({ locationId, onRunWizard }: Locati
 
       {/* Wizard re-run hint */}
       {structure && structure.length > 0 && onRunWizard && (
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="mt-8 p-4 bg-gray-50 dark:bg-[#1f1f1f] rounded-lg border border-gray-200 dark:border-[#2a2a2a]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
               <Lightbulb className="w-4 h-4" />
               <span>Need to make bulk changes?</span>
             </div>
             <button
               onClick={onRunWizard}
-              className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              className="text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500 hover:underline"
             >
               Re-run Setup Wizard →
             </button>
@@ -1008,27 +1008,27 @@ function FloorCard({
   toggleRoom,
 }: FloorCardProps) {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm mb-4">
+    <div className="border border-gray-200 dark:border-[#1f1f1f] rounded-xl overflow-hidden bg-white dark:bg-[#141414] shadow-sm dark:shadow-none mb-4">
       {/* Floor header */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
         <div className="flex items-center gap-3">
-          <button onClick={onToggle} className="p-1 hover:bg-gray-200 rounded">
+          <button onClick={onToggle} className="p-1 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded">
             {isExpanded ? (
-              <ChevronDown className="w-5 h-5 text-gray-500" />
+              <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             ) : (
-              <ChevronRight className="w-5 h-5 text-gray-500" />
+              <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             )}
           </button>
-          <Building2 className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-900">{floor.name}</span>
-          <span className="text-sm text-gray-500">
+          <Building2 className="w-5 h-5 text-orange-500" />
+          <span className="font-semibold text-gray-900 dark:text-white">{floor.name}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             ({floor.rooms?.length || 0} room{floor.rooms?.length !== 1 ? 's' : ''})
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onAddRoom(floor.id)}
-            className="text-sm text-blue-600 hover:text-blue-700 px-3 py-1 hover:bg-blue-50 rounded-md transition-colors"
+            className="text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500 px-3 py-1 hover:bg-orange-500/10 dark:hover:bg-orange-500/20 rounded-md transition-colors"
           >
             + Add Room
           </button>
@@ -1052,33 +1052,33 @@ function FloorCard({
             >
               {/* Vertical line */}
               {roomIndex < floor.rooms.length - 1 && (
-                <div className="absolute left-2 top-6 bottom-0 w-px bg-gray-200" />
+                <div className="absolute left-2 top-6 bottom-0 w-px bg-gray-200 dark:bg-[#2a2a2a]" />
               )}
               {/* Horizontal connector */}
-              <div className="absolute left-2 top-3 w-4 h-px bg-gray-200" />
+              <div className="absolute left-2 top-3 w-4 h-px bg-gray-200 dark:bg-[#2a2a2a]" />
               
               {/* Room content */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-gray-200 dark:border-[#1f1f1f] rounded-lg overflow-hidden bg-white dark:bg-[#141414]">
                 {/* Room header */}
-                <div className="flex items-center justify-between p-3 bg-gray-50">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#1f1f1f]">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleRoom(room.id)} className="p-0.5 hover:bg-gray-200 rounded">
+                    <button onClick={() => toggleRoom(room.id)} className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded">
                       {expandedRooms.has(room.id) ? (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                        <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                       )}
                     </button>
                     <span className="text-lg">{getRoomIcon(room.type)}</span>
-                    <span className="font-medium text-gray-800">{room.name}</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="font-medium text-gray-800 dark:text-white">{room.name}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       ({room.targets?.length || 0} target{room.targets?.length !== 1 ? 's' : ''})
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onAddTarget(room.id)}
-                      className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                      className="text-xs text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500 px-2 py-1 hover:bg-orange-500/10 dark:hover:bg-orange-500/20 rounded transition-colors"
                     >
                       + Target
                     </button>
@@ -1092,16 +1092,16 @@ function FloorCard({
                 {expandedRooms.has(room.id) && room.targets?.length > 0 && (
                   <div className="p-3 space-y-3">
                     {room.targets.map((target: any) => (
-                      <div key={target.id} className="pl-4 border-l-2 border-gray-100">
+                      <div key={target.id} className="pl-4 border-l-2 border-gray-100 dark:border-[#1f1f1f]">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Target className="w-4 h-4 text-orange-500" />
-                            <span className="font-medium text-gray-700">{target.name}</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">{target.name}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => onAddAction(target.id)}
-                              className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                              className="text-xs text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500 px-2 py-1 hover:bg-orange-500/10 dark:hover:bg-orange-500/20 rounded transition-colors"
                             >
                               + Action
                             </button>
@@ -1117,20 +1117,20 @@ function FloorCard({
                             {target.actions.map((action: any) => (
                               <div
                                 key={action.id}
-                                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 group"
+                                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-[#1f1f1f] group"
                               >
                                 <div className="flex items-center gap-2">
                                   <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                                  <span className="text-sm text-gray-600">{action.name}</span>
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">{action.name}</span>
                                   {action.durationMinutes && (
-                                    <span className="text-xs text-gray-400">
+                                    <span className="text-xs text-gray-400 dark:text-gray-500">
                                       · {action.durationMinutes} min
                                     </span>
                                   )}
                                 </div>
                                 <button
                                   onClick={() => onAddTool(action.id)}
-                                  className="text-xs text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="text-xs text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   + Tool
                                 </button>
@@ -1146,7 +1146,7 @@ function FloorCard({
                 {/* Empty targets state */}
                 {expandedRooms.has(room.id) && (!room.targets || room.targets.length === 0) && (
                   <div className="p-3">
-                    <p className="text-gray-400 text-xs">No targets yet</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-xs">No targets yet</p>
                   </div>
                 )}
               </div>
@@ -1158,7 +1158,7 @@ function FloorCard({
       {/* Empty rooms state */}
       {isExpanded && (!floor.rooms || floor.rooms.length === 0) && (
         <div className="p-4">
-          <p className="text-gray-400 text-sm">No rooms yet</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">No rooms yet</p>
         </div>
       )}
     </div>
