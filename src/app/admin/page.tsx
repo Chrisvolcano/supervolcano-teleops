@@ -416,6 +416,15 @@ export default function DataIntelligencePage() {
 
     console.log('[Chart] Chart data points:', chartDataPoints);
 
+    // If "all time" selected, show all data with no comparison
+    if (comparisonPeriod === 'all') {
+      const merged = chartDataPoints.map((c) => ({
+        ...c,
+        previousTotal: 0,
+      }));
+      return { chartData: merged, comparisonData: [] };
+    }
+
     // For comparison, use the selected period
     const now = new Date();
     let cutoffDate: Date;
@@ -526,6 +535,32 @@ export default function DataIntelligencePage() {
         deliveredVideos: 0,
         deliveredHours: 0,
         deliveredStorageGB: 0,
+        previousVideos: 0,
+        previousHours: 0,
+        previousStorageGB: 0,
+      };
+    }
+
+    // If "all time" selected, sum everything with no comparison
+    if (comparisonPeriod === 'all') {
+      const allTotals = data.deliveries.reduce((acc, delivery) => {
+        acc.deliveredVideos += delivery.videoCount || 0;
+        acc.deliveredStorageGB += delivery.sizeGB || 0;
+        
+        const hours = delivery.hours !== null && delivery.hours !== undefined
+          ? delivery.hours
+          : (delivery.sizeGB || 0) / 15;
+        acc.deliveredHours += hours;
+        
+        return acc;
+      }, {
+        deliveredVideos: 0,
+        deliveredHours: 0,
+        deliveredStorageGB: 0,
+      });
+
+      return {
+        ...allTotals,
         previousVideos: 0,
         previousHours: 0,
         previousStorageGB: 0,
@@ -1311,22 +1346,25 @@ export default function DataIntelligencePage() {
                 : deliveredTotals.previousStorageGB;
               
               let deltaBadge = null;
-              if (previous > 0) {
-                const delta = current - previous;
-                const deltaPercent = ((delta / previous) * 100).toFixed(1);
-                const isPositive = delta >= 0;
-                deltaBadge = (
-                  <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                    {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
-                  </div>
-                );
-              } else if (current > 0 && previous === 0) {
-                // Show 100% increase if there's current data but no previous period data
-                deltaBadge = (
-                  <div className="text-sm font-medium mt-1 text-green-600 dark:text-green-500">
-                    ↑ 100%
-                  </div>
-                );
+              // Hide percentage badges when "All Time" is selected
+              if (comparisonPeriod !== 'all') {
+                if (previous > 0) {
+                  const delta = current - previous;
+                  const deltaPercent = ((delta / previous) * 100).toFixed(1);
+                  const isPositive = delta >= 0;
+                  deltaBadge = (
+                    <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                      {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
+                    </div>
+                  );
+                } else if (current > 0 && previous === 0) {
+                  // Show 100% increase if there's current data but no previous period data
+                  deltaBadge = (
+                    <div className="text-sm font-medium mt-1 text-green-600 dark:text-green-500">
+                      ↑ 100%
+                    </div>
+                  );
+                }
               }
 
           return (
@@ -1386,6 +1424,7 @@ export default function DataIntelligencePage() {
               onChange={(e) => setComparisonPeriod(e.target.value)}
               className="appearance-none bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:border-gray-300 dark:hover:border-[#3a3a3a] transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/20"
             >
+              <option value="all">All Time</option>
               <option value="week">vs Last Week</option>
               <option value="month">vs Last Month</option>
               <option value="quarter">vs Last Quarter</option>

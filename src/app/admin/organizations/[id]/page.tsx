@@ -120,6 +120,18 @@ export default function OrganizationDetailPage() {
     totalTasks: 0,
   });
   const [savingDemoStats, setSavingDemoStats] = useState(false);
+  
+  // Location Access editing state
+  const [editingLocationStats, setEditingLocationStats] = useState(false);
+  const [locationStatsValues, setLocationStatsValues] = useState({
+    locations: 0,
+    bedrooms: 0,
+    bathrooms: 0,
+    kitchens: 0,
+    livingAreas: 0,
+    totalTasks: 0,
+  });
+  const [savingLocationStats, setSavingLocationStats] = useState(false);
 
   // Update URL when tab changes
   const handleTabChange = (tab: TabType) => {
@@ -388,6 +400,21 @@ export default function OrganizationDetailPage() {
     }
   }, [demoMode, organization]); // Remove deliveryStats and locationStats from dependencies
 
+  // Initialize location stats values from organization data
+  useEffect(() => {
+    if (organization) {
+      const stats = (organization as any).locationStats || {};
+      setLocationStatsValues({
+        locations: stats.locations ?? locationStats.totalLocations ?? 0,
+        bedrooms: stats.bedrooms ?? locationStats.bedrooms ?? 0,
+        bathrooms: stats.bathrooms ?? locationStats.bathrooms ?? 0,
+        kitchens: stats.kitchens ?? locationStats.kitchens ?? 0,
+        livingAreas: stats.livingAreas ?? locationStats.livingAreas ?? 0,
+        totalTasks: stats.totalTasks ?? locationStats.totalTasks ?? 0,
+      });
+    }
+  }, [organization, locationStats]);
+
   const saveDemoStats = async () => {
     if (!user || !organizationId) return;
     setSavingDemoStats(true);
@@ -419,6 +446,38 @@ export default function OrganizationDetailPage() {
       alert("Failed to save demo values");
     } finally {
       setSavingDemoStats(false);
+    }
+  };
+
+  const saveLocationStats = async () => {
+    if (!user || !organizationId) return;
+    setSavingLocationStats(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/v1/organizations/${encodeURIComponent(organizationId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ locationStats: locationStatsValues }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Failed to save location stats:", error);
+        toast.error(error.error || "Failed to save location stats");
+        return;
+      }
+
+      setOrganization(prev => prev ? { ...prev, locationStats: locationStatsValues } as Organization : prev);
+      setEditingLocationStats(false);
+      toast.success("Location stats saved successfully");
+    } catch (err: any) {
+      console.error("Failed to save location stats:", err);
+      toast.error(err.message || "Failed to save location stats");
+    } finally {
+      setSavingLocationStats(false);
     }
   };
 
@@ -540,6 +599,12 @@ export default function OrganizationDetailPage() {
             savingDemoStats={savingDemoStats}
             deliveryStats={demoMode ? editableStats : undefined}
             locationStats={demoMode ? editableStats : undefined}
+            editingLocationStats={editingLocationStats}
+            setEditingLocationStats={setEditingLocationStats}
+            locationStatsValues={locationStatsValues}
+            setLocationStatsValues={setLocationStatsValues}
+            saveLocationStats={saveLocationStats}
+            savingLocationStats={savingLocationStats}
           />
         )}
         {activeTab === "deliveries" && (
@@ -651,6 +716,34 @@ function StatCard({
 }
 
 // EditableStatCard Component for Demo Mode
+// EditableStatInput Component for Location Access editing
+function EditableStatInput({ 
+  icon: Icon, 
+  label, 
+  value, 
+  onChange 
+}: { 
+  icon: any; 
+  label: string; 
+  value: number; 
+  onChange: (val: number) => void;
+}) {
+  return (
+    <div className="bg-white dark:bg-[#141414] rounded-xl border border-gray-200 dark:border-[#1f1f1f] p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+        <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      </div>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+        className="w-full text-lg font-bold text-gray-900 dark:text-white bg-transparent border-b border-dashed border-orange-400 dark:border-orange-500 focus:outline-none focus:border-orange-500 dark:focus:border-orange-400"
+      />
+    </div>
+  );
+}
+
 function EditableStatCard({ 
   icon: Icon, 
   label, 
@@ -746,6 +839,12 @@ function OverviewTab({
   savingDemoStats = false,
   deliveryStats: passedDeliveryStats,
   locationStats: passedLocationStats,
+  editingLocationStats,
+  setEditingLocationStats,
+  locationStatsValues,
+  setLocationStatsValues,
+  saveLocationStats,
+  savingLocationStats,
 }: {
   organization: Organization;
   deliveries: Delivery[];
@@ -789,6 +888,40 @@ function OverviewTab({
     livingAreas: number;
     totalTasks: number;
   };
+  editingLocationStats: boolean;
+  setEditingLocationStats: (value: boolean) => void;
+  locationStatsValues: {
+    locations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  };
+  setLocationStatsValues: (value: {
+    locations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  } | ((prev: {
+    locations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  }) => {
+    locations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  })) => void;
+  saveLocationStats: () => Promise<void>;
+  savingLocationStats: boolean;
 }) {
   // Calculate delivery stats
   const calculatedDeliveryStats = useMemo(() => {
@@ -986,13 +1119,82 @@ function OverviewTab({
       </div>
 
       {/* Location Access Stats */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <MapPin className="w-5 h-5 text-blue-500" />
-          Location Access
-        </h3>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-orange-500" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Location Access</h3>
+          </div>
+          
+          {!editingLocationStats ? (
+            <button
+              onClick={() => setEditingLocationStats(true)}
+              className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+            >
+              <Edit2 className="w-4 h-4" />
+              Edit
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditingLocationStats(false)}
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveLocationStats}
+                disabled={savingLocationStats}
+                className="text-sm bg-orange-500 text-white px-3 py-1 rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center gap-1"
+              >
+                {savingLocationStats ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Save
+              </button>
+            </div>
+          )}
+        </div>
+        
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {demoMode && editableStats && onEditableStatsChange ? (
+          {editingLocationStats ? (
+            <>
+              <EditableStatInput 
+                icon={Building2} 
+                label="Locations" 
+                value={locationStatsValues.locations}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, locations: val }))}
+              />
+              <EditableStatInput 
+                icon={BedDouble} 
+                label="Bedrooms" 
+                value={locationStatsValues.bedrooms}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, bedrooms: val }))}
+              />
+              <EditableStatInput 
+                icon={Bath} 
+                label="Bathrooms" 
+                value={locationStatsValues.bathrooms}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, bathrooms: val }))}
+              />
+              <EditableStatInput 
+                icon={UtensilsCrossed} 
+                label="Kitchens" 
+                value={locationStatsValues.kitchens}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, kitchens: val }))}
+              />
+              <EditableStatInput 
+                icon={Sofa} 
+                label="Living Areas" 
+                value={locationStatsValues.livingAreas}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, livingAreas: val }))}
+              />
+              <EditableStatInput 
+                icon={ClipboardList} 
+                label="Total Tasks" 
+                value={locationStatsValues.totalTasks}
+                onChange={(val) => setLocationStatsValues(prev => ({ ...prev, totalTasks: val }))}
+              />
+            </>
+          ) : demoMode && editableStats && onEditableStatsChange ? (
             <>
               <EditableStatCard
                 icon={Building2}
@@ -1051,16 +1253,16 @@ function OverviewTab({
             </>
           ) : (
             <>
-              <StatCard icon={Building2} label="Locations" value={locationStats.totalLocations.toString()} small />
-              <StatCard icon={BedDouble} label="Bedrooms" value={locationStats.bedrooms.toString()} small />
-              <StatCard icon={Bath} label="Bathrooms" value={locationStats.bathrooms.toString()} small />
-              <StatCard icon={UtensilsCrossed} label="Kitchens" value={locationStats.kitchens.toString()} small />
-              <StatCard icon={Sofa} label="Living Areas" value={locationStats.livingAreas.toString()} small />
-              <StatCard icon={ClipboardList} label="Total Tasks" value={locationStats.totalTasks.toString()} small />
+              <StatCard icon={Building2} label="Locations" value={locationStatsValues.locations.toString()} small />
+              <StatCard icon={BedDouble} label="Bedrooms" value={locationStatsValues.bedrooms.toString()} small />
+              <StatCard icon={Bath} label="Bathrooms" value={locationStatsValues.bathrooms.toString()} small />
+              <StatCard icon={UtensilsCrossed} label="Kitchens" value={locationStatsValues.kitchens.toString()} small />
+              <StatCard icon={Sofa} label="Living Areas" value={locationStatsValues.livingAreas.toString()} small />
+              <StatCard icon={ClipboardList} label="Total Tasks" value={locationStatsValues.totalTasks.toString()} small />
             </>
           )}
         </div>
-        {demoMode && onSaveDemoStats && (
+        {demoMode && onSaveDemoStats && !editingLocationStats && (
           <div className="flex justify-end mt-4">
             <button
               onClick={onSaveDemoStats}

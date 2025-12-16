@@ -107,15 +107,15 @@ export default function LocationAssignmentsTab({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader size={32} className="animate-spin text-gray-400" />
+        <Loader size={32} className="animate-spin text-gray-400 dark:text-gray-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-800">{error}</p>
+      <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg">
+        <p className="text-red-800 dark:text-red-400">{error}</p>
       </div>
     );
   }
@@ -141,64 +141,64 @@ export default function LocationAssignmentsTab({
 
       {/* Assignments List */}
       {assignments.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <UserPlus size={48} className="mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-600 mb-2">No cleaners assigned yet</p>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="text-center py-12 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg border-2 border-dashed border-gray-300 dark:border-[#2a2a2a]">
+          <UserPlus size={48} className="mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+          <p className="text-gray-600 dark:text-gray-400 mb-2">No cleaners assigned yet</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Assign a cleaner to allow them to record videos at this location
           </p>
           <button
             onClick={() => setShowAssignModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             Assign First Cleaner
           </button>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-lg overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Cleaner
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Assigned Date
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-[#1f1f1f]">
               {assignments.map((assignment) => (
-                <tr key={assignment.id} className="hover:bg-gray-50">
+                <tr key={assignment.id} className="hover:bg-gray-50 dark:hover:bg-[#1f1f1f]">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-gray-900 dark:text-white">
                         {assignment.user_name}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
                         {assignment.user_email}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                    <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 dark:bg-orange-500/20 text-orange-800 dark:text-orange-400 rounded">
                       {assignment.role.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {assignment.assigned_at ? new Date(assignment.assigned_at).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <button
                       onClick={() => handleRemoveAssignment(assignment.id)}
                       disabled={deletingId === assignment.id}
-                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
                       title="Remove assignment"
                     >
                       {deletingId === assignment.id ? (

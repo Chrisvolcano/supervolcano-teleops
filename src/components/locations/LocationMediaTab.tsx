@@ -181,26 +181,26 @@ export default function LocationMediaTab({ locationId, locationName }: LocationM
 
   const blurReviewCount = media.filter(m => (m.faceDetectionStatus === 'completed' && m.hasFaces && m.blurStatus !== 'complete') || (m.blurStatus === 'complete' && !m.blurApproved)).length;
 
-  if (loading) return <div className="bg-white rounded-lg border border-gray-200 p-8"><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div></div>;
-  if (error) return <div className="bg-white rounded-lg border border-gray-200 p-8"><div className="flex flex-col items-center justify-center py-20 text-center"><div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4"><Film className="w-6 h-6 text-red-500" /></div><p className="text-gray-900 font-medium mb-1">Failed to load media</p><p className="text-gray-500 text-sm mb-4">{error}</p><button onClick={fetchMedia} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Try again</button></div></div>;
-  if (media.length === 0) return <div className="bg-white rounded-lg border border-gray-200 p-8"><div className="flex flex-col items-center justify-center py-20 text-center"><div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><Film className="w-8 h-8 text-gray-400" /></div><p className="text-gray-900 font-medium mb-1">No media yet</p><p className="text-gray-500 text-sm">Videos recorded from the mobile app will appear here</p></div></div>;
+  if (loading) return <div className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-8"><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400 dark:text-gray-500" /></div></div>;
+  if (error) return <div className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-8"><div className="flex flex-col items-center justify-center py-20 text-center"><div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4"><Film className="w-6 h-6 text-red-500 dark:text-red-400" /></div><p className="text-gray-900 dark:text-white font-medium mb-1">Failed to load media</p><p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{error}</p><button onClick={fetchMedia} className="text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500 font-medium">Try again</button></div></div>;
+  if (media.length === 0) return <div className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-8"><div className="flex flex-col items-center justify-center py-20 text-center"><div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-[#1f1f1f] flex items-center justify-center mb-4"><Film className="w-8 h-8 text-gray-400 dark:text-gray-500" /></div><p className="text-gray-900 dark:text-white font-medium mb-1">No media yet</p><p className="text-gray-500 dark:text-gray-400 text-sm">Videos recorded from the mobile app will appear here</p></div></div>;
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#141414] rounded-lg border border-gray-200 dark:border-[#1f1f1f] p-6">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            <button onClick={() => setActiveSubTab('all')} className={`px-4 py-2 text-sm font-medium rounded-md transition ${activeSubTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>All Media ({media.length})</button>
-            <button onClick={() => setActiveSubTab('blur-review')} className={`px-4 py-2 text-sm font-medium rounded-md transition ${activeSubTab === 'blur-review' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>Blur Review {blurReviewCount > 0 && `(${blurReviewCount})`}</button>
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#1f1f1f] rounded-lg p-1">
+            <button onClick={() => setActiveSubTab('all')} className={`px-4 py-2 text-sm font-medium rounded-md transition ${activeSubTab === 'all' ? 'bg-white dark:bg-[#141414] text-gray-900 dark:text-white shadow-sm dark:shadow-none' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>All Media ({media.length})</button>
+            <button onClick={() => setActiveSubTab('blur-review')} className={`px-4 py-2 text-sm font-medium rounded-md transition ${activeSubTab === 'blur-review' ? 'bg-white dark:bg-[#141414] text-gray-900 dark:text-white shadow-sm dark:shadow-none' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>Blur Review {blurReviewCount > 0 && `(${blurReviewCount})`}</button>
           </div>
-          <button onClick={fetchMedia} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"><RefreshCw className="w-4 h-4" /></button>
+          <button onClick={fetchMedia} className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition"><RefreshCw className="w-4 h-4" /></button>
         </div>
 
         {activeSubTab === 'all' ? (
           <div className="space-y-8">
             {Object.entries(groupedMedia).map(([date, items]) => (
               <div key={date}>
-                <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center gap-2"><Calendar className="w-4 h-4" />{date}</h3>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-2"><Calendar className="w-4 h-4" />{date}</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {items.map((item) => <VideoThumbnail key={item.id} item={item} onClick={() => setSelectedVideo(item)} formatTime={formatTime} formatFileSize={formatFileSize} />)}
                 </div>
@@ -218,7 +218,7 @@ export default function LocationMediaTab({ locationId, locationName }: LocationM
 
 function VideoThumbnail({ item, onClick, formatTime, formatFileSize }: { item: MediaItem; onClick: () => void; formatTime: (date: string) => string; formatFileSize: (bytes: number) => string }) {
   return (
-    <button onClick={onClick} className="group relative aspect-video bg-gray-900 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all">
+    <button onClick={onClick} className="group relative aspect-video bg-gray-900 rounded-lg overflow-hidden hover:ring-2 hover:ring-orange-500 transition-all">
       {item.thumbnailUrl && <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />}
       <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
         <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform"><Play className="w-5 h-5 text-gray-900 ml-1" fill="currentColor" /></div>
@@ -235,17 +235,17 @@ function VideoModal({ video, onClose, formatDate, formatTime, formatFileSize }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-4xl bg-white rounded-xl overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div><p className="font-medium text-gray-900">{formatDate(video.uploadedAt)}</p><p className="text-sm text-gray-500">{formatTime(video.uploadedAt)}{video.fileSize && ` • ${formatFileSize(video.fileSize)}`}</p></div>
+      <div className="relative w-full max-w-4xl bg-white dark:bg-[#141414] rounded-xl overflow-hidden shadow-2xl dark:shadow-none">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#1f1f1f]">
+          <div><p className="font-medium text-gray-900 dark:text-white">{formatDate(video.uploadedAt)}</p><p className="text-sm text-gray-500 dark:text-gray-400">{formatTime(video.uploadedAt)}{video.fileSize && ` • ${formatFileSize(video.fileSize)}`}</p></div>
           <div className="flex items-center gap-2">
-            {hasBlurredVersion && <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mr-2"><button onClick={() => setShowBlurred(false)} className={`px-3 py-1 text-xs font-medium rounded transition ${!showBlurred ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Original</button><button onClick={() => setShowBlurred(true)} className={`px-3 py-1 text-xs font-medium rounded transition ${showBlurred ? 'bg-blue-600 text-white' : 'text-gray-600'}`}>Blurred</button></div>}
-            <a href={video.videoUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors" title="Download"><Download className="w-5 h-5" /></a>
-            <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+            {hasBlurredVersion && <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#1f1f1f] rounded-lg p-1 mr-2"><button onClick={() => setShowBlurred(false)} className={`px-3 py-1 text-xs font-medium rounded transition ${!showBlurred ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'text-gray-600 dark:text-gray-400'}`}>Original</button><button onClick={() => setShowBlurred(true)} className={`px-3 py-1 text-xs font-medium rounded transition ${showBlurred ? 'bg-orange-500 text-white' : 'text-gray-600 dark:text-gray-400'}`}>Blurred</button></div>}
+            <a href={video.videoUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors" title="Download"><Download className="w-5 h-5" /></a>
+            <button onClick={onClose} className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"><X className="w-5 h-5" /></button>
           </div>
         </div>
         <div className="aspect-video bg-black"><video key={showBlurred && hasBlurredVersion ? 'blurred' : 'original'} src={showBlurred && hasBlurredVersion ? video.blurredUrl : video.videoUrl} controls autoPlay className="w-full h-full" /></div>
-        <div className="p-4 bg-gray-50 border-t"><div className="flex items-center justify-between"><div className="flex items-center gap-6 text-sm text-gray-500"><div className="flex items-center gap-2"><User className="w-4 h-4" /><span>{video.userId.slice(0, 8)}...</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>Uploaded {formatTime(video.uploadedAt)}</span></div></div>{hasBlurredVersion && <span className={`px-2 py-1 rounded text-xs font-medium ${video.blurApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{video.blurApproved ? 'Blur Approved' : 'Pending Review'}</span>}</div></div>
+        <div className="p-4 bg-gray-50 dark:bg-[#1f1f1f] border-t border-gray-200 dark:border-[#2a2a2a]"><div className="flex items-center justify-between"><div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400"><div className="flex items-center gap-2"><User className="w-4 h-4" /><span>{video.userId.slice(0, 8)}...</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>Uploaded {formatTime(video.uploadedAt)}</span></div></div>{hasBlurredVersion && <span className={`px-2 py-1 rounded text-xs font-medium ${video.blurApproved ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'}`}>{video.blurApproved ? 'Blur Approved' : 'Pending Review'}</span>}</div></div>
       </div>
     </div>
   );

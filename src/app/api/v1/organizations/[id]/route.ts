@@ -66,7 +66,7 @@ export async function PATCH(
     requireRole(claims, ["superadmin", "partner_admin"]);
 
     const body = await request.json();
-    const { name, contactName, contactEmail, contactPhone, status, demoStats } = body;
+    const { name, contactName, contactEmail, contactPhone, status, demoStats, locationStats } = body;
 
     // If demoStats is provided, update it directly in Firestore
     if (demoStats !== undefined) {
@@ -74,6 +74,16 @@ export async function PATCH(
       const db = getAdminDb();
       await db.collection('organizations').doc(organizationId).update({
         demoStats,
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // If locationStats is provided, update it directly in Firestore
+    if (locationStats !== undefined) {
+      const { getAdminDb } = await import('@/lib/firebaseAdmin');
+      const db = getAdminDb();
+      await db.collection('organizations').doc(organizationId).update({
+        locationStats,
       });
       return NextResponse.json({ success: true });
     }

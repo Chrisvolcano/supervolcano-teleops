@@ -66,44 +66,44 @@ export default function NewLocationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
         <div className="max-w-3xl mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
             <Link
               href="/admin/locations"
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5 text-gray-900 dark:text-white" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create New Location</h1>
-              <p className="text-sm text-gray-500 mt-1">Step 1 of 3</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Location</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Step 1 of 3</p>
             </div>
           </div>
 
           {/* Progress indicator */}
           <div className="flex items-center gap-4 mt-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
                 <MapPin className="w-4 h-4" />
               </div>
-              <span className="text-sm font-medium text-blue-600">Basic Info</span>
+              <span className="text-sm font-medium text-orange-500">Basic Info</span>
             </div>
-            <div className="flex-1 h-0.5 bg-gray-200" />
+            <div className="flex-1 h-0.5 bg-gray-200 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gray-200 dark:bg-[#2a2a2a] text-gray-400 dark:text-gray-500 rounded-full flex items-center justify-center">
                 <Building2 className="w-4 h-4" />
               </div>
-              <span className="text-sm text-gray-400">Build Structure</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">Build Structure</span>
             </div>
-            <div className="flex-1 h-0.5 bg-gray-200" />
+            <div className="flex-1 h-0.5 bg-gray-200 dark:bg-[#2a2a2a]" />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gray-200 dark:bg-[#2a2a2a] text-gray-400 dark:text-gray-500 rounded-full flex items-center justify-center">
                 <span className="text-xs font-medium">✓</span>
               </div>
-              <span className="text-sm text-gray-400">Review</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">Review</span>
             </div>
           </div>
         </div>
@@ -165,17 +165,17 @@ export default function NewLocationPage() {
         <div className="flex items-center justify-between mt-6">
           <Link
             href="/admin/locations"
-            className="px-4 py-2 text-gray-600 hover:text-gray-900"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
             ← Back
           </Link>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             0 tasks will be created
           </div>
           <button
             onClick={handleCreate}
             disabled={loading || !name.trim()}
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-6 py-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading ? (
               <>
