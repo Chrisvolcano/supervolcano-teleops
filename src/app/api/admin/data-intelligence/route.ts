@@ -67,22 +67,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch deliveries from dataDeliveries collection
-    const deliveriesSnapshot = await adminDb.collection('dataDeliveries')
-      .orderBy('date', 'desc')
+    // Fetch deliveries from trainingExports collection
+    const deliveriesSnapshot = await adminDb.collection('trainingExports')
+      .orderBy('createdAt', 'desc')
       .get();
     
     const deliveries = deliveriesSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
-        videoCount: data.videoCount || 0,
-        sizeGB: data.sizeGB || 0,
-        hours: data.hours !== undefined ? data.hours : null, // Include hours if present
-        description: data.description || '',
         partnerId: data.partnerId || null,
         partnerName: data.partnerName || null,
-        date: data.date?.toDate?.()?.toISOString() || data.date || new Date().toISOString(),
+        date: data.exportedAt?.toDate?.()?.toISOString() || data.createdAt?.toDate?.()?.toISOString() || null,
+        videoCount: data.videoCount || 0,
+        sizeGB: (data.totalSizeBytes || 0) / (1024 * 1024 * 1024),
+        hours: (data.totalDurationSeconds || 0) / 3600,
+        status: data.status || 'completed',
+        description: data.notes || '', // Map notes to description for backward compatibility
+        notes: data.notes || null,
       };
     });
 

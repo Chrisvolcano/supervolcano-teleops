@@ -5,7 +5,7 @@
  * Data-delivery focused dashboard for OEM partners
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
@@ -32,7 +32,14 @@ import {
   Check,
   RefreshCw,
   BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Edit2,
 } from "lucide-react";
+import { VideoGallery } from '@/components/ui/VideoGallery';
+import { VideoThumbnail } from '@/components/ui/VideoThumbnail';
+import { VideoPreviewModal } from '@/components/ui/VideoPreviewModal';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { Organization } from "@/lib/repositories/organizations";
 
@@ -89,6 +96,30 @@ export default function OrganizationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditOrg, setShowEditOrg] = useState(false);
+  const [sampleVideos, setSampleVideos] = useState<Array<{
+    id: string;
+    url: string;
+    fileName?: string;
+    durationSeconds?: number;
+    locationName?: string;
+    roomType?: string;
+  }>>([]);
+  
+  // Demo mode state
+  const [demoMode, setDemoMode] = useState(false);
+  const [editableStats, setEditableStats] = useState({
+    totalVideos: 0,
+    totalHours: 0,
+    totalStorageGB: 0,
+    deliveryCount: 0,
+    totalLocations: 0,
+    bedrooms: 0,
+    bathrooms: 0,
+    kitchens: 0,
+    livingAreas: 0,
+    totalTasks: 0,
+  });
+  const [savingDemoStats, setSavingDemoStats] = useState(false);
 
   // Update URL when tab changes
   const handleTabChange = (tab: TabType) => {
@@ -182,6 +213,19 @@ export default function OrganizationDetailPage() {
         const availData = await availableRes.json();
         setAvailableLocations(availData.locations || []);
       }
+
+      // Load sample videos for this partner
+      try {
+        const videosRes = await fetch(`/api/v1/organizations/${organizationId}/videos?limit=10`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (videosRes.ok) {
+          const videosData = await videosRes.json();
+          setSampleVideos(videosData.videos || []);
+        }
+      } catch (err) {
+        console.error('Failed to load sample videos:', err);
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("Failed to load organization data");
@@ -195,6 +239,21 @@ export default function OrganizationDetailPage() {
       loadData();
     }
   }, [user, organizationId, loadData]);
+
+  // Listen for demo mode changes from header
+  useEffect(() => {
+    const saved = localStorage.getItem('sv-demo-mode');
+    if (saved === 'true') setDemoMode(true);
+
+    const handleDemoModeChange = (e: CustomEvent) => {
+      setDemoMode(e.detail);
+    };
+
+    window.addEventListener('demo-mode-change', handleDemoModeChange as EventListener);
+    return () => {
+      window.removeEventListener('demo-mode-change', handleDemoModeChange as EventListener);
+    };
+  }, []);
 
   async function handleUpdateOrganization(data: Partial<Organization>) {
     if (!user || !organization) return;
@@ -267,6 +326,101 @@ export default function OrganizationDetailPage() {
       toast.error(error.message || "Failed to delete organization");
     }
   }
+
+  // Calculate stats for demo mode initialization
+  const deliveryStats = useMemo(() => {
+    const totalVideos = deliveries.reduce((sum, d) => sum + d.videoCount, 0);
+    const totalStorageGB = deliveries.reduce((sum, d) => sum + d.sizeGB, 0);
+    const totalHours = deliveries.reduce((sum, d) => sum + (d.hours || d.sizeGB / 15), 0);
+    return {
+      totalVideos,
+      totalStorageGB,
+      totalHours,
+      deliveryCount: deliveries.length,
+    };
+  }, [deliveries]);
+
+  const locationStats = useMemo(() => {
+    let bedrooms = 0,
+      bathrooms = 0,
+      kitchens = 0,
+      livingAreas = 0,
+      other = 0,
+      totalTasks = 0;
+
+    assignedLocations.forEach((loc) => {
+      bedrooms += loc.roomCounts?.bedroom || 0;
+      bathrooms += loc.roomCounts?.bathroom || 0;
+      kitchens += loc.roomCounts?.kitchen || 0;
+      livingAreas += loc.roomCounts?.livingArea || 0;
+      other += loc.roomCounts?.other || 0;
+      totalTasks += loc.taskCount || 0;
+    });
+
+    return {
+      totalLocations: assignedLocations.length,
+      totalRooms: bedrooms + bathrooms + kitchens + livingAreas + other,
+      bedrooms,
+      bathrooms,
+      kitchens,
+      livingAreas,
+      other,
+      totalTasks,
+    };
+  }, [assignedLocations]);
+
+  // Initialize editable stats when data loads or demo mode changes
+  useEffect(() => {
+    if (demoMode && organization) {
+      const savedDemo = (organization as any).demoStats || {};
+      setEditableStats({
+        totalVideos: Math.round(savedDemo.totalVideos ?? deliveryStats.totalVideos ?? 0),
+        totalHours: parseFloat((savedDemo.totalHours ?? deliveryStats.totalHours ?? 0).toFixed(1)),
+        totalStorageGB: parseFloat((savedDemo.totalStorageGB ?? deliveryStats.totalStorageGB ?? 0).toFixed(1)),
+        deliveryCount: Math.round(savedDemo.deliveryCount ?? deliveryStats.deliveryCount ?? 0),
+        totalLocations: Math.round(savedDemo.totalLocations ?? locationStats.totalLocations ?? 0),
+        bedrooms: Math.round(savedDemo.bedrooms ?? locationStats.bedrooms ?? 0),
+        bathrooms: Math.round(savedDemo.bathrooms ?? locationStats.bathrooms ?? 0),
+        kitchens: Math.round(savedDemo.kitchens ?? locationStats.kitchens ?? 0),
+        livingAreas: Math.round(savedDemo.livingAreas ?? locationStats.livingAreas ?? 0),
+        totalTasks: Math.round(savedDemo.totalTasks ?? locationStats.totalTasks ?? 0),
+      });
+    }
+  }, [demoMode, organization]); // Remove deliveryStats and locationStats from dependencies
+
+  const saveDemoStats = async () => {
+    if (!user || !organizationId) return;
+    setSavingDemoStats(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/v1/organizations/${encodeURIComponent(organizationId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ demoStats: editableStats }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Failed to save demo stats:", error);
+        alert("Failed to save demo values");
+        return;
+      }
+
+      // Update local organization state with saved demoStats
+      setOrganization(prev => prev ? { ...prev, demoStats: editableStats } as Organization : prev);
+      
+      // Show success feedback
+      toast.success("Demo stats saved");
+    } catch (err: any) {
+      console.error("Failed to save demo stats:", err);
+      alert("Failed to save demo values");
+    } finally {
+      setSavingDemoStats(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -377,6 +531,15 @@ export default function OrganizationDetailPage() {
             organization={organization}
             deliveries={deliveries}
             assignedLocations={assignedLocations}
+            sampleVideos={sampleVideos}
+            onTabChange={handleTabChange}
+            demoMode={demoMode}
+            editableStats={editableStats}
+            onEditableStatsChange={setEditableStats}
+            onSaveDemoStats={saveDemoStats}
+            savingDemoStats={savingDemoStats}
+            deliveryStats={demoMode ? editableStats : undefined}
+            locationStats={demoMode ? editableStats : undefined}
           />
         )}
         {activeTab === "deliveries" && (
@@ -385,6 +548,7 @@ export default function OrganizationDetailPage() {
             organizationId={organizationId}
             organizationName={organization.name}
             onRefresh={loadData}
+            sampleVideos={sampleVideos}
           />
         )}
         {activeTab === "locations" && (
@@ -486,18 +650,148 @@ function StatCard({
   );
 }
 
+// EditableStatCard Component for Demo Mode
+function EditableStatCard({ 
+  icon: Icon, 
+  label, 
+  value, 
+  editValue,
+  onEditChange,
+  demoMode = false,
+  small = false,
+}: { 
+  icon: any; 
+  label: string; 
+  value: string;
+  editValue?: number;
+  onEditChange?: (val: number) => void;
+  demoMode?: boolean;
+  small?: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus and select all when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <div className={`group relative bg-white dark:bg-[#141414] rounded-xl border border-gray-200 dark:border-[#1f1f1f] ${small ? 'p-3' : 'p-4'}`}>
+      {/* Edit button - only in demo mode, visible on hover */}
+      {demoMode && !isEditing && onEditChange && (
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded transition-all"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
+      )}
+
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className={`${small ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400`} />
+        <span className={`${small ? 'text-xs' : 'text-sm'} text-gray-500 dark:text-gray-400`}>{label}</span>
+      </div>
+
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          value={editValue?.toString() ?? ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            // Allow empty, numbers, and decimals
+            if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+              onEditChange?.(val === '' ? 0 : parseFloat(val) || 0);
+            }
+          }}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className={`w-full bg-transparent border-b-2 border-blue-500 outline-none ${small ? 'text-lg' : 'text-2xl'} font-bold text-gray-900 dark:text-white`}
+        />
+      ) : (
+        <div className={`${small ? 'text-lg' : 'text-2xl'} font-bold text-gray-900 dark:text-white`}>
+          {value}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // OVERVIEW TAB
 function OverviewTab({
   organization,
   deliveries,
   assignedLocations,
+  sampleVideos,
+  onTabChange,
+  demoMode = false,
+  editableStats,
+  onEditableStatsChange,
+  onSaveDemoStats,
+  savingDemoStats = false,
+  deliveryStats: passedDeliveryStats,
+  locationStats: passedLocationStats,
 }: {
   organization: Organization;
   deliveries: Delivery[];
   assignedLocations: AssignedLocation[];
+  sampleVideos: Array<{
+    id: string;
+    url: string;
+    fileName?: string;
+    durationSeconds?: number;
+    locationName?: string;
+    roomType?: string;
+  }>;
+  onTabChange: (tab: TabType) => void;
+  demoMode?: boolean;
+  editableStats?: {
+    totalVideos: number;
+    totalHours: number;
+    totalStorageGB: number;
+    deliveryCount: number;
+    totalLocations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  };
+  onEditableStatsChange?: (stats: any) => void;
+  onSaveDemoStats?: () => void;
+  savingDemoStats?: boolean;
+  deliveryStats?: {
+    totalVideos: number;
+    totalStorageGB: number;
+    totalHours: number;
+    deliveryCount: number;
+  };
+  locationStats?: {
+    totalLocations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  };
 }) {
   // Calculate delivery stats
-  const deliveryStats = useMemo(() => {
+  const calculatedDeliveryStats = useMemo(() => {
     const totalVideos = deliveries.reduce((sum, d) => sum + d.videoCount, 0);
     const totalStorageGB = deliveries.reduce((sum, d) => sum + d.sizeGB, 0);
     const totalHours = deliveries.reduce((sum, d) => sum + (d.hours || d.sizeGB / 15), 0);
@@ -513,8 +807,11 @@ function OverviewTab({
     };
   }, [deliveries]);
 
+  // Use passed stats or calculated delivery stats
+  const deliveryStats = passedDeliveryStats || calculatedDeliveryStats;
+
   // Calculate location stats
-  const locationStats = useMemo(() => {
+  const calculatedLocationStats = useMemo(() => {
     let bedrooms = 0,
       bathrooms = 0,
       kitchens = 0,
@@ -543,6 +840,9 @@ function OverviewTab({
     };
   }, [assignedLocations]);
 
+  // Use passed stats or calculated location stats
+  const locationStats = passedLocationStats || calculatedLocationStats;
+
   // Chart data
   const chartData = useMemo(() => {
     if (deliveries.length < 2) return [];
@@ -570,27 +870,88 @@ function OverviewTab({
           Data Delivered
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            icon={Film}
-            label="Videos Delivered"
-            value={deliveryStats.totalVideos.toLocaleString()}
-          />
-          <StatCard
-            icon={Clock}
-            label="Hours of Footage"
-            value={`${deliveryStats.totalHours.toFixed(1)} hrs`}
-          />
-          <StatCard
-            icon={HardDrive}
-            label="Total Storage"
-            value={
-              deliveryStats.totalStorageGB >= 1000
-                ? `${(deliveryStats.totalStorageGB / 1000).toFixed(1)} TB`
-                : `${deliveryStats.totalStorageGB.toFixed(1)} GB`
-            }
-          />
-          <StatCard icon={Package} label="Total Deliveries" value={deliveryStats.deliveryCount.toString()} />
+          {demoMode && editableStats && onEditableStatsChange ? (
+            <>
+              <EditableStatCard
+                icon={Film}
+                label="Videos Delivered"
+                value={editableStats.totalVideos.toLocaleString()}
+                editValue={editableStats.totalVideos}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, totalVideos: val })}
+                demoMode={demoMode}
+              />
+              <EditableStatCard
+                icon={Clock}
+                label="Hours of Footage"
+                value={`${editableStats.totalHours.toFixed(1)} hrs`}
+                editValue={editableStats.totalHours}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, totalHours: val })}
+                demoMode={demoMode}
+              />
+              <EditableStatCard
+                icon={HardDrive}
+                label="Total Storage"
+                value={
+                  editableStats.totalStorageGB >= 1000
+                    ? `${(editableStats.totalStorageGB / 1000).toFixed(1)} TB`
+                    : `${editableStats.totalStorageGB.toFixed(1)} GB`
+                }
+                editValue={editableStats.totalStorageGB}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, totalStorageGB: val })}
+                demoMode={demoMode}
+              />
+              <EditableStatCard
+                icon={Package}
+                label="Total Deliveries"
+                value={editableStats.deliveryCount.toString()}
+                editValue={editableStats.deliveryCount}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, deliveryCount: val })}
+                demoMode={demoMode}
+              />
+            </>
+          ) : (
+            <>
+              <StatCard
+                icon={Film}
+                label="Videos Delivered"
+                value={deliveryStats.totalVideos.toLocaleString()}
+              />
+              <StatCard
+                icon={Clock}
+                label="Hours of Footage"
+                value={`${deliveryStats.totalHours.toFixed(1)} hrs`}
+              />
+              <StatCard
+                icon={HardDrive}
+                label="Total Storage"
+                value={
+                  deliveryStats.totalStorageGB >= 1000
+                    ? `${(deliveryStats.totalStorageGB / 1000).toFixed(1)} TB`
+                    : `${deliveryStats.totalStorageGB.toFixed(1)} GB`
+                }
+              />
+              <StatCard icon={Package} label="Total Deliveries" value={deliveryStats.deliveryCount.toString()} />
+            </>
+          )}
         </div>
+        {demoMode && onSaveDemoStats && (
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={onSaveDemoStats}
+              disabled={savingDemoStats}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {savingDemoStats ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Demo Values'
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Delivery Trend Chart */}
@@ -631,13 +992,123 @@ function OverviewTab({
           Location Access
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <StatCard icon={Building2} label="Locations" value={locationStats.totalLocations.toString()} small />
-          <StatCard icon={BedDouble} label="Bedrooms" value={locationStats.bedrooms.toString()} small />
-          <StatCard icon={Bath} label="Bathrooms" value={locationStats.bathrooms.toString()} small />
-          <StatCard icon={UtensilsCrossed} label="Kitchens" value={locationStats.kitchens.toString()} small />
-          <StatCard icon={Sofa} label="Living Areas" value={locationStats.livingAreas.toString()} small />
-          <StatCard icon={ClipboardList} label="Total Tasks" value={locationStats.totalTasks.toString()} small />
+          {demoMode && editableStats && onEditableStatsChange ? (
+            <>
+              <EditableStatCard
+                icon={Building2}
+                label="Locations"
+                value={editableStats.totalLocations.toString()}
+                editValue={editableStats.totalLocations}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, totalLocations: val })}
+                demoMode={demoMode}
+                small
+              />
+              <EditableStatCard
+                icon={BedDouble}
+                label="Bedrooms"
+                value={editableStats.bedrooms.toString()}
+                editValue={editableStats.bedrooms}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, bedrooms: val })}
+                demoMode={demoMode}
+                small
+              />
+              <EditableStatCard
+                icon={Bath}
+                label="Bathrooms"
+                value={editableStats.bathrooms.toString()}
+                editValue={editableStats.bathrooms}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, bathrooms: val })}
+                demoMode={demoMode}
+                small
+              />
+              <EditableStatCard
+                icon={UtensilsCrossed}
+                label="Kitchens"
+                value={editableStats.kitchens.toString()}
+                editValue={editableStats.kitchens}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, kitchens: val })}
+                demoMode={demoMode}
+                small
+              />
+              <EditableStatCard
+                icon={Sofa}
+                label="Living Areas"
+                value={editableStats.livingAreas.toString()}
+                editValue={editableStats.livingAreas}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, livingAreas: val })}
+                demoMode={demoMode}
+                small
+              />
+              <EditableStatCard
+                icon={ClipboardList}
+                label="Total Tasks"
+                value={editableStats.totalTasks.toString()}
+                editValue={editableStats.totalTasks}
+                onEditChange={(val) => onEditableStatsChange({ ...editableStats, totalTasks: val })}
+                demoMode={demoMode}
+                small
+              />
+            </>
+          ) : (
+            <>
+              <StatCard icon={Building2} label="Locations" value={locationStats.totalLocations.toString()} small />
+              <StatCard icon={BedDouble} label="Bedrooms" value={locationStats.bedrooms.toString()} small />
+              <StatCard icon={Bath} label="Bathrooms" value={locationStats.bathrooms.toString()} small />
+              <StatCard icon={UtensilsCrossed} label="Kitchens" value={locationStats.kitchens.toString()} small />
+              <StatCard icon={Sofa} label="Living Areas" value={locationStats.livingAreas.toString()} small />
+              <StatCard icon={ClipboardList} label="Total Tasks" value={locationStats.totalTasks.toString()} small />
+            </>
+          )}
         </div>
+        {demoMode && onSaveDemoStats && (
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={onSaveDemoStats}
+              disabled={savingDemoStats}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {savingDemoStats ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Demo Values'
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Samples */}
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Film className="w-5 h-5 text-purple-500" />
+            Recent Samples
+          </h3>
+          {sampleVideos.length > 5 && (
+            <button
+              onClick={() => onTabChange('deliveries')}
+              className="text-sm text-orange-600 dark:text-orange-500 hover:underline"
+            >
+              View All →
+            </button>
+          )}
+        </div>
+        {sampleVideos.length > 0 ? (
+          <VideoGallery
+            videos={sampleVideos}
+            maxVisible={5}
+            onViewAll={() => onTabChange('deliveries')}
+            emptyMessage="No videos delivered yet"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
+            <Film className="w-8 h-8 mb-2" />
+            <p className="text-sm">No videos delivered yet</p>
+          </div>
+        )}
       </div>
 
       {/* Recent Deliveries */}
@@ -683,14 +1154,26 @@ function DeliveriesTab({
   organizationId,
   organizationName,
   onRefresh,
+  sampleVideos,
 }: {
   deliveries: Delivery[];
   organizationId: string;
   organizationName: string;
   onRefresh: () => void;
+  sampleVideos: Array<{
+    id: string;
+    url: string;
+    fileName?: string;
+    durationSeconds?: number;
+    locationName?: string;
+    roomType?: string;
+  }>;
 }) {
   const { getIdToken } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedDelivery, setExpandedDelivery] = useState<string | null>(null);
+  const [deliveryVideos, setDeliveryVideos] = useState<Record<string, any[]>>({});
+  const [loadingDeliveryVideos, setLoadingDeliveryVideos] = useState<string | null>(null);
   const [newDelivery, setNewDelivery] = useState({
     date: new Date().toISOString().split("T")[0],
     videoCount: "",
@@ -698,6 +1181,30 @@ function DeliveriesTab({
     hours: "",
     description: "",
   });
+
+  const loadDeliveryVideos = async (deliveryId: string) => {
+    if (deliveryVideos[deliveryId]) return; // Already loaded
+
+    setLoadingDeliveryVideos(deliveryId);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const res = await fetch(
+        `/api/v1/organizations/${organizationId}/videos?deliveryId=${deliveryId}&limit=8`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setDeliveryVideos(prev => ({ ...prev, [deliveryId]: data.videos || [] }));
+      }
+    } catch (err) {
+      console.error('Failed to load delivery videos:', err);
+    } finally {
+      setLoadingDeliveryVideos(null);
+    }
+  };
 
   const handleAddDelivery = async () => {
     if (!newDelivery.videoCount || !newDelivery.sizeGB || !newDelivery.description) {
@@ -919,63 +1426,94 @@ function DeliveriesTab({
         </div>
       )}
 
-      {/* Deliveries Table */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#1f1f1f]">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Videos
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Hours
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Size
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Description
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-[#1f1f1f]">
-            {deliveries.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                  No deliveries recorded yet
-                </td>
-              </tr>
-            ) : (
-              deliveries
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((delivery) => (
-                  <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {new Date(delivery.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {delivery.videoCount.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {(delivery.hours || delivery.sizeGB / 15).toFixed(1)} hrs
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {delivery.sizeGB.toFixed(1)} GB
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{delivery.description}</td>
-                  </tr>
-                ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Deliveries List with expandable previews */}
+      {deliveries.length === 0 ? (
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl p-12 text-center">
+          <p className="text-gray-500 dark:text-gray-400">No deliveries recorded yet</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {deliveries
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .map((delivery) => (
+              <div
+                key={delivery.id}
+                className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl overflow-hidden"
+              >
+                {/* Delivery header row */}
+                <div
+                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
+                  onClick={() => {
+                    const newExpanded = expandedDelivery === delivery.id ? null : delivery.id;
+                    setExpandedDelivery(newExpanded);
+                    if (newExpanded) {
+                      loadDeliveryVideos(delivery.id);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-4">
+                    <button className="text-gray-400">
+                      {expandedDelivery === delivery.id ? (
+                        <ChevronDown className="w-5 h-5" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5" />
+                      )}
+                    </button>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {delivery.description}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(delivery.date).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900 dark:text-white">{delivery.videoCount}</p>
+                      <p className="text-gray-500 dark:text-gray-400">Videos</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {(delivery.hours || delivery.sizeGB / 15).toFixed(1)} hrs
+                      </p>
+                      <p className="text-gray-500 dark:text-gray-400">Duration</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900 dark:text-white">{delivery.sizeGB.toFixed(1)} GB</p>
+                      <p className="text-gray-500 dark:text-gray-400">Size</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded preview section */}
+                {expandedDelivery === delivery.id && (
+                  <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-[#1f1f1f]">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                      Sample videos from this delivery:
+                    </p>
+                    {loadingDeliveryVideos === delivery.id ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                      </div>
+                    ) : (
+                      <VideoGallery
+                        videos={deliveryVideos[delivery.id] || []}
+                        maxVisible={8}
+                        showViewAll={false}
+                        emptyMessage="No preview videos available for this delivery"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

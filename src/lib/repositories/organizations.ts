@@ -21,6 +21,18 @@ export interface Organization {
   createdAt: Date | string;
   updatedAt: Date | string;
   createdBy: string;
+  demoStats?: {
+    totalVideos: number;
+    totalHours: number;
+    totalStorageGB: number;
+    deliveryCount: number;
+    totalLocations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  };
 }
 
 export interface OrganizationInput {
@@ -177,6 +189,7 @@ function normalizeOrganization(id: string, data: any): Organization {
     createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
     updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
     createdBy: data.createdBy || "",
+    demoStats: data.demoStats || undefined,
   };
 }
 

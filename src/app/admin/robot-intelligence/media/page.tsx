@@ -93,6 +93,7 @@ export default function MediaLibraryPage() {
   const [blurringIds, setBlurringIds] = useState<Set<string>>(new Set());
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ current: number; total: number } | null>(null);
   
   // Import dropdown state
   const [showImportDropdown, setShowImportDropdown] = useState(false);
@@ -504,6 +505,73 @@ export default function MediaLibraryPage() {
     }
   };
 
+  const handleBackfillDuration = async () => {
+    if (!user || backfillProgress) return;
+    
+    try {
+      const token = await user.getIdToken();
+      
+      // Get videos needing duration
+      const response = await fetch('/api/admin/migrate/backfill-duration', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ batchSize: 50 }),
+      });
+      
+      const data = await response.json();
+      if (!data.videos || data.videos.length === 0) {
+        alert('No videos need duration backfill');
+        return;
+      }
+      
+      setBackfillProgress({ current: 0, total: data.videos.length });
+      
+      // Process each video client-side
+      for (let i = 0; i < data.videos.length; i++) {
+        const video = data.videos[i];
+        setBackfillProgress({ current: i + 1, total: data.videos.length });
+        
+        try {
+          // Extract duration using video element
+          const duration = await new Promise<number>((resolve) => {
+            const videoEl = document.createElement('video');
+            videoEl.preload = 'metadata';
+            videoEl.onloadedmetadata = () => {
+              resolve(Math.round(videoEl.duration));
+            };
+            videoEl.onerror = () => resolve(0);
+            videoEl.src = video.url;
+          });
+          
+          if (duration > 0) {
+            // Save to Firestore
+            await fetch('/api/admin/migrate/backfill-duration', {
+              method: 'PATCH',
+              headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}` 
+              },
+              body: JSON.stringify({ videoId: video.id, durationSeconds: duration }),
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to process ${video.fileName}:`, err);
+        }
+      }
+      
+      alert(`Backfilled duration for ${data.videos.length} videos`);
+      fetchMedia(); // Refresh
+    } catch (err: any) {
+      console.error('Backfill error:', err);
+      alert('Backfill failed: ' + err.message);
+    } finally {
+      setBackfillProgress(null);
+    }
+  };
+
   const handleApproveBlur = async (videoId: string) => {
     if (!user) return;
     setProcessingIds(prev => new Set(prev).add(videoId));
@@ -626,11 +694,11 @@ export default function MediaLibraryPage() {
   const getProcessingStatusBadge = (video: VideoItem) => {
     const status = getProcessingStatus(video);
     const variantClasses = {
-      warning: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      info: 'bg-blue-100 text-blue-700 border-blue-200',
-      processing: 'bg-blue-100 text-blue-700 border-blue-200',
-      success: 'bg-green-100 text-green-700 border-green-200',
-      error: 'bg-red-100 text-red-700 border-red-200',
+      warning: 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30',
+      info: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30',
+      processing: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30',
+      success: 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30',
+      error: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30',
     };
     
     return (
@@ -652,9 +720,9 @@ export default function MediaLibraryPage() {
   };
   const getTrainingBadge = (status: string) => {
     switch (status) {
-      case 'approved': return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">Approved</span>;
-      case 'rejected': return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700">Rejected</span>;
-      default: return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-500/20 text-gray-500 dark:text-gray-400">-</span>;
+      case 'approved': return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">Approved</span>;
+      case 'rejected': return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400">Rejected</span>;
+      default: return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-[#1f1f1f] text-gray-500 dark:text-gray-400">-</span>;
     }
   };
   const renderStars = (score: number | null) => {
@@ -992,6 +1060,25 @@ export default function MediaLibraryPage() {
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* Backfill Duration button */}
+            <button
+              onClick={handleBackfillDuration}
+              disabled={!!backfillProgress}
+              className="ml-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-[#1f1f1f] border border-gray-300 dark:border-[#2a2a2a] rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2"
+            >
+              {backfillProgress ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {backfillProgress.current}/{backfillProgress.total}
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4" />
+                  Backfill Duration
+                </>
+              )}
             </button>
       </div>
 

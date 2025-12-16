@@ -66,7 +66,17 @@ export async function PATCH(
     requireRole(claims, ["superadmin", "partner_admin"]);
 
     const body = await request.json();
-    const { name, contactName, contactEmail, contactPhone, status } = body;
+    const { name, contactName, contactEmail, contactPhone, status, demoStats } = body;
+
+    // If demoStats is provided, update it directly in Firestore
+    if (demoStats !== undefined) {
+      const { getAdminDb } = await import('@/lib/firebaseAdmin');
+      const db = getAdminDb();
+      await db.collection('organizations').doc(organizationId).update({
+        demoStats,
+      });
+      return NextResponse.json({ success: true });
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Organization name is required" }, { status: 400 });

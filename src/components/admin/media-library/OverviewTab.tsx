@@ -145,6 +145,7 @@ export function OverviewTab({
           setTrainingFilter('rejected');
           setFilter('all');
         }}
+        activeFilter={trainingFilter}
       />
 
       {/* Filter Dropdown */}
