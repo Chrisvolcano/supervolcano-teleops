@@ -954,36 +954,36 @@ function OverviewTab({
         )}
       </div>
 
-      {/* Delivery Trend Chart */}
-      {chartData.length >= 2 && (
-        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Delivery Trend</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 12, fill: "#6b7280" }}
-                axisLine={{ stroke: "#e5e7eb" }}
-              />
-              <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={{ stroke: "#e5e7eb" }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--tooltip-bg, #fff)",
-                  border: "1px solid var(--tooltip-border, #e5e7eb)",
-                  borderRadius: "8px",
-                }}
-              />
-              <Area type="monotone" dataKey="total" stroke="#f97316" fill="url(#colorTotal)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* Recent Samples */}
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Film className="w-5 h-5 text-purple-500" />
+            Recent Samples
+          </h3>
+          {sampleVideos.length > 5 && (
+            <button
+              onClick={() => onTabChange('deliveries')}
+              className="text-sm text-orange-600 dark:text-orange-500 hover:underline"
+            >
+              View All →
+            </button>
+          )}
         </div>
-      )}
+        {sampleVideos.length > 0 ? (
+          <VideoGallery
+            videos={sampleVideos}
+            maxVisible={5}
+            onViewAll={() => onTabChange('deliveries')}
+            emptyMessage="No videos delivered yet"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
+            <Film className="w-8 h-8 mb-2" />
+            <p className="text-sm">No videos delivered yet</p>
+          </div>
+        )}
+      </div>
 
       {/* Location Access Stats */}
       <div>
@@ -1076,37 +1076,6 @@ function OverviewTab({
                 'Save Demo Values'
               )}
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Samples */}
-      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Film className="w-5 h-5 text-purple-500" />
-            Recent Samples
-          </h3>
-          {sampleVideos.length > 5 && (
-            <button
-              onClick={() => onTabChange('deliveries')}
-              className="text-sm text-orange-600 dark:text-orange-500 hover:underline"
-            >
-              View All →
-            </button>
-          )}
-        </div>
-        {sampleVideos.length > 0 ? (
-          <VideoGallery
-            videos={sampleVideos}
-            maxVisible={5}
-            onViewAll={() => onTabChange('deliveries')}
-            emptyMessage="No videos delivered yet"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
-            <Film className="w-8 h-8 mb-2" />
-            <p className="text-sm">No videos delivered yet</p>
           </div>
         )}
       </div>

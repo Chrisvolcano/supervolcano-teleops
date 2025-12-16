@@ -19,6 +19,7 @@ import {
   Loader2,
   RefreshCw,
   FolderSync,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
@@ -292,6 +293,8 @@ export default function DataIntelligencePage() {
     displayHours: number;
     displayStorageGB: number;
   } | null>(null);
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+  const [editingSourceName, setEditingSourceName] = useState('');
   const [editableHoldings, setEditableHoldings] = useState<DataHoldings>({
     collectedVideos: 0,
     collectedHours: 0,
@@ -322,24 +325,16 @@ export default function DataIntelligencePage() {
   function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
 
-    const current = payload.find((p: any) => p.dataKey === 'total')?.value || 0;
-    const previous = payload.find((p: any) => p.dataKey === 'previousTotal')?.value;
-    const delta = previous !== undefined ? current - previous : null;
-    const deltaPercent = previous !== undefined && previous > 0 ? ((delta! / previous) * 100).toFixed(1) : null;
-
     return (
-      <div className="bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-lg p-3 shadow-lg">
-        <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{label}</p>
-        <p className="text-gray-900 dark:text-white font-semibold">{current} videos</p>
-        {previous !== undefined && previous > 0 && (
-          <>
-            <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">vs {previous} prev</p>
-            {delta !== null && deltaPercent !== null && (
-              <p className={`text-sm font-medium mt-1 ${delta >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)} ({deltaPercent}%)
-              </p>
-            )}
-          </>
+      <div className="bg-gray-900 dark:bg-[#1a1a1a] border border-gray-700 dark:border-[#2a2a2a] rounded-lg px-3 py-2 shadow-lg">
+        <p className="text-xs text-gray-400 mb-1">{label}</p>
+        <p className="text-sm font-semibold text-orange-400">
+          {payload[0]?.value?.toLocaleString()} videos
+        </p>
+        {payload[1]?.value > 0 && (
+          <p className="text-xs text-gray-500">
+            vs {payload[1]?.value?.toLocaleString()} prior
+          </p>
         )}
       </div>
     );
@@ -747,6 +742,34 @@ export default function DataIntelligencePage() {
       setSyncingSourceId(null);
     }
   }
+
+  const saveSourceName = async (sourceId: string) => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/data-sources/${sourceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: editingSourceName }),
+      });
+
+      if (response.ok) {
+        setEditingSourceId(null);
+        // Refresh data
+        await loadData();
+        addToast('success', 'Source name updated', 'Data source name has been saved');
+      } else {
+        addToast('error', 'Update failed', 'Could not update source name');
+      }
+    } catch (err) {
+      console.error('Failed to update source name:', err);
+      addToast('error', 'Update failed', 'Unknown error occurred');
+    }
+  };
 
   async function handleDriveFolderSelected(folderId: string, folderName: string, sourceName: string) {
     await syncDriveSource(folderId, sourceName);
@@ -1713,10 +1736,52 @@ export default function DataIntelligencePage() {
               key={source.id}
               className="bg-white dark:bg-[#141414] p-4"
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 group">
                 <div className="flex items-center gap-2">
                   <HardDrive className="w-4 h-4 text-purple-500" />
-                  <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                  {editingSourceId === source.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingSourceName}
+                        onChange={(e) => setEditingSourceName(e.target.value)}
+                        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded text-gray-900 dark:text-white"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            saveSourceName(source.id);
+                          } else if (e.key === 'Escape') {
+                            setEditingSourceId(null);
+                          }
+                        }}
+                      />
+                      <button 
+                        onClick={() => saveSourceName(source.id)} 
+                        className="text-green-500 hover:text-green-600"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setEditingSourceId(null)} 
+                        className="text-gray-400 hover:text-gray-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                      <button 
+                        onClick={() => { 
+                          setEditingSourceId(source.id); 
+                          setEditingSourceName(source.name); 
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-opacity"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => syncDriveSource(source.folderId || source.id, source.name)}

@@ -161,14 +161,16 @@ export function AdminHeader({ collapsed, onToggleSidebar, currentSection }: Admi
             onClick={() => { setShowUserMenu(!showUserMenu); setShowHelpMenu(false); }}
             className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
           >
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.email || 'Admin'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">
-                {role}
-              </p>
-            </div>
+            {!demoMode && (
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.email || 'Admin'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                  {role}
+                </p>
+              </div>
+            )}
             <ChevronDown className="w-4 h-4 text-gray-500" />
           </button>
 
