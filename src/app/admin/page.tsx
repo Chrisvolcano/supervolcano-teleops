@@ -282,9 +282,10 @@ export default function DataIntelligencePage() {
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [isMounted, setIsMounted] = useState(false);
   const [showComparison, setShowComparison] = useState(true);
-  const [comparisonPeriod, setComparisonPeriod] = useState<string>('week');
+  const [comparisonPeriod, setComparisonPeriod] = useState<string>('all');
   const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
   const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
+  const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [editingSource, setEditingSource] = useState<string | null>(null);
@@ -806,6 +807,36 @@ export default function DataIntelligencePage() {
     }
   };
 
+  const deleteDataSource = async (sourceId: string, sourceName: string) => {
+    if (!confirm(`Delete "${sourceName}"? This cannot be undone.`)) return;
+
+    try {
+      setDeletingSourceId(sourceId);
+      const token = await getIdToken();
+      const response = await fetch(`/api/admin/data-sources/${sourceId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Refresh data to update the sources list
+        await loadData();
+        await loadDriveSources();
+        addToast('success', 'Deleted', `"${sourceName}" has been removed`);
+      } else {
+        const error = await response.json();
+        addToast('error', 'Delete failed', error.error || 'Could not delete data source');
+      }
+    } catch (err) {
+      console.error('Failed to delete data source:', err);
+      addToast('error', 'Delete failed', 'An error occurred');
+    } finally {
+      setDeletingSourceId(null);
+    }
+  };
+
   async function handleDriveFolderSelected(folderId: string, folderName: string, sourceName: string) {
     await syncDriveSource(folderId, sourceName);
   }
@@ -1182,38 +1213,36 @@ export default function DataIntelligencePage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6 py-6">
       {/* Page Header */}
-      <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
-                  <Database className="h-6 w-6 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
+      <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
+                <Database className="h-6 w-6 text-white" />
               </div>
-              <p className="text-gray-600 dark:text-gray-400">
-                Track data holdings, partner deliveries, and operational metrics
-              </p>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
             </div>
-            
-            <button
-              onClick={async () => {
-                setIsRefreshing(true);
-                await loadData();
-                await loadDriveSources();
-                setIsRefreshing(false);
-                addToast('success', 'Data refreshed', 'All data has been updated');
-              }}
-              disabled={isRefreshing}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
-              title="Refresh data"
-            >
-              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
+            <p className="text-gray-600 dark:text-gray-400">
+              Track data holdings, partner deliveries, and operational metrics
+            </p>
           </div>
+          
+          <button
+            onClick={async () => {
+              setIsRefreshing(true);
+              await loadData();
+              await loadDriveSources();
+              setIsRefreshing(false);
+              addToast('success', 'Data refreshed', 'All data has been updated');
+            }}
+            disabled={isRefreshing}
+            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+            title="Refresh data"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
       
@@ -1822,23 +1851,38 @@ export default function DataIntelligencePage() {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => syncDriveSource(source.folderId || source.id, source.name)}
-                  disabled={syncingSourceId === (source.folderId || source.id)}
-                  className="text-sm text-blue-600 dark:text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-2"
-                >
-                  {syncingSourceId === (source.folderId || source.id) ? (
-                    <>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => syncDriveSource(source.folderId || source.id, source.name)}
+                    disabled={syncingSourceId === (source.folderId || source.id)}
+                    className="text-sm text-blue-600 dark:text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {syncingSourceId === (source.folderId || source.id) ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Syncing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Sync</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => deleteDataSource(source.id, source.name)}
+                    disabled={deletingSourceId === source.id}
+                    className="text-sm text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1 disabled:opacity-50"
+                    title="Delete data source"
+                  >
+                    {deletingSourceId === source.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Syncing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Sync</span>
-                    </>
-                  )}
-                </button>
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">

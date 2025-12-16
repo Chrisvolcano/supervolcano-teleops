@@ -33,6 +33,14 @@ export interface Organization {
     livingAreas: number;
     totalTasks: number;
   };
+  locationStats?: {
+    locations: number;
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingAreas: number;
+    totalTasks: number;
+  };
 }
 
 export interface OrganizationInput {
@@ -190,6 +198,7 @@ function normalizeOrganization(id: string, data: any): Organization {
     updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
     createdBy: data.createdBy || "",
     demoStats: data.demoStats || undefined,
+    locationStats: data.locationStats || undefined,
   };
 }
 

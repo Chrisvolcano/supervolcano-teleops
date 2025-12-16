@@ -42,3 +42,33 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const claims = await getUserClaims(token);
+    if (!claims) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    requireRole(claims, ['superadmin', 'admin']);
+
+    const db = getAdminDb();
+    await db.collection('dataSources').doc(params.id).delete();
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('[API] Delete data source error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete data source' },
+      { status: 500 }
+    );
+  }
+}
