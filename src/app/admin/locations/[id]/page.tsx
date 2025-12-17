@@ -116,7 +116,7 @@ export default function AdminLocationDetailPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Header */}
       <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -194,7 +194,7 @@ export default function AdminLocationDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="px-6 py-8">
         {activeTab === 'structure' && showWizard ? (
           <LocationWizard
             locationId={locationId}

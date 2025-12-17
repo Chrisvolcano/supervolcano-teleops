@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { getAuth } from 'firebase/auth';
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -36,12 +37,27 @@ import {
   ChevronRight,
   Loader2,
   Edit2,
+  X,
 } from "lucide-react";
 import { VideoGallery } from '@/components/ui/VideoGallery';
 import { VideoThumbnail } from '@/components/ui/VideoThumbnail';
 import { VideoPreviewModal } from '@/components/ui/VideoPreviewModal';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { Organization } from "@/lib/repositories/organizations";
+
+// Helper to format seconds to MM:SS or HH:MM:SS
+function formatDuration(seconds?: number): string {
+  if (!seconds) return '0:00';
+  
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 type TabType = "overview" | "deliveries" | "locations" | "api" | "settings";
 
@@ -96,6 +112,11 @@ export default function OrganizationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditOrg, setShowEditOrg] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<{
+    id: string;
+    url: string;
+    fileName?: string;
+  } | null>(null);
   const [sampleVideos, setSampleVideos] = useState<Array<{
     id: string;
     url: string;
@@ -228,7 +249,7 @@ export default function OrganizationDetailPage() {
 
       // Load sample videos for this partner
       try {
-        const videosRes = await fetch(`/api/v1/organizations/${organizationId}/videos?limit=10`, {
+        const videosRes = await fetch(`/api/v1/organizations/${organizationId}/videos?limit=15`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (videosRes.ok) {
@@ -605,6 +626,9 @@ export default function OrganizationDetailPage() {
             setLocationStatsValues={setLocationStatsValues}
             saveLocationStats={saveLocationStats}
             savingLocationStats={savingLocationStats}
+            selectedVideo={selectedVideo}
+            setSelectedVideo={setSelectedVideo}
+            setSampleVideos={setSampleVideos}
           />
         )}
         {activeTab === "deliveries" && (
@@ -845,6 +869,9 @@ function OverviewTab({
   setLocationStatsValues,
   saveLocationStats,
   savingLocationStats,
+  selectedVideo,
+  setSelectedVideo,
+  setSampleVideos,
 }: {
   organization: Organization;
   deliveries: Delivery[];
@@ -922,7 +949,44 @@ function OverviewTab({
   })) => void;
   saveLocationStats: () => Promise<void>;
   savingLocationStats: boolean;
+  selectedVideo: { id: string; url: string; fileName?: string } | null;
+  setSelectedVideo: (video: { id: string; url: string; fileName?: string } | null) => void;
+  setSampleVideos: React.Dispatch<React.SetStateAction<Array<{ id: string; url: string; fileName?: string; durationSeconds?: number; locationName?: string; roomType?: string }>>>;
 }) {
+  // Remove video from samples
+  const removeFromSamples = async (videoId: string) => {
+    if (!confirm('Remove this video from partner samples?')) return;
+
+    try {
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/exports/remove-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          partnerId: organization.id,
+          videoId,
+        }),
+      });
+
+      if (response.ok) {
+        setSampleVideos(prev => prev.filter(v => v.id !== videoId));
+        toast.success('Video removed from samples');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to remove video');
+      }
+    } catch (err) {
+      console.error('Failed to remove video:', err);
+      toast.error('Failed to remove video');
+    }
+  };
+
   // Calculate delivery stats
   const calculatedDeliveryStats = useMemo(() => {
     const totalVideos = deliveries.reduce((sum, d) => sum + d.videoCount, 0);
@@ -1094,7 +1158,7 @@ function OverviewTab({
             <Film className="w-5 h-5 text-purple-500" />
             Recent Samples
           </h3>
-          {sampleVideos.length > 5 && (
+          {sampleVideos.length > 7 && (
             <button
               onClick={() => onTabChange('deliveries')}
               className="text-sm text-orange-600 dark:text-orange-500 hover:underline"
@@ -1104,12 +1168,46 @@ function OverviewTab({
           )}
         </div>
         {sampleVideos.length > 0 ? (
-          <VideoGallery
-            videos={sampleVideos}
-            maxVisible={5}
-            onViewAll={() => onTabChange('deliveries')}
-            emptyMessage="No videos delivered yet"
-          />
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+            {sampleVideos.slice(0, 7).map((video) => (
+              <div key={video.id} className="relative group">
+                <VideoThumbnail
+                  src={video.url}
+                  className="w-full"
+                  onClick={() => setSelectedVideo({ id: video.id, url: video.url, fileName: video.fileName })}
+                />
+                {video.durationSeconds && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                    {formatDuration(video.durationSeconds)}
+                  </span>
+                )}
+                
+                {/* Remove button - shows on hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFromSamples(video.id);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Remove from samples"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+
+            {/* "More" card */}
+            {sampleVideos.length > 7 && (
+              <div
+                className="aspect-video rounded-lg bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-[#242424] transition-colors"
+                onClick={() => onTabChange('deliveries')}
+              >
+                <span className="text-gray-600 dark:text-gray-400 font-medium">
+                  +{sampleVideos.length - 7} more
+                </span>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
             <Film className="w-8 h-8 mb-2" />
@@ -1117,6 +1215,15 @@ function OverviewTab({
           </div>
         )}
       </div>
+
+      {/* Video Preview Modal */}
+      {selectedVideo && (
+        <VideoPreviewModal
+          src={selectedVideo.url}
+          title={selectedVideo.fileName || 'Video'}
+          onClose={() => setSelectedVideo(null)}
+        />
+      )}
 
       {/* Location Access Stats */}
       <div className="space-y-4">

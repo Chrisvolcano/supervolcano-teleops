@@ -51,7 +51,7 @@ export default function OrganizationsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Header */}
       <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Organizations</h1>
@@ -72,7 +72,7 @@ export default function OrganizationsPage() {
 
       {/* Tabs */}
       <div className="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-[#1f1f1f]">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="px-6">
           <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('oem_partners')}
@@ -101,7 +101,7 @@ export default function OrganizationsPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="px-6 py-8">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />

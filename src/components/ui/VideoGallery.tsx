@@ -46,13 +46,13 @@ export function VideoGallery({
 
   return (
     <>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
         {visibleVideos.map((video) => (
-          <div key={video.id} className="flex-shrink-0 w-32">
+          <div key={video.id}>
             <VideoThumbnail
               src={video.url}
               alt={video.title || video.fileName || 'Video'}
-              className="w-32 h-20 rounded-lg"
+              className="rounded-lg"
               aspectRatio="video"
               onClick={() => setSelectedVideo(video)}
             />
@@ -76,7 +76,7 @@ export function VideoGallery({
         {/* "More" card */}
         {remainingCount > 0 && showViewAll && (
           <div
-            className="flex-shrink-0 w-32 h-20 rounded-lg bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-[#242424] transition-colors"
+            className="aspect-video rounded-lg bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-[#242424] transition-colors"
             onClick={onViewAll}
           >
             <span className="text-gray-600 dark:text-gray-400 font-medium">
