@@ -180,6 +180,8 @@ export async function GET(request: NextRequest) {
         name: 'Portal Uploads',
         type: 'portal',
         folderId: null,
+        parentChain: [],
+        isRoot: true,
         actual: {
           videoCount: 0,
           totalHours: 0,
