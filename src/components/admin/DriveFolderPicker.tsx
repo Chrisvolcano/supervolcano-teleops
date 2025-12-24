@@ -28,6 +28,8 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
   const [sourceName, setSourceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
+  const [existingSources, setExistingSources] = useState<Array<{ folderId: string; name: string; parentChain?: string[] | null }>>([]);
 
   // Check for existing OAuth token on mount
   useEffect(() => {
@@ -156,10 +158,106 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
     }
   }
 
-  function handleSelectFolder(folder: DriveFolder) {
+  async function handleSelectFolder(folder: DriveFolder) {
     setSelectedFolder({ id: folder.id, name: folder.name });
     setSourceName(folder.name);
+    setOverlapWarning(null);
+    
+    // Fetch existing sources and check for overlaps
+    await checkForOverlaps(folder.id);
+    
     setStep('confirm');
+  }
+
+  async function checkForOverlaps(newFolderId: string) {
+    if (!accessToken) return;
+    
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) return;
+
+      // Fetch existing sources
+      const sourcesResponse = await fetch('/api/admin/data-intelligence/drive-sync', {
+        headers: { 'Authorization': `Bearer ${idToken}` },
+      });
+      
+      if (sourcesResponse.ok) {
+        const { sources } = await sourcesResponse.json();
+        setExistingSources(sources || []);
+        
+        // Get parent chain for the new folder
+        const parentChain = await getParentChainForFolder(newFolderId);
+        
+        // Check if this folder is a parent of existing sources
+        const existingChildren = sources.filter((s: any) => 
+          s.parentChain?.includes(newFolderId)
+        );
+        
+        if (existingChildren.length > 0) {
+          const childNames = existingChildren.map((s: any) => s.name).join(', ');
+          setOverlapWarning(
+            `This folder contains ${existingChildren.length} existing source${existingChildren.length > 1 ? 's' : ''} (${childNames}). Their videos will be counted under this parent.`
+          );
+          return;
+        }
+        
+        // Check if this folder is a child of existing sources
+        const existingParents = sources.filter((s: any) => 
+          parentChain.includes(s.folderId)
+        );
+        
+        if (existingParents.length > 0) {
+          const parentNames = existingParents.map((s: any) => s.name).join(', ');
+          setOverlapWarning(
+            `This folder is inside "${parentNames}". Its videos are already being counted.`
+          );
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check for overlaps:', err);
+      // Don't block the user if we can't check overlaps
+    }
+  }
+
+  async function getParentChainForFolder(folderId: string): Promise<string[]> {
+    if (!accessToken) return [];
+    
+    const parents: string[] = [];
+    let currentId = folderId;
+    
+    try {
+      while (currentId) {
+        try {
+          const response = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${currentId}?fields=parents&supportsAllDrives=true`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+              },
+            }
+          );
+          
+          if (!response.ok) break;
+          
+          const file = await response.json();
+          const parentId = file.parents?.[0];
+          
+          if (parentId && parentId !== 'root') {
+            parents.push(parentId);
+            currentId = parentId;
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get parent chain:', err);
+    }
+    
+    return parents;
   }
 
   function handleConfirm() {
@@ -177,6 +275,8 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
     setSelectedFolder(null);
     setSourceName('');
     setError(null);
+    setOverlapWarning(null);
+    setExistingSources([]);
     onClose();
   }
 
@@ -332,6 +432,12 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
                   </div>
                 </div>
               </div>
+              
+              {overlapWarning && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-lg text-sm text-yellow-700 dark:text-yellow-400">
+                  {overlapWarning}
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

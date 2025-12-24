@@ -118,8 +118,8 @@ export function LocationWizard({
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{locationName}</h1>
-        <p className="text-gray-500">{locationAddress}</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{locationName}</h1>
+        <p className="text-gray-500 dark:text-gray-400">{locationAddress}</p>
       </div>
 
       {/* Progress indicator */}
@@ -128,12 +128,12 @@ export function LocationWizard({
       {/* Auto-save indicator */}
       <div className="flex items-center justify-end mb-4 text-sm">
         {state.isSaving ? (
-          <span className="flex items-center text-gray-500">
+          <span className="flex items-center text-gray-500 dark:text-gray-400">
             <Loader2 className="w-4 h-4 mr-1 animate-spin" />
             Saving...
           </span>
         ) : state.lastSaved ? (
-          <span className="flex items-center text-green-600">
+          <span className="flex items-center text-green-600 dark:text-green-500">
             <Check className="w-4 h-4 mr-1" />
             Saved
           </span>
@@ -141,21 +141,21 @@ export function LocationWizard({
       </div>
 
       {/* Step content */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#141414] rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-[#1f1f1f] p-6">
         {renderStep()}
       </div>
 
       {/* Navigation Footer - appears for all steps except completion */}
       {state.currentStep !== 'completion' && (
-        <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
+        <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-[#1f1f1f] mt-8">
           <button
             type="button"
             onClick={wizard.goToPreviousStep}
             disabled={state.currentStep === 'floors'}
             className={`px-6 py-3 rounded-xl font-medium transition-all ${
               state.currentStep === 'floors'
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1f1f1f]'
             }`}
           >
             ← Back
@@ -175,7 +175,7 @@ export function LocationWizard({
                 wizard.goToNextStep();
               }
             }}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all"
+            className="px-8 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-all"
           >
             {state.currentStep === 'review' ? 'Complete Setup' : 'Continue →'}
           </button>
@@ -184,8 +184,8 @@ export function LocationWizard({
 
       {/* Stats summary - hide on completion */}
       {state.currentStep !== 'completion' && stats.floors > 0 && (
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex justify-between text-sm text-gray-600">
+        <div className="mt-6 p-4 bg-gray-50 dark:bg-[#1f1f1f] rounded-lg">
+          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
             <span>{stats.floors} floor{stats.floors !== 1 ? 's' : ''}</span>
             <span>{stats.rooms} room{stats.rooms !== 1 ? 's' : ''}</span>
             <span>{stats.targets} target{stats.targets !== 1 ? 's' : ''}</span>
@@ -200,7 +200,7 @@ export function LocationWizard({
         <div className="mt-6 text-center">
           <button
             onClick={onSwitchToManual}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
           >
             Skip setup, build manually →
           </button>

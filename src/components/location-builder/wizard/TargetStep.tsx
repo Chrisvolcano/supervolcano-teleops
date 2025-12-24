@@ -45,10 +45,10 @@ export function TargetStep({ wizard }: TargetStepProps) {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
         Review targets in each room
       </h2>
-      <p className="text-gray-500 mb-6">
+      <p className="text-gray-500 dark:text-gray-400 mb-6">
         Each room has been pre-populated with common targets. You can add, remove, or customize.
       </p>
 
@@ -60,49 +60,49 @@ export function TargetStep({ wizard }: TargetStepProps) {
           return (
             <div
               key={room.id}
-              className="border border-gray-200 rounded-xl overflow-hidden"
+              className="border border-gray-200 dark:border-[#2a2a2a] rounded-xl overflow-hidden"
             >
               {/* Room header */}
               <button
                 onClick={() => toggleRoom(room.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#1f1f1f]"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">{room.icon}</span>
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">{room.name}</p>
-                    <p className="text-sm text-gray-500">{room.floorName}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{room.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{room.floorName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {room.targets.length} target{room.targets.length !== 1 ? 's' : ''}
                   </span>
                   {isExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                    <ChevronUp className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
               </button>
 
               {/* Targets list */}
               {isExpanded && (
-                <div className="border-t border-gray-200 p-4 bg-gray-50">
+                <div className="border-t border-gray-200 dark:border-[#2a2a2a] p-4 bg-gray-50 dark:bg-[#1f1f1f]">
                   <div className="flex flex-wrap gap-2 mb-3">
                     {room.targets.map((target: any) => (
                       <div
                         key={target.id}
-                        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2a2a2a] rounded-lg"
                       >
                         <span>{target.icon}</span>
-                        <span className="text-sm">{target.name}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-sm text-gray-900 dark:text-white">{target.name}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
                           ({target.actions.length} action{target.actions.length !== 1 ? 's' : ''})
                         </span>
                         <button
                           onClick={() => removeTarget(target.id)}
-                          className="text-gray-400 hover:text-red-500"
+                          className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -118,7 +118,7 @@ export function TargetStep({ wizard }: TargetStepProps) {
                         value={customTargetName}
                         onChange={(e) => setCustomTargetName(e.target.value)}
                         placeholder="Target name..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-sm bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -132,7 +132,7 @@ export function TargetStep({ wizard }: TargetStepProps) {
                       />
                       <button
                         onClick={() => handleAddCustomTarget(room.id)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm"
+                        className="px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600"
                       >
                         Add
                       </button>
@@ -141,7 +141,7 @@ export function TargetStep({ wizard }: TargetStepProps) {
                           setAddingToRoom(null);
                           setCustomTargetName('');
                         }}
-                        className="px-3 py-2 text-gray-500 hover:text-gray-700"
+                        className="px-3 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       >
                         Cancel
                       </button>
@@ -149,7 +149,7 @@ export function TargetStep({ wizard }: TargetStepProps) {
                   ) : (
                     <button
                       onClick={() => setAddingToRoom(room.id)}
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                      className="flex items-center gap-2 text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-500"
                     >
                       <Plus className="w-4 h-4" />
                       Add target
@@ -163,17 +163,17 @@ export function TargetStep({ wizard }: TargetStepProps) {
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t border-gray-200">
+      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-[#2a2a2a]">
         <button
           onClick={goToPreviousStep}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
         >
           <ChevronLeft className="w-5 h-5" />
           Back
         </button>
         <button
           onClick={goToNextStep}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
         >
           Continue to Review
           <ChevronRight className="w-5 h-5" />

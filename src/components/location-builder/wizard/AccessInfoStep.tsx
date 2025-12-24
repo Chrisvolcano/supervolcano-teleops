@@ -26,18 +26,18 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-          <Key className="h-8 w-8 text-blue-600" />
+        <div className="mx-auto w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mb-4">
+          <Key className="h-8 w-8 text-orange-500" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">Access Information</h2>
-        <p className="mt-2 text-gray-600">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Access Information</h2>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
           How should cleaners access this property? (Optional but recommended)
         </p>
       </div>
 
       {/* Entry Method */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Entry Method</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Entry Method</label>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {ENTRY_METHODS.map((method) => (
             <button
@@ -46,8 +46,8 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
               onClick={() => updateField('entryMethod', method.value)}
               className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-all ${
                 accessInfo.entryMethod === method.value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-orange-500 bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                  : 'border-gray-200 dark:border-[#2a2a2a] hover:border-gray-300 dark:hover:border-[#3a3a3a] text-gray-700 dark:text-gray-300'
               }`}
             >
               <Key className="h-5 w-5" />
@@ -59,41 +59,41 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
 
       {/* Entry Details */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Entry Details</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entry Details</label>
         <textarea
           value={accessInfo.entryDetails || ''}
           onChange={(e) => updateField('entryDetails', e.target.value)}
           placeholder="e.g., Lockbox on back porch near BBQ, code is 1234"
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-3 border border-gray-300 dark:border-[#2a2a2a] rounded-xl bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500"
           rows={2}
         />
       </div>
 
       {/* Alarm */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
+      <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-xl p-5">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-6 w-6 text-yellow-600 flex-shrink-0" />
+          <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
           <div className="flex-1">
-            <h3 className="font-semibold text-yellow-900">Alarm System</h3>
+            <h3 className="font-semibold text-yellow-900 dark:text-yellow-400">Alarm System</h3>
             <div className="grid md:grid-cols-2 gap-4 mt-3">
               <div>
-                <label className="block text-sm font-medium text-yellow-900 mb-1">Alarm Code</label>
+                <label className="block text-sm font-medium text-yellow-900 dark:text-yellow-400 mb-1">Alarm Code</label>
                 <input
                   type="text"
                   value={accessInfo.alarmCode || ''}
                   onChange={(e) => updateField('alarmCode', e.target.value)}
                   placeholder="e.g., 5678"
-                  className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white"
+                  className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-500/30 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-yellow-900 mb-1">Panel Location</label>
+                <label className="block text-sm font-medium text-yellow-900 dark:text-yellow-400 mb-1">Panel Location</label>
                 <input
                   type="text"
                   value={accessInfo.alarmLocation || ''}
                   onChange={(e) => updateField('alarmLocation', e.target.value)}
                   placeholder="e.g., Inside front door on left"
-                  className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white"
+                  className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-500/30 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -102,31 +102,31 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
       </div>
 
       {/* WiFi */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+      <div className="bg-gray-50 dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-5">
         <div className="flex items-start gap-3">
-          <Wifi className="h-6 w-6 text-gray-600 flex-shrink-0" />
+          <Wifi className="h-6 w-6 text-gray-600 dark:text-gray-400 flex-shrink-0" />
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">WiFi Access</h3>
-            <p className="text-sm text-gray-600 mb-3">For robot/device connectivity</p>
+            <h3 className="font-semibold text-gray-900 dark:text-white">WiFi Access</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">For robot/device connectivity</p>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Network Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Network Name</label>
                 <input
                   type="text"
                   value={accessInfo.wifiNetwork || ''}
                   onChange={(e) => updateField('wifiNetwork', e.target.value)}
                   placeholder="e.g., SmithFamily_5G"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
                 <input
                   type="text"
                   value={accessInfo.wifiPassword || ''}
                   onChange={(e) => updateField('wifiPassword', e.target.value)}
                   placeholder="WiFi password"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -135,11 +135,11 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
       </div>
 
       {/* Emergency Contact */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-5">
         <div className="flex items-start gap-3">
-          <Phone className="h-6 w-6 text-red-600 flex-shrink-0" />
+          <Phone className="h-6 w-6 text-red-600 dark:text-red-400 flex-shrink-0" />
           <div className="flex-1">
-            <h3 className="font-semibold text-red-900">Emergency Contact</h3>
+            <h3 className="font-semibold text-red-900 dark:text-red-400">Emergency Contact</h3>
             <div className="grid md:grid-cols-3 gap-4 mt-3">
               <input
                 type="text"
@@ -151,7 +151,7 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
                   relationship: accessInfo.emergencyContact?.relationship || '',
                 })}
                 placeholder="Name"
-                className="w-full px-3 py-2 border border-red-300 rounded-lg bg-white"
+                className="w-full px-3 py-2 border border-red-300 dark:border-red-500/30 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
               />
               <input
                 type="tel"
@@ -163,7 +163,7 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
                   relationship: accessInfo.emergencyContact?.relationship || '',
                 })}
                 placeholder="Phone"
-                className="w-full px-3 py-2 border border-red-300 rounded-lg bg-white"
+                className="w-full px-3 py-2 border border-red-300 dark:border-red-500/30 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
               />
               <input
                 type="text"
@@ -175,7 +175,7 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
                   relationship: e.target.value,
                 })}
                 placeholder="Relationship (Owner, Neighbor)"
-                className="w-full px-3 py-2 border border-red-300 rounded-lg bg-white"
+                className="w-full px-3 py-2 border border-red-300 dark:border-red-500/30 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
 
       {/* Parking */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           <Car className="h-4 w-4 inline mr-2" />
           Parking Instructions
         </label>
@@ -193,7 +193,7 @@ export default function AccessInfoStep({ accessInfo, onChange }: AccessInfoStepP
           value={accessInfo.parkingInstructions || ''}
           onChange={(e) => updateField('parkingInstructions', e.target.value)}
           placeholder="e.g., Park in driveway, not on street"
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+          className="w-full px-4 py-3 border border-gray-300 dark:border-[#2a2a2a] rounded-xl bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
         />
       </div>
     </div>

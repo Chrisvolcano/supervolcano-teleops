@@ -16,6 +16,34 @@ async function getAuth() {
   });
 }
 
+// Get parent chain for hierarchy detection
+async function getParentChain(drive: drive_v3.Drive, folderId: string, driveId?: string): Promise<string[]> {
+  const parents: string[] = [];
+  let currentId = folderId;
+  
+  while (currentId) {
+    try {
+      const file = await drive.files.get({
+        fileId: currentId,
+        fields: 'parents',
+        supportsAllDrives: true,
+      });
+      
+      const parentId = file.data.parents?.[0];
+      if (parentId && parentId !== driveId) {
+        parents.push(parentId);
+        currentId = parentId;
+      } else {
+        break;
+      }
+    } catch {
+      break;
+    }
+  }
+  
+  return parents;
+}
+
 // Recursively get all video files in folder and subfolders
 async function scanFolderRecursive(
   drive: drive_v3.Drive,
@@ -152,6 +180,9 @@ export async function POST(request: NextRequest) {
       'video/3gpp',
     ];
 
+    // Get parent chain for hierarchy detection
+    const parentChain = await getParentChain(drive, folderId, driveId);
+
     // Scan folder recursively
     const { totalFiles, totalSize, totalDurationMs, filesWithDuration } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId);
 
@@ -190,6 +221,8 @@ export async function POST(request: NextRequest) {
       durationSource,
       filesWithDuration,
       totalDurationMs,
+      parentChain,  // Array of parent folder IDs
+      driveId: driveId || null,  // The shared drive ID if applicable
       lastSync: new Date(),
       syncedBy: userId,
     };
@@ -221,7 +254,35 @@ export async function GET(request: NextRequest) {
       lastSync: doc.data().lastSync?.toDate?.()?.toISOString() || null,
     }));
 
-    return NextResponse.json({ sources });
+    // Determine which sources are "root" (not children of other sources)
+    const allFolderIds = new Set(sources.map(s => s.folderId));
+
+    const sourcesWithRootFlag = sources.map(source => {
+      // A source is a root if none of its parents are in our data sources
+      const isRoot = !source.parentChain?.some(parentId => allFolderIds.has(parentId));
+      return { ...source, isRoot };
+    });
+
+    // Calculate deduplicated totals (only count root sources)
+    const rootSources = sourcesWithRootFlag.filter(s => s.isRoot);
+    const deduplicatedTotals = {
+      totalVideos: rootSources.reduce((sum, s) => sum + (s.videoCount || 0), 0),
+      totalHours: rootSources.reduce((sum, s) => sum + (s.totalHours || 0), 0),
+      totalSizeGB: rootSources.reduce((sum, s) => sum + (s.totalSizeGB || 0), 0),
+    };
+
+    // Calculate raw totals (all sources, including duplicates)
+    const rawTotals = {
+      totalVideos: sources.reduce((sum, s) => sum + (s.videoCount || 0), 0),
+      totalHours: sources.reduce((sum, s) => sum + (s.totalHours || 0), 0),
+      totalSizeGB: sources.reduce((sum, s) => sum + (s.totalSizeGB || 0), 0),
+    };
+
+    return NextResponse.json({ 
+      sources: sourcesWithRootFlag,
+      deduplicatedTotals,
+      rawTotals,
+    });
   } catch (error: any) {
     console.error('[drive-sync] GET Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

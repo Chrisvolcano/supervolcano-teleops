@@ -10,6 +10,7 @@ import SplashScreen from '../components/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
 import OwnerNavigator from './OwnerNavigator';
 import CleanerNavigator from './CleanerNavigator';
+import MemberNavigator from './MemberNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +37,10 @@ export default function AppNavigator() {
 
   if (role === 'location_owner') {
     return <OwnerNavigator />;
+  }
+
+  if (role === 'member') {
+    return <MemberNavigator />;
   }
 
   // Default to cleaner flow (location_cleaner, oem_teleoperator, etc.)

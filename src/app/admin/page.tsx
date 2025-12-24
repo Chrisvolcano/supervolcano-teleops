@@ -55,11 +55,13 @@ interface Partner {
   
 interface DataSource {
   id: string;
-  name: string;
+    name: string;
   type: string;
   folderId: string | null;
+  parentChain?: string[] | null;
+  isRoot?: boolean;
   actual: {
-    videoCount: number;
+  videoCount: number;
     totalHours: number;
     totalMinutes: number;
     totalSizeGB: number;
@@ -93,6 +95,16 @@ interface DataIntelligenceData {
   holdings: DataHoldings;
   deliveries: Delivery[];
   sources: DataSource[];
+  deduplicatedTotals?: {
+    totalVideos: number;
+    totalHours: number;
+    totalSizeGB: number;
+  };
+  rawTotals?: {
+    totalVideos: number;
+    totalHours: number;
+    totalSizeGB: number;
+  };
 }
 
 interface OperationsData {
@@ -658,6 +670,7 @@ export default function DataIntelligencePage() {
   }, [data]);
 
   // Calculate aggregated totals from data sources
+  // Use deduplicated totals if available (from API), otherwise fall back to calculating from root sources
   const aggregatedData = useMemo(() => {
     if (!data || !data.sources || data.sources.length === 0) {
       return {
@@ -667,7 +680,18 @@ export default function DataIntelligencePage() {
       };
     }
 
-    return data.sources.reduce((acc, source) => {
+    // If API provides deduplicated totals, use them (they're already calculated correctly)
+    if (data.deduplicatedTotals && !demoMode) {
+      return {
+        videos: data.deduplicatedTotals.totalVideos,
+        hours: data.deduplicatedTotals.totalHours,
+        storageGB: data.deduplicatedTotals.totalSizeGB,
+      };
+    }
+
+    // Otherwise, calculate from root sources only (to avoid duplicates)
+    const rootSources = data.sources.filter(s => s.isRoot !== false);
+    return rootSources.reduce((acc, source) => {
       const sourceData = demoMode ? source.display : source.actual;
       return {
         videos: acc.videos + (sourceData.videoCount || 0),
@@ -1216,35 +1240,35 @@ export default function DataIntelligencePage() {
     <div className="space-y-6 px-6 py-6">
       {/* Page Header */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
-                <Database className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
+      <div className="flex items-center justify-between">
+      <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2.5">
+              <Database className="h-6 w-6 text-white" />
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Track data holdings, partner deliveries, and operational metrics
-            </p>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Data Intelligence</h1>
           </div>
-          
-          <button
-            onClick={async () => {
-              setIsRefreshing(true);
-              await loadData();
-              await loadDriveSources();
-              setIsRefreshing(false);
-              addToast('success', 'Data refreshed', 'All data has been updated');
-            }}
-            disabled={isRefreshing}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
-            title="Refresh data"
-          >
-            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            Track data holdings, partner deliveries, and operational metrics
+        </p>
       </div>
+          
+            <button
+          onClick={async () => {
+            setIsRefreshing(true);
+            await loadData();
+            await loadDriveSources();
+            setIsRefreshing(false);
+            addToast('success', 'Data refreshed', 'All data has been updated');
+          }}
+          disabled={isRefreshing}
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f1f1f] rounded-lg transition-colors"
+          title="Refresh data"
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+        </div>
+                </div>
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
@@ -1253,9 +1277,9 @@ export default function DataIntelligencePage() {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
               <Database className="h-5 w-5 text-blue-500" />
-            </div>
+              </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
-          </div>
+              </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Videos Card */}
@@ -1283,7 +1307,7 @@ export default function DataIntelligencePage() {
                   )}
                   <p className="text-sm text-gray-500 dark:text-gray-400">Videos</p>
                 </div>
-              </div>
+          </div>
             </div>
             
             {/* Hours Card */}
@@ -1354,7 +1378,7 @@ export default function DataIntelligencePage() {
               Aggregated from {data.sources.length} data source{data.sources.length !== 1 ? 's' : ''}
             </p>
           )}
-        </div>
+      </div>
       
         {/* Data Delivered to Partners Section */}
         <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
@@ -1377,22 +1401,22 @@ export default function DataIntelligencePage() {
               let deltaBadge = null;
               // Hide percentage badges when "All Time" is selected
               if (comparisonPeriod !== 'all') {
-                if (previous > 0) {
-                  const delta = current - previous;
-                  const deltaPercent = ((delta / previous) * 100).toFixed(1);
-                  const isPositive = delta >= 0;
-                  deltaBadge = (
-                    <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                      {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
-                    </div>
-                  );
-                } else if (current > 0 && previous === 0) {
-                  // Show 100% increase if there's current data but no previous period data
-                  deltaBadge = (
-                    <div className="text-sm font-medium mt-1 text-green-600 dark:text-green-500">
-                      ↑ 100%
-                    </div>
-                  );
+              if (previous > 0) {
+                const delta = current - previous;
+                const deltaPercent = ((delta / previous) * 100).toFixed(1);
+                const isPositive = delta >= 0;
+                deltaBadge = (
+                  <div className={`text-sm font-medium mt-1 ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                    {isPositive ? '↑' : '↓'} {Math.abs(parseFloat(deltaPercent))}%
+                  </div>
+                );
+              } else if (current > 0 && previous === 0) {
+                // Show 100% increase if there's current data but no previous period data
+                deltaBadge = (
+                  <div className="text-sm font-medium mt-1 text-green-600 dark:text-green-500">
+                    ↑ 100%
+                  </div>
+                );
                 }
               }
 
@@ -1703,46 +1727,46 @@ export default function DataIntelligencePage() {
                   {/* Stats column - fixed width */}
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     {delivery.videoCount} videos • {delivery.hours !== null && delivery.hours !== undefined ? `${delivery.hours.toFixed(1)} hrs` : `${(delivery.sizeGB / 15).toFixed(1)} hrs (est.)`} • {delivery.sizeGB?.toFixed(0)} GB
-                  </div>
+                    </div>
 
                   {/* Partner badge column - fixed width */}
-                  <div>
-                    {delivery.partnerId ? (
-                      <button
+                <div>
+                      {delivery.partnerId ? (
+                        <button
                         onClick={() => router.push(`/admin/organizations/${delivery.partnerId}?tab=deliveries`)}
                         className="px-2.5 py-1 text-xs font-medium bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-200 dark:hover:bg-orange-500/30 transition-colors"
-                      >
-                        {delivery.partnerName || 'Partner'}
-                      </button>
-                    ) : (
+                        >
+                          {delivery.partnerName || 'Partner'}
+                        </button>
+                      ) : (
                       <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-[#1f1f1f] text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-[#2a2a2a]">
-                        Internal
-                      </span>
-                    )}
-                  </div>
+                          Internal
+                        </span>
+              )}
+                    </div>
 
                   {/* Description column - flexible */}
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">{delivery.description}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(delivery.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </div>
-                  </div>
+                        {new Date(delivery.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+          </div>
+        </div>
 
                   {/* Actions column - fixed width */}
                   <div className="text-right">
-                    <button
-                      onClick={() => handleDeleteDelivery(delivery.id)}
-                      className="opacity-0 group-hover:opacity-100 p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            <button
+                    onClick={() => handleDeleteDelivery(delivery.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+            </button>
                   </div>
-                </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1754,21 +1778,21 @@ export default function DataIntelligencePage() {
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
         <div className="p-6 border-b border-gray-200 dark:border-[#1f1f1f]">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <FolderSync className="w-5 h-5 text-orange-500" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
+          <div className="flex items-center gap-3">
+            <FolderSync className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Sources</h2>
             </div>
             
             {/* Add Drive Folder button */}
-            <button
-              onClick={() => setShowDrivePicker(true)}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Drive Folder
-            </button>
+          <button
+            onClick={() => setShowDrivePicker(true)}
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Drive Folder
+          </button>
           </div>
-        </div>
+          </div>
               
         <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
           {/* Portal Uploads - always show */}
@@ -1776,25 +1800,25 @@ export default function DataIntelligencePage() {
             const portalSource = data.sources.find(s => s.name === 'Portal Uploads');
             if (!portalSource) return null;
             return (
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
-                    <Film className="w-5 h-5 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Portal Uploads</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Direct uploads from mobile app</p>
-                  </div>
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
+                  <Film className="w-5 h-5 text-orange-500" />
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {demoMode ? portalSource.display.videoCount : portalSource.actual.videoCount} videos
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {demoMode ? portalSource.display.totalHours.toFixed(1) : portalSource.actual.totalHours.toFixed(1)} hrs
-                  </p>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Portal Uploads</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Direct uploads from mobile app</p>
                 </div>
               </div>
+              <div className="text-right">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                    {demoMode ? portalSource.display.videoCount : portalSource.actual.videoCount} videos
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {demoMode ? portalSource.display.totalHours.toFixed(1) : portalSource.actual.totalHours.toFixed(1)} hrs
+                </p>
+                  </div>
+                </div>
             );
           })()}
               
@@ -1835,10 +1859,13 @@ export default function DataIntelligencePage() {
                       >
                         <X className="w-4 h-4" />
                       </button>
-                    </div>
+            </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                      {source.isRoot === false && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
+                      )}
                       <button 
                         onClick={() => { 
                           setEditingSourceId(source.id); 
@@ -1848,23 +1875,23 @@ export default function DataIntelligencePage() {
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
-                    </div>
+                      </div>
                   )}
-                </div>
+                  </div>
                 <div className="flex items-center gap-2">
-                  <button
+            <button
                     onClick={() => syncDriveSource(source.folderId || source.id, source.name)}
                     disabled={syncingSourceId === (source.folderId || source.id)}
                     className="text-sm text-blue-600 dark:text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-2"
-                  >
+                >
                     {syncingSourceId === (source.folderId || source.id) ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
                         <span>Syncing...</span>
-                      </>
-                    ) : (
+                    </>
+                  ) : (
                       <>
-                        <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-4 h-4" />
                         <span>Sync</span>
                       </>
                     )}
@@ -1881,8 +1908,8 @@ export default function DataIntelligencePage() {
                     ) : (
                       <Trash2 className="w-4 h-4" />
                     )}
-                  </button>
-                </div>
+            </button>
+            </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
@@ -2025,7 +2052,7 @@ export default function DataIntelligencePage() {
                   </p>
                 </div>
               )}
-            </div>
+          </div>
           ))}
 
           {(!data || data.sources.filter(s => s.type === 'drive').length === 0) && !showDrivePicker && (
@@ -2033,8 +2060,8 @@ export default function DataIntelligencePage() {
               <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No Google Drive folders connected</p>
               <p className="text-sm">Click &quot;Add Drive Folder&quot; to sync external data</p>
-            </div>
-          )}
+        </div>
+      )}
         </div>
       </div>
       

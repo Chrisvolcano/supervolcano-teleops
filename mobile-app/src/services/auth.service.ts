@@ -46,7 +46,7 @@ export class AuthService {
       console.log('[AuthService] User data:', JSON.stringify(userData));
       
       // Validate role - must be an allowed mobile app role
-      const allowedRoles = ['location_cleaner', 'oem_teleoperator', 'location_owner'];
+      const allowedRoles = ['location_cleaner', 'oem_teleoperator', 'location_owner', 'member'];
       if (!allowedRoles.includes(userData.role)) {
         console.error('[AuthService] Invalid role:', userData.role);
         await firebaseSignOut(auth);
@@ -54,8 +54,8 @@ export class AuthService {
         throw new Error('Your role does not have access to the mobile app. Please use the web portal.');
       }
 
-      // Validate has organization
-      if (!userData.organizationId) {
+      // Validate has organization (skip for members - they're individual users)
+      if (userData.role !== 'member' && !userData.organizationId) {
         console.error('[AuthService] No organizationId');
         await firebaseSignOut(auth);
         Alert.alert('Error', 'Your account is not assigned to an organization.');

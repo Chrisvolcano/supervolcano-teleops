@@ -52,18 +52,18 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-          <Package className="h-8 w-8 text-purple-600" />
+        <div className="mx-auto w-16 h-16 bg-purple-100 dark:bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
+          <Package className="h-8 w-8 text-purple-600 dark:text-purple-400" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">Storage Map</h2>
-        <p className="mt-2 text-gray-600">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Storage Map</h2>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
           Where are cleaning supplies stored? This helps cleaners find what they need.
         </p>
       </div>
 
       {/* Quick Add */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
           Click to add supplies available at this location
         </label>
         <div className="flex flex-wrap gap-2">
@@ -76,8 +76,8 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
                 onClick={() => addItem(item.type)}
                 className={`px-4 py-2 rounded-full border-2 flex items-center gap-2 transition-all ${
                   exists
-                    ? 'border-green-300 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                    ? 'border-green-300 dark:border-green-500/30 bg-green-50 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                    : 'border-gray-200 dark:border-[#2a2a2a] hover:border-purple-300 dark:hover:border-purple-500/50 hover:bg-purple-50 dark:hover:bg-purple-500/10 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <span>{item.emoji}</span>
@@ -92,21 +92,21 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
       {/* Storage List */}
       {storageLocations.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Storage Locations ({storageLocations.length})</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Storage Locations ({storageLocations.length})</h3>
           
           {storageLocations.map((item) => {
             const info = STORAGE_ITEMS.find(i => i.type === item.itemType);
             return (
-              <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+              <div key={item.id} className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2a2a2a] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{info?.emoji}</span>
-                    <span className="font-semibold">{item.customItemName || info?.label}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{item.customItemName || info?.label}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeItem(item.id)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                    className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
                   >
                     <Trash2 className="h-5 w-5" />
                   </button>
@@ -118,13 +118,13 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
                     value={item.customItemName || ''}
                     onChange={(e) => updateItem(item.id, { customItemName: e.target.value })}
                     placeholder="Item name"
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                   />
                 )}
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       <MapPin className="h-4 w-4 inline mr-1" />
                       Where is it?
                     </label>
@@ -133,15 +133,15 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
                       value={item.location}
                       onChange={(e) => updateItem(item.id, { location: e.target.value })}
                       placeholder="e.g., Hall closet, top shelf"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Room</label>
                     <select
                       value={item.roomId || ''}
                       onChange={(e) => updateItem(item.id, { roomId: e.target.value || undefined })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                     >
                       <option value="">Select room...</option>
                       {allRooms.map((room) => (
@@ -156,7 +156,7 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
                   value={item.notes || ''}
                   onChange={(e) => updateItem(item.id, { notes: e.target.value })}
                   placeholder="Notes (optional) - e.g., Blue bucket, not red"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] rounded-lg text-sm bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                 />
               </div>
             );
@@ -166,9 +166,9 @@ export default function StorageMapStep({ storageLocations, floors, onChange }: S
 
       {/* Empty State */}
       {storageLocations.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">Click items above to map where supplies are stored</p>
+        <div className="text-center py-12 bg-gray-50 dark:bg-[#0a0a0a] rounded-xl border-2 border-dashed border-gray-300 dark:border-[#2a2a2a]">
+          <Package className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">Click items above to map where supplies are stored</p>
         </div>
       )}
     </div>

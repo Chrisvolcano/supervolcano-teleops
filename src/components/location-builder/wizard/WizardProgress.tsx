@@ -47,8 +47,8 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
                   className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
                     isComplete && 'bg-green-500 text-white',
-                    isCurrent && 'bg-blue-600 text-white',
-                    isUpcoming && 'bg-gray-200 text-gray-400'
+                    isCurrent && 'bg-orange-500 text-white',
+                    isUpcoming && 'bg-gray-200 dark:bg-[#2a2a2a] text-gray-400 dark:text-gray-500'
                   )}
                 >
                   <Icon className="w-5 h-5" />
@@ -56,7 +56,7 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
                 <span
                   className={cn(
                     'mt-2 text-xs font-medium',
-                    isCurrent ? 'text-blue-600' : 'text-gray-500'
+                    isCurrent ? 'text-orange-500 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'
                   )}
                 >
                   {step.label}
@@ -68,7 +68,7 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
                 <div
                   className={cn(
                     'flex-1 h-0.5 mx-2',
-                    index < currentIndex ? 'bg-green-500' : 'bg-gray-200'
+                    index < currentIndex ? 'bg-green-500' : 'bg-gray-200 dark:bg-[#2a2a2a]'
                   )}
                 />
               )}

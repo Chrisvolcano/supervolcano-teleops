@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
         name: data.name || doc.id,
         type: data.type || 'unknown',
         folderId: data.folderId || null,
+        parentChain: data.parentChain || null,
 
         // Actual values (always include for reference)
         actual: {
@@ -128,6 +129,48 @@ export async function GET(request: NextRequest) {
         lastSync: data.lastSync?.toDate?.()?.toISOString() || null,
       };
     });
+
+    // Determine which sources are "root" (not children of other sources)
+    const allFolderIds = new Set(sources.map(s => s.folderId).filter(Boolean));
+
+    const sourcesWithRootFlag = sources.map(source => {
+      // A source is a root if none of its parents are in our data sources
+      const isRoot = !source.parentChain?.some((parentId: string) => allFolderIds.has(parentId));
+      return { ...source, isRoot };
+    });
+
+    // Calculate deduplicated totals (only count root sources)
+    const rootSources = sourcesWithRootFlag.filter(s => s.isRoot);
+    const deduplicatedTotals = {
+      totalVideos: rootSources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.videoCount || 0);
+      }, 0),
+      totalHours: rootSources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.totalHours || 0);
+      }, 0),
+      totalSizeGB: rootSources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.totalSizeGB || 0);
+      }, 0),
+    };
+
+    // Calculate raw totals (all sources, including duplicates)
+    const rawTotals = {
+      totalVideos: sources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.videoCount || 0);
+      }, 0),
+      totalHours: sources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.totalHours || 0);
+      }, 0),
+      totalSizeGB: sources.reduce((sum, s) => {
+        const sourceData = s.useDisplayValues ? s.display : s.actual;
+        return sum + (sourceData.totalSizeGB || 0);
+      }, 0),
+    };
 
     // If no sources exist, add default Portal Uploads
     if (sources.length === 0) {
@@ -160,7 +203,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       holdings,
       deliveries,
-      sources,
+      sources: sourcesWithRootFlag,
+      deduplicatedTotals,
+      rawTotals,
     });
   } catch (error: any) {
     console.error('[API] Data intelligence GET error:', error);
