@@ -319,6 +319,37 @@ export default function DataIntelligencePage() {
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingSourceName, setEditingSourceName] = useState('');
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  
+  type SortField = 'name' | 'videoCount' | 'totalHours' | 'totalSizeGB';
+  type SortOrder = 'asc' | 'desc';
+  const [subfolderSort, setSubfolderSort] = useState<{ field: SortField; order: SortOrder }>({
+    field: 'videoCount',
+    order: 'desc'
+  });
+  
+  const sortSubfolders = (subfolders: SubfolderInfo[]) => {
+    return [...subfolders].sort((a, b) => {
+      const aVal = a[subfolderSort.field];
+      const bVal = b[subfolderSort.field];
+      
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return subfolderSort.order === 'asc' 
+          ? aVal.localeCompare(bVal) 
+          : bVal.localeCompare(aVal);
+      }
+      
+      return subfolderSort.order === 'asc' 
+        ? (aVal as number) - (bVal as number)
+        : (bVal as number) - (aVal as number);
+    });
+  };
+  
+  const toggleSort = (field: SortField) => {
+    setSubfolderSort(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'desc' ? 'asc' : 'desc'
+    }));
+  };
   const [editableHoldings, setEditableHoldings] = useState<DataHoldings>({
     collectedVideos: 0,
     collectedHours: 0,
@@ -1858,23 +1889,22 @@ export default function DataIntelligencePage() {
               className="bg-white dark:bg-[#141414] p-4"
             >
               <div className="flex items-center justify-between mb-3 group">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleExpand}
-                    className={`flex items-center gap-2 ${hasSubfolders ? 'cursor-pointer' : 'cursor-default'}`}
-                    disabled={!hasSubfolders}
-                  >
-                    {hasSubfolders ? (
-                      isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                <div className="flex items-center gap-3">
+                  {hasSubfolders ? (
+                    <button
+                      onClick={toggleExpand}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-[#1f1f1f] transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-500" />
-                      )
-                    ) : (
-                      <div className="w-4" />
-                    )}
-                    <HardDrive className="w-4 h-4 text-purple-500" />
-                  </button>
+                        <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-6" />
+                  )}
+                  <Folder className="w-5 h-5 text-orange-500" />
                   {editingSourceId === source.id ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1908,7 +1938,9 @@ export default function DataIntelligencePage() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
                       {hasSubfolders && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">({source.subfolders!.length} subfolders)</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1f1f1f] px-2 py-0.5 rounded-full">
+                          {source.subfolders!.length} subfolders
+                        </span>
                       )}
                       {source.isRoot === false && (
                         <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
@@ -2102,25 +2134,69 @@ export default function DataIntelligencePage() {
               
               {/* Expanded subfolders */}
               {isExpanded && hasSubfolders && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#1f1f1f]">
-                  <div className="ml-4 space-y-2 border-l-2 border-gray-200 dark:border-[#2a2a2a] pl-4">
-                    {source.subfolders!.map((subfolder) => (
+                <div className="mt-3 ml-6 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg border border-gray-200 dark:border-[#1f1f1f] overflow-hidden">
+                  {/* Sort header row */}
+                  <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#2a2a2a] text-xs text-gray-500 dark:text-gray-400">
+                    <button 
+                      onClick={() => toggleSort('name')}
+                      className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    >
+                      Name {subfolderSort.field === 'name' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                    </button>
+                    <div className="flex gap-6">
+                      <button 
+                        onClick={() => toggleSort('videoCount')}
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-24 justify-end"
+                      >
+                        Videos {subfolderSort.field === 'videoCount' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('totalHours')}
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-20 justify-end"
+                      >
+                        Hours {subfolderSort.field === 'totalHours' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('totalSizeGB')}
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-20 justify-end"
+                      >
+                        Size {subfolderSort.field === 'totalSizeGB' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Subfolder rows */}
+                  <div className="divide-y divide-gray-200 dark:divide-[#1f1f1f]">
+                    {sortSubfolders(source.subfolders!).map((subfolder: SubfolderInfo) => (
                       <div 
                         key={subfolder.id} 
-                        className="flex items-center justify-between text-sm py-2 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded px-2 -ml-2"
+                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                          <span className="text-gray-700 dark:text-gray-300">{subfolder.name}</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{subfolder.name}</span>
                         </div>
-                        <div className="flex gap-6 text-gray-600 dark:text-gray-400">
-                          <span>{subfolder.videoCount} videos</span>
-                          <span>{subfolder.totalHours.toFixed(1)} hrs</span>
-                          <span>{subfolder.totalSizeGB.toFixed(1)} GB</span>
+                        <div className="flex gap-6 text-sm">
+                          <span className="w-24 text-right text-gray-600 dark:text-gray-400">
+                            {subfolder.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
+                          </span>
+                          <span className="w-20 text-right text-gray-600 dark:text-gray-400">
+                            {subfolder.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
+                          </span>
+                          <span className="w-20 text-right text-gray-600 dark:text-gray-400">
+                            {subfolder.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Empty subfolders note */}
+                  {source.subfolders!.filter(s => s.videoCount === 0).length > 0 && (
+                    <div className="px-4 py-2 bg-gray-100 dark:bg-[#1a1a1a] text-xs text-gray-500 dark:text-gray-500 border-t border-gray-200 dark:border-[#1f1f1f]">
+                      {source.subfolders!.filter(s => s.videoCount === 0).length} empty subfolder(s) — consider removing from Drive
+                    </div>
+                  )}
                 </div>
               )}
           </div>
