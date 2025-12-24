@@ -248,11 +248,27 @@ export async function GET(request: NextRequest) {
 
     const db = getAdminDb();
     const sourcesSnap = await db.collection('dataSources').where('type', '==', 'drive').get();
-    const sources = sourcesSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      lastSync: doc.data().lastSync?.toDate?.()?.toISOString() || null,
-    }));
+    const sources = sourcesSnap.docs.map(doc => {
+      const data = doc.data() as {
+        name?: string;
+        type?: string;
+        videoCount?: number;
+        totalSizeGB?: number;
+        totalHours?: number;
+        parentChain?: string[];
+        driveId?: string | null;
+        durationSource?: string;
+        filesWithDuration?: number;
+        lastSync?: any;
+        [key: string]: any;
+      };
+      
+      return {
+        id: doc.id,
+        ...data,
+        lastSync: data.lastSync?.toDate?.()?.toISOString() || null,
+      };
+    });
 
     // Determine which sources are "root" (not children of other sources)
     const allFolderIds = new Set(sources.map(s => s.id));
