@@ -44,13 +44,28 @@ async function getParentChain(drive: drive_v3.Drive, folderId: string, driveId?:
   return parents;
 }
 
+interface SubfolderInfo {
+  id: string;
+  name: string;
+  videoCount: number;
+  totalSizeGB: number;
+  totalHours: number;
+}
+
 // Recursively get all video files in folder and subfolders
 async function scanFolderRecursive(
   drive: drive_v3.Drive,
   folderId: string,
   videoMimeTypes: string[],
-  driveId?: string  // Pass driveId for shared drive queries
-): Promise<{ totalFiles: number; totalSize: number; totalDurationMs: number; filesWithDuration: number }> {
+  driveId?: string,  // Pass driveId for shared drive queries
+  collectSubfolders: boolean = false
+): Promise<{ 
+  totalFiles: number; 
+  totalSize: number; 
+  totalDurationMs: number; 
+  filesWithDuration: number;
+  subfolders?: SubfolderInfo[];
+}> {
   let totalFiles = 0;
   let totalSize = 0;
   let totalDurationMs = 0;
@@ -104,13 +119,59 @@ async function scanFolderRecursive(
 
   // Get all subfolders and scan them recursively
   let folderPageToken: string | undefined;
+  const subfolderInfos: SubfolderInfo[] = [];
+  
   do {
     const foldersResponse = await drive.files.list({ ...folderParams, pageToken: folderPageToken });
 
-    const subfolders = foldersResponse.data.files || [];
+    const subfoldersList = foldersResponse.data.files || [];
     
-    for (const subfolder of subfolders) {
-      const sub = await scanFolderRecursive(drive, subfolder.id!, videoMimeTypes, driveId || subfolder.driveId || undefined);
+    for (const subfolder of subfoldersList) {
+      const sub = await scanFolderRecursive(
+        drive, 
+        subfolder.id!, 
+        videoMimeTypes, 
+        driveId || subfolder.driveId || undefined,
+        false  // Don't collect nested subfolders recursively
+      );
+      
+      // Collect subfolder info if requested
+      if (collectSubfolders) {
+        try {
+          const folderInfo = await drive.files.get({
+            fileId: subfolder.id!,
+            fields: 'name',
+            supportsAllDrives: true,
+          });
+          
+          const subTotalSizeGB = sub.totalSize / (1024 * 1024 * 1024);
+          let subTotalHours: number;
+          
+          // Calculate hours similar to main logic
+          if (sub.filesWithDuration === sub.totalFiles && sub.totalFiles > 0) {
+            subTotalHours = sub.totalDurationMs / (1000 * 60 * 60);
+          } else if (sub.filesWithDuration === 0) {
+            subTotalHours = subTotalSizeGB / 15;
+          } else {
+            const avgDurationPerFile = sub.totalDurationMs / sub.filesWithDuration;
+            const filesWithoutDuration = sub.totalFiles - sub.filesWithDuration;
+            const estimatedMissingMs = avgDurationPerFile * filesWithoutDuration;
+            subTotalHours = (sub.totalDurationMs + estimatedMissingMs) / (1000 * 60 * 60);
+          }
+          
+          subfolderInfos.push({
+            id: subfolder.id!,
+            name: folderInfo.data.name || 'Unknown',
+            videoCount: sub.totalFiles,
+            totalSizeGB: Math.round(subTotalSizeGB * 100) / 100,
+            totalHours: Math.round(subTotalHours * 100) / 100,
+          });
+        } catch (err) {
+          console.error(`Failed to get subfolder info for ${subfolder.id}:`, err);
+          // Continue even if we can't get the name
+        }
+      }
+      
       totalFiles += sub.totalFiles;
       totalSize += sub.totalSize;
       totalDurationMs += sub.totalDurationMs;
@@ -120,7 +181,13 @@ async function scanFolderRecursive(
     folderPageToken = foldersResponse.data.nextPageToken || undefined;
   } while (folderPageToken);
 
-  return { totalFiles, totalSize, totalDurationMs, filesWithDuration };
+  return { 
+    totalFiles, 
+    totalSize, 
+    totalDurationMs, 
+    filesWithDuration,
+    subfolders: collectSubfolders ? subfolderInfos : undefined
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -183,8 +250,8 @@ export async function POST(request: NextRequest) {
     // Get parent chain for hierarchy detection
     const parentChain = await getParentChain(drive, folderId, driveId);
 
-    // Scan folder recursively
-    const { totalFiles, totalSize, totalDurationMs, filesWithDuration } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId);
+    // Scan folder recursively (collect subfolders for top-level scan)
+    const { totalFiles, totalSize, totalDurationMs, filesWithDuration, subfolders } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId, true);
 
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);
     // Use real duration if available, otherwise estimate
@@ -223,6 +290,7 @@ export async function POST(request: NextRequest) {
       totalDurationMs,
       parentChain,  // Array of parent folder IDs
       driveId: driveId || null,  // The shared drive ID if applicable
+      subfolders: subfolders || [],  // Array of subfolder info
       lastSync: new Date(),
       syncedBy: userId,
     };
@@ -257,6 +325,7 @@ export async function GET(request: NextRequest) {
         totalHours?: number;
         parentChain?: string[];
         driveId?: string | null;
+        subfolders?: SubfolderInfo[];
         durationSource?: string;
         filesWithDuration?: number;
         lastSync?: any;

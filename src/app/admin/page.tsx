@@ -20,6 +20,7 @@ import {
   RefreshCw,
   FolderSync,
   Check,
+  Folder,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
@@ -53,6 +54,14 @@ interface Partner {
     name: string;
 }
   
+interface SubfolderInfo {
+  id: string;
+  name: string;
+  videoCount: number;
+  totalSizeGB: number;
+  totalHours: number;
+}
+
 interface DataSource {
   id: string;
     name: string;
@@ -60,6 +69,7 @@ interface DataSource {
   folderId: string | null;
   parentChain?: string[] | null;
   isRoot?: boolean;
+  subfolders?: SubfolderInfo[];
   actual: {
   videoCount: number;
     totalHours: number;
@@ -308,6 +318,7 @@ export default function DataIntelligencePage() {
   } | null>(null);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingSourceName, setEditingSourceName] = useState('');
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [editableHoldings, setEditableHoldings] = useState<DataHoldings>({
     collectedVideos: 0,
     collectedHours: 0,
@@ -1823,14 +1834,47 @@ export default function DataIntelligencePage() {
           })()}
               
           {/* Drive Sources */}
-          {data && data.sources.filter(s => s.type === 'drive').map((source) => (
+          {data && data.sources.filter(s => s.type === 'drive').map((source) => {
+            const hasSubfolders = source.subfolders && source.subfolders.length > 0;
+            const isExpanded = expandedSources.has(source.id);
+            
+            const toggleExpand = () => {
+              if (hasSubfolders) {
+                setExpandedSources(prev => {
+                  const next = new Set(prev);
+                  if (next.has(source.id)) {
+                    next.delete(source.id);
+                  } else {
+                    next.add(source.id);
+                  }
+                  return next;
+                });
+              }
+            };
+            
+            return (
             <div
               key={source.id}
               className="bg-white dark:bg-[#141414] p-4"
             >
               <div className="flex items-center justify-between mb-3 group">
                 <div className="flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-purple-500" />
+                  <button
+                    onClick={toggleExpand}
+                    className={`flex items-center gap-2 ${hasSubfolders ? 'cursor-pointer' : 'cursor-default'}`}
+                    disabled={!hasSubfolders}
+                  >
+                    {hasSubfolders ? (
+                      isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                      )
+                    ) : (
+                      <div className="w-4" />
+                    )}
+                    <HardDrive className="w-4 h-4 text-purple-500" />
+                  </button>
                   {editingSourceId === source.id ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1863,6 +1907,9 @@ export default function DataIntelligencePage() {
                   ) : (
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                      {hasSubfolders && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">({source.subfolders!.length} subfolders)</span>
+                      )}
                       {source.isRoot === false && (
                         <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
                       )}
@@ -2052,8 +2099,33 @@ export default function DataIntelligencePage() {
                   </p>
                 </div>
               )}
+              
+              {/* Expanded subfolders */}
+              {isExpanded && hasSubfolders && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#1f1f1f]">
+                  <div className="ml-4 space-y-2 border-l-2 border-gray-200 dark:border-[#2a2a2a] pl-4">
+                    {source.subfolders!.map((subfolder) => (
+                      <div 
+                        key={subfolder.id} 
+                        className="flex items-center justify-between text-sm py-2 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded px-2 -ml-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <span className="text-gray-700 dark:text-gray-300">{subfolder.name}</span>
+                        </div>
+                        <div className="flex gap-6 text-gray-600 dark:text-gray-400">
+                          <span>{subfolder.videoCount} videos</span>
+                          <span>{subfolder.totalHours.toFixed(1)} hrs</span>
+                          <span>{subfolder.totalSizeGB.toFixed(1)} GB</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
-          ))}
+          );
+          })}
 
           {(!data || data.sources.filter(s => s.type === 'drive').length === 0) && !showDrivePicker && (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">

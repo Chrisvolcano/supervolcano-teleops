@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
         type: data.type || 'unknown',
         folderId: data.folderId || null,
         parentChain: data.parentChain || null,
+        subfolders: data.subfolders || [],
 
         // Actual values (always include for reference)
         actual: {
@@ -181,6 +182,7 @@ export async function GET(request: NextRequest) {
         type: 'portal',
         folderId: null,
         parentChain: [],
+        subfolders: [],
         actual: {
           videoCount: 0,
           totalHours: 0,
