@@ -255,7 +255,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Determine which sources are "root" (not children of other sources)
-    const allFolderIds = new Set(sources.map(s => s.folderId));
+    const allFolderIds = new Set(sources.map(s => s.id));
 
     const sourcesWithRootFlag = sources.map(source => {
       // A source is a root if none of its parents are in our data sources

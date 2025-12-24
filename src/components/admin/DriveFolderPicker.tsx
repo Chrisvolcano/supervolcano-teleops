@@ -202,8 +202,9 @@ export function DriveFolderPicker({ isOpen, onClose, onSelect }: DriveFolderPick
         }
         
         // Check if this folder is a child of existing sources
+        // For drive sources, s.id is the folderId (doc.id)
         const existingParents = sources.filter((s: any) => 
-          parentChain.includes(s.folderId)
+          parentChain.includes(s.id || s.folderId)
         );
         
         if (existingParents.length > 0) {

@@ -131,7 +131,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Determine which sources are "root" (not children of other sources)
-    const allFolderIds = new Set(sources.map(s => s.folderId).filter(Boolean));
+    // For drive sources, doc.id is the folderId, so use s.id for drive sources
+    const allFolderIds = new Set(sources.map(s => s.type === 'drive' ? s.id : s.folderId).filter(Boolean));
 
     const sourcesWithRootFlag = sources.map(source => {
       // A source is a root if none of its parents are in our data sources
