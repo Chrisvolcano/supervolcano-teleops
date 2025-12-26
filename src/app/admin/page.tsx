@@ -2254,13 +2254,13 @@ export default function DataIntelligencePage() {
                       </button>
                       <button 
                         onClick={() => toggleSort('totalHours')}
-                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-20 justify-end"
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-28 justify-end whitespace-nowrap"
                       >
                         Hours {subfolderSort.field === 'totalHours' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
                       </button>
                       <button 
                         onClick={() => toggleSort('totalSizeGB')}
-                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-20 justify-end"
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-28 justify-end whitespace-nowrap"
                       >
                         Size {subfolderSort.field === 'totalSizeGB' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
                       </button>
@@ -2302,29 +2302,49 @@ export default function DataIntelligencePage() {
                             )}
                           </div>
                           <div className="flex gap-6 text-sm">
-                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
-                              {subfolder.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
-                            </span>
-                            <span className="w-24 text-right text-green-500 dark:text-green-400">
-                              {subfolder.deliveredCount || 0} <span className="text-green-700 dark:text-green-600">delivered</span>
-                            </span>
-                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
-                              {subfolder.totalHours.toFixed(1)}
-                              {subfolder.deliveredHours && subfolder.deliveredHours > 0 && (
-                                <span className="text-green-500 dark:text-green-400 text-xs ml-1">
-                                  ({subfolder.deliveredHours.toFixed(1)} del)
-                                </span>
+                            {/* Videos column */}
+                            <span className="w-24 text-right text-gray-400 dark:text-gray-400 whitespace-nowrap">
+                              {subfolder.videoCount > 0 ? (
+                                <>{subfolder.videoCount} <span className="text-gray-600 dark:text-gray-600">videos</span></>
+                              ) : (
+                                <span className="text-gray-600 dark:text-gray-600">—</span>
                               )}
-                              <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
                             </span>
-                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
-                              {subfolder.totalSizeGB.toFixed(1)}
-                              {subfolder.deliveredSizeGB && subfolder.deliveredSizeGB > 0 && (
-                                <span className="text-green-500 dark:text-green-400 text-xs ml-1">
-                                  ({subfolder.deliveredSizeGB.toFixed(1)} del)
-                                </span>
+                            {/* Delivered column */}
+                            <span className="w-24 text-right whitespace-nowrap">
+                              {subfolder.deliveredCount > 0 ? (
+                                <span className="text-green-500 dark:text-green-400">{subfolder.deliveredCount} delivered</span>
+                              ) : (
+                                <span className="text-gray-600 dark:text-gray-600">—</span>
                               )}
-                              <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
+                            </span>
+                            {/* Hours column - cleaner format */}
+                            <span className="w-28 text-right text-gray-400 dark:text-gray-400 whitespace-nowrap">
+                              {subfolder.totalHours > 0 ? (
+                                <>
+                                  {subfolder.totalHours.toFixed(1)}
+                                  {subfolder.deliveredHours && subfolder.deliveredHours > 0 && (
+                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredHours.toFixed(1)}</span>
+                                  )}
+                                  <span className="text-gray-600 dark:text-gray-600 ml-1">hrs</span>
+                                </>
+                              ) : (
+                                <span className="text-gray-600 dark:text-gray-600">—</span>
+                              )}
+                            </span>
+                            {/* Size column - cleaner format */}
+                            <span className="w-28 text-right text-gray-400 dark:text-gray-400 whitespace-nowrap">
+                              {subfolder.totalSizeGB > 0 ? (
+                                <>
+                                  {subfolder.totalSizeGB.toFixed(1)}
+                                  {subfolder.deliveredSizeGB && subfolder.deliveredSizeGB > 0 && (
+                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredSizeGB.toFixed(1)}</span>
+                                  )}
+                                  <span className="text-gray-600 dark:text-gray-600 ml-1">GB</span>
+                                </>
+                              ) : (
+                                <span className="text-gray-600 dark:text-gray-600">—</span>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -2358,35 +2378,51 @@ export default function DataIntelligencePage() {
                                     <span className="text-sm text-gray-600 dark:text-gray-400">{child.name}</span>
                                   </div>
                                   <div className="flex gap-6 text-sm">
-                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
-                                      {child.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
-                                    </span>
-                                    <span className="w-24 text-right">
-                                      {isProcessed ? (
-                                        <span className="text-green-500 dark:text-green-400">{child.videoCount} <span className="text-green-700 dark:text-green-600">delivered</span></span>
-                                      ) : child.deliveredCount > 0 ? (
-                                        <span className="text-green-500 dark:text-green-400">{child.deliveredCount} <span className="text-green-700 dark:text-green-600">delivered</span></span>
+                                    {/* Videos column */}
+                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500 whitespace-nowrap">
+                                      {child.videoCount > 0 ? (
+                                        <>{child.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span></>
                                       ) : (
-                                        <span className="text-gray-500 dark:text-gray-600">-</span>
+                                        <span className="text-gray-600 dark:text-gray-600">—</span>
                                       )}
                                     </span>
-                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
-                                      {child.totalHours.toFixed(1)}
-                                      {child.deliveredHours && child.deliveredHours > 0 && (
-                                        <span className="text-green-500 dark:text-green-400 text-xs ml-1">
-                                          ({child.deliveredHours.toFixed(1)} del)
-                                        </span>
+                                    {/* Delivered column */}
+                                    <span className="w-24 text-right whitespace-nowrap">
+                                      {isProcessed ? (
+                                        <span className="text-green-500 dark:text-green-400">{child.videoCount} delivered</span>
+                                      ) : child.deliveredCount > 0 ? (
+                                        <span className="text-green-500 dark:text-green-400">{child.deliveredCount} delivered</span>
+                                      ) : (
+                                        <span className="text-gray-600 dark:text-gray-600">—</span>
                                       )}
-                                      <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
                                     </span>
-                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
-                                      {child.totalSizeGB.toFixed(1)}
-                                      {child.deliveredSizeGB && child.deliveredSizeGB > 0 && (
-                                        <span className="text-green-500 dark:text-green-400 text-xs ml-1">
-                                          ({child.deliveredSizeGB.toFixed(1)} del)
-                                        </span>
+                                    {/* Hours column - cleaner format */}
+                                    <span className="w-28 text-right text-gray-500 dark:text-gray-500 whitespace-nowrap">
+                                      {child.totalHours > 0 ? (
+                                        <>
+                                          {child.totalHours.toFixed(1)}
+                                          {child.deliveredHours && child.deliveredHours > 0 && (
+                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredHours.toFixed(1)}</span>
+                                          )}
+                                          <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
+                                        </>
+                                      ) : (
+                                        <span className="text-gray-600 dark:text-gray-600">—</span>
                                       )}
-                                      <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
+                                    </span>
+                                    {/* Size column - cleaner format */}
+                                    <span className="w-28 text-right text-gray-500 dark:text-gray-500 whitespace-nowrap">
+                                      {child.totalSizeGB > 0 ? (
+                                        <>
+                                          {child.totalSizeGB.toFixed(1)}
+                                          {child.deliveredSizeGB && child.deliveredSizeGB > 0 && (
+                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredSizeGB.toFixed(1)}</span>
+                                          )}
+                                          <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
+                                        </>
+                                      ) : (
+                                        <span className="text-gray-600 dark:text-gray-600">—</span>
+                                      )}
                                     </span>
                                   </div>
                                 </div>
