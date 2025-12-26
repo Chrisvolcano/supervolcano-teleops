@@ -1616,7 +1616,10 @@ export default function DataIntelligencePage() {
             <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
               <Send className="h-5 w-5 text-green-500" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">From delivery log entries</p>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {deliveredCards.map((stat, index) => {
@@ -2238,7 +2241,12 @@ export default function DataIntelligencePage() {
                 
                 {/* Processed column */}
                 <div className="space-y-2">
-                  <div className="text-xs text-green-500 dark:text-green-400 uppercase tracking-wide">Processed</div>
+                  <div 
+                    className="text-xs text-green-500 dark:text-green-400 uppercase tracking-wide cursor-help"
+                    title="Videos currently in 'Processed' folders on Drive"
+                  >
+                    Processed
+                  </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredCount || 0}</div>

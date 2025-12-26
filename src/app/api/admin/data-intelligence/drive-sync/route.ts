@@ -160,7 +160,21 @@ async function scanFolderRecursive(
         // If this folder is "Processed", ALL its files are delivered
         deliveredFiles += sub.totalFiles;
         deliveredSize += sub.totalSize;
-        deliveredDurationMs += sub.totalDurationMs;
+        
+        // Calculate estimated duration (same logic as totalHours)
+        let estimatedDurationMs = sub.totalDurationMs;
+        if (sub.totalFiles > 0 && sub.filesWithDuration === 0) {
+          // No duration data - estimate from size (15 GB/hour)
+          const sizeGB = sub.totalSize / (1024 * 1024 * 1024);
+          estimatedDurationMs = sizeGB / 15 * 60 * 60 * 1000;
+        } else if (sub.totalFiles > sub.filesWithDuration && sub.filesWithDuration > 0) {
+          // Some files missing duration - estimate based on average
+          const avgDurationPerFile = sub.totalDurationMs / sub.filesWithDuration;
+          const filesWithoutDuration = sub.totalFiles - sub.filesWithDuration;
+          estimatedDurationMs = sub.totalDurationMs + (avgDurationPerFile * filesWithoutDuration);
+        }
+        
+        deliveredDurationMs += estimatedDurationMs;
         // Don't add nested delivered counts - they're already included in totalFiles/totalSize/totalDurationMs
       } else {
         // If this folder is NOT "Processed", only count nested delivered files
@@ -187,9 +201,24 @@ async function scanFolderRecursive(
         }
         
         // Calculate delivered hours and size for this subfolder
-        const subDeliveredHours = isProcessedFolder 
-          ? Math.round((sub.totalDurationMs / (1000 * 60 * 60)) * 100) / 100 
-          : Math.round(((sub.deliveredDurationMs || 0) / (1000 * 60 * 60)) * 100) / 100;
+        let subDeliveredHours = 0;
+        if (isProcessedFolder) {
+          // Use same estimation logic as totalHours
+          if (sub.totalFiles > 0 && sub.filesWithDuration === 0) {
+            subDeliveredHours = subTotalSizeGB / 15;
+          } else if (sub.totalFiles > sub.filesWithDuration && sub.filesWithDuration > 0) {
+            const avgDurationPerFile = sub.totalDurationMs / sub.filesWithDuration;
+            const filesWithoutDuration = sub.totalFiles - sub.filesWithDuration;
+            const estimatedMs = sub.totalDurationMs + (avgDurationPerFile * filesWithoutDuration);
+            subDeliveredHours = estimatedMs / (1000 * 60 * 60);
+          } else {
+            subDeliveredHours = sub.totalDurationMs / (1000 * 60 * 60);
+          }
+          subDeliveredHours = Math.round(subDeliveredHours * 100) / 100;
+        } else {
+          // Use nested delivered hours (already calculated with estimation)
+          subDeliveredHours = Math.round(((sub.deliveredDurationMs || 0) / (1000 * 60 * 60)) * 100) / 100;
+        }
         const subDeliveredSizeGB = isProcessedFolder
           ? Math.round((sub.totalSize / (1024 * 1024 * 1024)) * 100) / 100
           : Math.round(((sub.deliveredSize || 0) / (1024 * 1024 * 1024)) * 100) / 100;
