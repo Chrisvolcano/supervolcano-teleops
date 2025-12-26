@@ -163,6 +163,12 @@ export async function GET(request: NextRequest) {
         const sourceData = s.useDisplayValues ? s.display : s.actual;
         return sum + (sourceData.totalSizeGB || 0);
       }, 0),
+      deliveredHours: rootSources.reduce((sum, s) => {
+        return sum + ((s as any).deliveredHours || 0);
+      }, 0),
+      deliveredSizeGB: rootSources.reduce((sum, s) => {
+        return sum + ((s as any).deliveredSizeGB || 0);
+      }, 0),
     };
 
     // Calculate raw totals (all sources, including duplicates)

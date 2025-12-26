@@ -125,6 +125,8 @@ interface DataIntelligenceData {
     totalDelivered: number;
     totalHours: number;
     totalSizeGB: number;
+    deliveredHours?: number;
+    deliveredSizeGB?: number;
   };
   rawTotals?: {
     totalVideos: number;
@@ -1537,7 +1539,7 @@ export default function DataIntelligencePage() {
                   </span>
                 )}
                 <span className="text-sm text-green-500 dark:text-green-400">
-                  ({data?.deduplicatedTotals?.deliveredVideos?.toLocaleString() || 0} delivered)
+                  ({data?.deduplicatedTotals?.totalDelivered?.toLocaleString() || 0} delivered)
                 </span>
               </div>
             </div>
