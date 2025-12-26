@@ -810,7 +810,6 @@ export default function DataIntelligencePage() {
     loadData();
     loadPartners();
     loadDriveSources();
-    loadCollectionHistory();
     // Trigger mount animation after a brief delay
     setTimeout(() => setIsMounted(true), 100);
   }, []);
