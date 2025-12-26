@@ -24,6 +24,7 @@ import {
   TrendingUp,
   TrendingDown,
   CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
@@ -345,6 +346,7 @@ export default function DataIntelligencePage() {
   const [deliveryPartner, setDeliveryPartner] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryDescription, setDeliveryDescription] = useState('');
+  const [deliveredFolderIds, setDeliveredFolderIds] = useState<Set<string>>(new Set());
   
   const toggleSubfolderExpand = (subfolderId: string) => {
     setExpandedSubfolders(prev => {
@@ -810,6 +812,7 @@ export default function DataIntelligencePage() {
     loadData();
     loadPartners();
     loadDriveSources();
+    fetchDeliveredFolderIds();
     // Trigger mount animation after a brief delay
     setTimeout(() => setIsMounted(true), 100);
   }, []);
@@ -1103,6 +1106,30 @@ export default function DataIntelligencePage() {
     }
   };
 
+  // Fetch delivered folder IDs to detect duplicates
+  const fetchDeliveredFolderIds = async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      
+      const response = await fetch('/api/admin/data-intelligence/deliveries', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const folderIds = new Set<string>();
+        data.deliveries?.forEach((delivery: any) => {
+          delivery.sourceFolders?.forEach((folder: any) => {
+            folderIds.add(folder.id);
+          });
+        });
+        setDeliveredFolderIds(folderIds);
+      }
+    } catch (error) {
+      console.error('Failed to fetch delivered folder IDs:', error);
+    }
+  };
+
   const handleEditStat = (statKey: keyof DataHoldings) => {
     if (!data) return;
     // Prevent editing delivered stats (they're calculated from deliveries)
@@ -1324,6 +1351,7 @@ export default function DataIntelligencePage() {
         clearSelection();
         // Refresh deliveries data
         await loadData();
+        await fetchDeliveredFolderIds();
       } else {
         const error = await response.json();
         addToast('error', 'Failed to log delivery', error.message || error.error || 'Could not create delivery entry');
@@ -2329,6 +2357,11 @@ export default function DataIntelligencePage() {
                             )}
                             <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                             <span className="text-sm text-gray-700 dark:text-gray-300">{subfolder.name}</span>
+                            {deliveredFolderIds.has(subfolder.id) && (
+                              <span className="ml-2 px-1.5 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
+                                in log
+                              </span>
+                            )}
                             {subfolder.children && subfolder.children.length > 0 && (
                               <span className="text-xs text-gray-500 dark:text-gray-600">({subfolder.children.length})</span>
                             )}
@@ -2408,6 +2441,11 @@ export default function DataIntelligencePage() {
                                       <Folder className="w-4 h-4 text-gray-500 dark:text-gray-600" />
                                     )}
                                     <span className="text-sm text-gray-600 dark:text-gray-400">{child.name}</span>
+                                    {deliveredFolderIds.has(child.id) && (
+                                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
+                                        in log
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex gap-6 text-sm">
                                     {/* Videos column */}
@@ -2571,6 +2609,15 @@ export default function DataIntelligencePage() {
               <span className="text-white font-medium">{getSelectionTotals().sizeGB}</span>
               <span className="text-gray-500"> GB</span>
             </span>
+            {(() => {
+              const duplicateCount = Array.from(selectedFolders.keys()).filter(id => deliveredFolderIds.has(id)).length;
+              return duplicateCount > 0 ? (
+                <div className="flex items-center gap-2 text-yellow-500 text-sm ml-4">
+                  <AlertTriangle className="w-4 h-4" />
+                  {duplicateCount} already in log
+                </div>
+              ) : null;
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -2611,6 +2658,22 @@ export default function DataIntelligencePage() {
                   ))}
                 </div>
               </div>
+              
+              {/* Duplicate warning */}
+              {(() => {
+                const duplicates = Array.from(selectedFolders.values()).filter(f => deliveredFolderIds.has(f.id));
+                return duplicates.length > 0 ? (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-yellow-500 text-sm font-medium mb-1">
+                      <AlertTriangle className="w-4 h-4" />
+                      {duplicates.length} folder{duplicates.length > 1 ? 's' : ''} already in delivery log
+                    </div>
+                    <div className="text-xs text-yellow-500/70">
+                      {duplicates.map(f => f.name).join(', ')}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
               
               {/* Auto-populated totals */}
               <div className="grid grid-cols-3 gap-4">
