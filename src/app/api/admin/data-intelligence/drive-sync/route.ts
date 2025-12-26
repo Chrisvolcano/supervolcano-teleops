@@ -155,14 +155,17 @@ async function scanFolderRecursive(
       
       // Track delivered metrics
       if (isProcessedFolder) {
+        // If this folder is "Processed", ALL its files are delivered
         deliveredFiles += sub.totalFiles;
         deliveredSize += sub.totalSize;
         deliveredDurationMs += sub.totalDurationMs;
+        // Don't add nested delivered counts - they're already included in totalFiles/totalSize/totalDurationMs
+      } else {
+        // If this folder is NOT "Processed", only count nested delivered files
+        deliveredFiles += sub.deliveredFiles || 0;
+        deliveredSize += sub.deliveredSize || 0;
+        deliveredDurationMs += sub.deliveredDurationMs || 0;
       }
-      // Also add nested delivered counts
-      deliveredFiles += sub.deliveredFiles;
-      deliveredSize += sub.deliveredSize;
-      deliveredDurationMs += sub.deliveredDurationMs;
       
       // Collect subfolder info if requested
       if (collectSubfolders) {
