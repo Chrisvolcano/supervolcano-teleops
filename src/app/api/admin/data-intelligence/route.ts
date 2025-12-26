@@ -197,6 +197,8 @@ export async function GET(request: NextRequest) {
         parentChain: [],
         subfolders: [],
         deliveredCount: 0,
+        deliveredHours: 0,
+        deliveredSizeGB: 0,
         previousSync: null,
         actual: {
           videoCount: 0,
