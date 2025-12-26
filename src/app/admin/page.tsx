@@ -1251,9 +1251,41 @@ export default function DataIntelligencePage() {
     if (!deliveryPartner || !deliveryDate) return;
     
     const totals = getSelectionTotals();
-    const folderNames = Array.from(selectedFolders.values())
-      .map(f => `${f.parentName} / ${f.name}`)
-      .join(', ');
+    const folders = Array.from(selectedFolders.values());
+    
+    // Generate smart description
+    let smartDescription = '';
+    if (deliveryDescription) {
+      // User provided custom description
+      smartDescription = deliveryDescription;
+    } else {
+      // Auto-generate smart summary with hours breakdown
+      const folderCount = folders.length;
+      
+      // Group by contributor with hours
+      const contributorStats = new Map<string, { count: number; hours: number }>();
+      folders.forEach(f => {
+        // Extract contributor name from parentName (e.g., "Contributors / Dustin" -> "Dustin")
+        const parts = f.parentName?.split(' / ') || [];
+        const contributor = parts[parts.length - 1] || parts[0] || 'Unknown';
+        const existing = contributorStats.get(contributor) || { count: 0, hours: 0 };
+        contributorStats.set(contributor, {
+          count: existing.count + 1,
+          hours: existing.hours + (f.totalHours || 0),
+        });
+      });
+      
+      // Format as "15 folders: Dustin (3, 5.2 hrs), Garrett (4, 11.6 hrs)..."
+      const contributorList = Array.from(contributorStats.entries())
+        .sort((a, b) => b[1].hours - a[1].hours) // Sort by hours descending
+        .slice(0, 5) // Limit to top 5 contributors
+        .map(([name, stats]) => `${name} (${stats.count}, ${stats.hours.toFixed(1)} hrs)`)
+        .join(', ');
+      
+      const extraContributors = contributorStats.size > 5 ? ` + ${contributorStats.size - 5} more` : '';
+      
+      smartDescription = `${folderCount} folder${folderCount > 1 ? 's' : ''}: ${contributorList}${extraContributors}`;
+    }
     
     try {
       const token = await getIdToken();
@@ -1271,8 +1303,8 @@ export default function DataIntelligencePage() {
           totalHours: totals.hours,
           totalSizeGB: totals.sizeGB,
           deliveryDate: new Date(deliveryDate).toISOString(),
-          description: deliveryDescription || folderNames || 'Delivery from selected folders',
-          sourceFolders: Array.from(selectedFolders.values()).map(f => ({
+          description: smartDescription,
+          sourceFolders: folders.map(f => ({
             id: f.id,
             name: f.name,
             parentName: f.parentName,
