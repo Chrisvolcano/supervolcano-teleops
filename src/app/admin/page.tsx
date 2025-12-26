@@ -21,6 +21,9 @@ import {
   FolderSync,
   Check,
   Folder,
+  TrendingUp,
+  TrendingDown,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from 'next-themes';
@@ -60,6 +63,8 @@ interface SubfolderInfo {
   videoCount: number;
   totalSizeGB: number;
   totalHours: number;
+  deliveredCount: number;
+  children?: SubfolderInfo[];
 }
 
 interface DataSource {
@@ -70,6 +75,13 @@ interface DataSource {
   parentChain?: string[] | null;
   isRoot?: boolean;
   subfolders?: SubfolderInfo[];
+  deliveredCount?: number;
+  previousSync?: {
+    videoCount: number;
+    totalHours: number;
+    totalSizeGB: number;
+    syncedAt: string | null;
+  } | null;
   actual: {
   videoCount: number;
     totalHours: number;
@@ -107,6 +119,7 @@ interface DataIntelligenceData {
   sources: DataSource[];
   deduplicatedTotals?: {
     totalVideos: number;
+    totalDelivered: number;
     totalHours: number;
     totalSizeGB: number;
   };
@@ -319,8 +332,22 @@ export default function DataIntelligencePage() {
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingSourceName, setEditingSourceName] = useState('');
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [expandedSubfolders, setExpandedSubfolders] = useState<Set<string>>(new Set());
+  const [collectionHistory, setCollectionHistory] = useState<Array<{ date: string; videos: number; hours: number; sizeGB: number }>>([]);
   
-  type SortField = 'name' | 'videoCount' | 'totalHours' | 'totalSizeGB';
+  const toggleSubfolderExpand = (subfolderId: string) => {
+    setExpandedSubfolders(prev => {
+      const next = new Set(prev);
+      if (next.has(subfolderId)) {
+        next.delete(subfolderId);
+      } else {
+        next.add(subfolderId);
+      }
+      return next;
+    });
+  };
+  
+  type SortField = 'name' | 'videoCount' | 'deliveredCount' | 'totalHours' | 'totalSizeGB';
   type SortOrder = 'asc' | 'desc';
   const [subfolderSort, setSubfolderSort] = useState<{ field: SortField; order: SortOrder }>({
     field: 'videoCount',
@@ -832,6 +859,8 @@ export default function DataIntelligencePage() {
           }
           return [...prev, sourceData];
         });
+        await loadData();
+        await loadCollectionHistory();
         addToast('success', 'Drive synced', `Found ${responseData.videoCount} videos (${responseData.totalSizeGB.toFixed(1)} GB)`);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -1139,6 +1168,7 @@ export default function DataIntelligencePage() {
 
       if (response.ok) {
         await loadData();
+        await loadCollectionHistory();
         setShowAddDelivery(false);
         setNewDelivery({ 
           date: new Date().toISOString().split('T')[0], 
@@ -1300,6 +1330,7 @@ export default function DataIntelligencePage() {
             setIsRefreshing(true);
             await loadData();
             await loadDriveSources();
+            await loadCollectionHistory();
             setIsRefreshing(false);
             addToast('success', 'Data refreshed', 'All data has been updated');
           }}
@@ -1312,6 +1343,54 @@ export default function DataIntelligencePage() {
         </div>
                 </div>
       
+      {/* Collection Growth Graph */}
+      {collectionHistory.length > 0 && (
+        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+              <Database className="h-5 w-5 text-orange-500" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Collection Growth</h2>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={collectionHistory}>
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#9ca3af"
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  tickFormatter={(val) => {
+                    const date = new Date(val);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  }}
+                />
+                <YAxis 
+                  stroke="#9ca3af"
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1f2937', 
+                    border: 'none', 
+                    borderRadius: '8px',
+                    color: '#f3f4f6'
+                  }}
+                  labelFormatter={(val) => new Date(val).toLocaleDateString()}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="videos" 
+                  stroke="#f97316" 
+                  strokeWidth={2}
+                  dot={false}
+                  name="Videos"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+      
       {/* Data Holdings Section */}
       <div className="space-y-6">
         {/* Data Collected Section */}
@@ -1323,7 +1402,7 @@ export default function DataIntelligencePage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
               </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Videos Card */}
             <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
               <div className="flex items-center gap-3">
@@ -1409,6 +1488,21 @@ export default function DataIntelligencePage() {
                     </p>
                   )}
                   <p className="text-sm text-gray-500 dark:text-gray-400">Storage</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Delivered Card */}
+            <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-2xl font-bold text-green-500 dark:text-green-400">
+                    {data?.deduplicatedTotals?.totalDelivered || 0}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Delivered</p>
                 </div>
               </div>
             </div>
@@ -1935,25 +2029,62 @@ export default function DataIntelligencePage() {
                       </button>
             </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
-                      {hasSubfolders && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1f1f1f] px-2 py-0.5 rounded-full">
-                          {source.subfolders!.length} subfolders
-                        </span>
-                      )}
-                      {source.isRoot === false && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
-                      )}
-                      <button 
-                        onClick={() => { 
-                          setEditingSourceId(source.id); 
-                          setEditingSourceName(source.name); 
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-opacity"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                        {hasSubfolders && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1f1f1f] px-2 py-0.5 rounded-full">
+                            {source.subfolders!.length} subfolders
+                          </span>
+                        )}
+                        {source.isRoot === false && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
+                        )}
+                        <button 
+                          onClick={() => { 
+                            setEditingSourceId(source.id); 
+                            setEditingSourceName(source.name); 
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-opacity"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {(() => {
+                        if (!source.previousSync) return null;
+                        const deltas = {
+                          videos: source.videoCount - source.previousSync.videoCount,
+                          hours: source.totalHours - source.previousSync.totalHours,
+                          sizeGB: source.totalSizeGB - source.previousSync.totalSizeGB,
+                        };
+                        if (deltas.videos === 0 && deltas.hours === 0 && deltas.sizeGB === 0) return null;
+                        
+                        return (
+                          <div className="flex items-center gap-3 text-xs">
+                            {deltas.videos !== 0 && (
+                              <span className={`flex items-center gap-1 ${deltas.videos > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {deltas.videos > 0 ? (
+                                  <TrendingUp className="w-3 h-3" />
+                                ) : (
+                                  <TrendingDown className="w-3 h-3" />
+                                )}
+                                {deltas.videos > 0 ? '+' : ''}{deltas.videos} videos
+                              </span>
+                            )}
+                            {deltas.hours !== 0 && (
+                              <span className={`flex items-center gap-1 ${deltas.hours > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {deltas.hours > 0 ? '+' : ''}{deltas.hours.toFixed(1)} hrs
+                              </span>
+                            )}
+                            {deltas.sizeGB !== 0 && (
+                              <span className={`flex items-center gap-1 ${deltas.sizeGB > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {deltas.sizeGB > 0 ? '+' : ''}{deltas.sizeGB.toFixed(1)} GB
+                              </span>
+                            )}
+                            <span className="text-gray-500 dark:text-gray-400">since last sync</span>
+                          </div>
+                        );
+                      })()}
                       </div>
                   )}
                   </div>
@@ -1991,7 +2122,7 @@ export default function DataIntelligencePage() {
             </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {/* Videos */}
                 <div 
                   className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
@@ -2151,6 +2282,12 @@ export default function DataIntelligencePage() {
                         Videos {subfolderSort.field === 'videoCount' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
                       </button>
                       <button 
+                        onClick={() => toggleSort('deliveredCount')}
+                        className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-24 justify-end"
+                      >
+                        Delivered {subfolderSort.field === 'deliveredCount' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                      </button>
+                      <button 
                         onClick={() => toggleSort('totalHours')}
                         className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-20 justify-end"
                       >
@@ -2168,25 +2305,92 @@ export default function DataIntelligencePage() {
                   {/* Subfolder rows */}
                   <div className="divide-y divide-gray-200 dark:divide-[#1f1f1f]">
                     {sortSubfolders(source.subfolders!).map((subfolder: SubfolderInfo) => (
-                      <div 
-                        key={subfolder.id} 
-                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{subfolder.name}</span>
+                      <div key={subfolder.id}>
+                        {/* Subfolder row */}
+                        <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors">
+                          <div className="flex items-center gap-3">
+                            {subfolder.children && subfolder.children.length > 0 ? (
+                              <button
+                                onClick={() => toggleSubfolderExpand(subfolder.id)}
+                                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
+                              >
+                                {expandedSubfolders.has(subfolder.id) ? (
+                                  <ChevronDown className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                                )}
+                              </button>
+                            ) : (
+                              <div className="w-4" />
+                            )}
+                            <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{subfolder.name}</span>
+                            {subfolder.children && subfolder.children.length > 0 && (
+                              <span className="text-xs text-gray-500 dark:text-gray-600">({subfolder.children.length})</span>
+                            )}
+                          </div>
+                          <div className="flex gap-6 text-sm">
+                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
+                              {subfolder.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
+                            </span>
+                            <span className="w-24 text-right text-green-500 dark:text-green-400">
+                              {subfolder.deliveredCount || 0} <span className="text-green-700 dark:text-green-600">delivered</span>
+                            </span>
+                            <span className="w-20 text-right text-gray-600 dark:text-gray-400">
+                              {subfolder.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
+                            </span>
+                            <span className="w-20 text-right text-gray-600 dark:text-gray-400">
+                              {subfolder.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex gap-6 text-sm">
-                          <span className="w-24 text-right text-gray-600 dark:text-gray-400">
-                            {subfolder.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
-                          </span>
-                          <span className="w-20 text-right text-gray-600 dark:text-gray-400">
-                            {subfolder.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
-                          </span>
-                          <span className="w-20 text-right text-gray-600 dark:text-gray-400">
-                            {subfolder.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
-                          </span>
-                        </div>
+                        
+                        {/* Level 3: Nested children */}
+                        {expandedSubfolders.has(subfolder.id) && subfolder.children && subfolder.children.length > 0 && (
+                          <div className="ml-8 border-l-2 border-gray-200 dark:border-[#2a2a2a]">
+                            {subfolder.children.map((child: SubfolderInfo) => {
+                              const isProcessed = child.name.toLowerCase().includes('processed');
+                              return (
+                                <div 
+                                  key={child.id}
+                                  className={`flex items-center justify-between px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] ${
+                                    isProcessed ? 'bg-green-50 dark:bg-green-900/10' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-4" />
+                                    {isProcessed ? (
+                                      <CheckCircle className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <Folder className="w-4 h-4 text-gray-500 dark:text-gray-600" />
+                                    )}
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">{child.name}</span>
+                                  </div>
+                                  <div className="flex gap-6 text-sm">
+                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
+                                      {child.videoCount} <span className="text-gray-400 dark:text-gray-600">videos</span>
+                                    </span>
+                                    <span className="w-24 text-right">
+                                      {isProcessed ? (
+                                        <span className="text-green-500 dark:text-green-400">{child.videoCount} <span className="text-green-700 dark:text-green-600">delivered</span></span>
+                                      ) : child.deliveredCount > 0 ? (
+                                        <span className="text-green-500 dark:text-green-400">{child.deliveredCount} <span className="text-green-700 dark:text-green-600">delivered</span></span>
+                                      ) : (
+                                        <span className="text-gray-500 dark:text-gray-600">-</span>
+                                      )}
+                                    </span>
+                                    <span className="w-20 text-right text-gray-500 dark:text-gray-500">
+                                      {child.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
+                                    </span>
+                                    <span className="w-20 text-right text-gray-500 dark:text-gray-500">
+                                      {child.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
         folderId: data.folderId || null,
         parentChain: data.parentChain || null,
         subfolders: data.subfolders || [],
+        deliveredCount: data.deliveredCount || 0,
+        previousSync: data.previousSync || null,
 
         // Actual values (always include for reference)
         actual: {
@@ -147,6 +149,9 @@ export async function GET(request: NextRequest) {
       totalVideos: rootSources.reduce((sum, s) => {
         const sourceData = s.useDisplayValues ? s.display : s.actual;
         return sum + (sourceData.videoCount || 0);
+      }, 0),
+      totalDelivered: rootSources.reduce((sum, s) => {
+        return sum + ((s as any).deliveredCount || 0);
       }, 0),
       totalHours: rootSources.reduce((sum, s) => {
         const sourceData = s.useDisplayValues ? s.display : s.actual;

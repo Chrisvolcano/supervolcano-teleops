@@ -50,6 +50,8 @@ interface SubfolderInfo {
   videoCount: number;
   totalSizeGB: number;
   totalHours: number;
+  deliveredCount: number;  // Videos in "Processed" folders
+  children?: SubfolderInfo[];  // Nested subfolders (up to 3 levels)
 }
 
 // Recursively get all video files in folder and subfolders
@@ -58,18 +60,21 @@ async function scanFolderRecursive(
   folderId: string,
   videoMimeTypes: string[],
   driveId?: string,  // Pass driveId for shared drive queries
-  collectSubfolders: boolean = false
+  collectSubfolders: boolean = false,
+  depth: number = 0  // Add depth parameter for 3-level nesting
 ): Promise<{ 
   totalFiles: number; 
   totalSize: number; 
   totalDurationMs: number; 
   filesWithDuration: number;
+  deliveredFiles: number;  // Add delivered tracking
   subfolders?: SubfolderInfo[];
 }> {
   let totalFiles = 0;
   let totalSize = 0;
   let totalDurationMs = 0;
   let filesWithDuration = 0;
+  let deliveredFiles = 0;
 
   // Query parameters for shared drive support
   const listParams: any = {
@@ -106,7 +111,7 @@ async function scanFolderRecursive(
   // Get subfolders with same shared drive support
   const folderParams: any = {
     q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: 'nextPageToken, files(id, driveId)',
+    fields: 'nextPageToken, files(id, name, driveId)',  // Add name to fields
     pageSize: 100,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
@@ -127,55 +132,56 @@ async function scanFolderRecursive(
     const subfoldersList = foldersResponse.data.files || [];
     
     for (const subfolder of subfoldersList) {
+      const isProcessedFolder = subfolder.name?.toLowerCase().includes('processed') || false;
+      
+      // Scan subfolder - only collect nested subfolders if depth < 2
       const sub = await scanFolderRecursive(
         drive, 
         subfolder.id!, 
         videoMimeTypes, 
         driveId || subfolder.driveId || undefined,
-        false  // Don't collect nested subfolders recursively
+        collectSubfolders && depth < 2,  // Only collect children up to level 2
+        depth + 1
       );
-      
-      // Collect subfolder info if requested
-      if (collectSubfolders) {
-        try {
-          const folderInfo = await drive.files.get({
-            fileId: subfolder.id!,
-            fields: 'name',
-            supportsAllDrives: true,
-          });
-          
-          const subTotalSizeGB = sub.totalSize / (1024 * 1024 * 1024);
-          let subTotalHours: number;
-          
-          // Calculate hours similar to main logic
-          if (sub.filesWithDuration === sub.totalFiles && sub.totalFiles > 0) {
-            subTotalHours = sub.totalDurationMs / (1000 * 60 * 60);
-          } else if (sub.filesWithDuration === 0) {
-            subTotalHours = subTotalSizeGB / 15;
-          } else {
-            const avgDurationPerFile = sub.totalDurationMs / sub.filesWithDuration;
-            const filesWithoutDuration = sub.totalFiles - sub.filesWithDuration;
-            const estimatedMissingMs = avgDurationPerFile * filesWithoutDuration;
-            subTotalHours = (sub.totalDurationMs + estimatedMissingMs) / (1000 * 60 * 60);
-          }
-          
-          subfolderInfos.push({
-            id: subfolder.id!,
-            name: folderInfo.data.name || 'Unknown',
-            videoCount: sub.totalFiles,
-            totalSizeGB: Math.round(subTotalSizeGB * 100) / 100,
-            totalHours: Math.round(subTotalHours * 100) / 100,
-          });
-        } catch (err) {
-          console.error(`Failed to get subfolder info for ${subfolder.id}:`, err);
-          // Continue even if we can't get the name
-        }
-      }
       
       totalFiles += sub.totalFiles;
       totalSize += sub.totalSize;
       totalDurationMs += sub.totalDurationMs;
       filesWithDuration += sub.filesWithDuration;
+      
+      // Track delivered files
+      if (isProcessedFolder) {
+        deliveredFiles += sub.totalFiles;
+      }
+      deliveredFiles += sub.deliveredFiles;  // Add nested delivered counts
+      
+      // Collect subfolder info if requested
+      if (collectSubfolders) {
+        const subTotalSizeGB = sub.totalSize / (1024 * 1024 * 1024);
+        let subTotalHours: number;
+        
+        // Calculate hours similar to main logic
+        if (sub.filesWithDuration === sub.totalFiles && sub.totalFiles > 0) {
+          subTotalHours = sub.totalDurationMs / (1000 * 60 * 60);
+        } else if (sub.filesWithDuration === 0) {
+          subTotalHours = subTotalSizeGB / 15;
+        } else {
+          const avgDurationPerFile = sub.totalDurationMs / sub.filesWithDuration;
+          const filesWithoutDuration = sub.totalFiles - sub.filesWithDuration;
+          const estimatedMissingMs = avgDurationPerFile * filesWithoutDuration;
+          subTotalHours = (sub.totalDurationMs + estimatedMissingMs) / (1000 * 60 * 60);
+        }
+        
+        subfolderInfos.push({
+          id: subfolder.id!,
+          name: subfolder.name || 'Unknown',
+          videoCount: sub.totalFiles,
+          totalSizeGB: Math.round(subTotalSizeGB * 100) / 100,
+          totalHours: Math.round(subTotalHours * 100) / 100,
+          deliveredCount: isProcessedFolder ? sub.totalFiles : sub.deliveredFiles,
+          children: sub.subfolders,  // Include nested children
+        });
+      }
     }
     
     folderPageToken = foldersResponse.data.nextPageToken || undefined;
@@ -186,6 +192,7 @@ async function scanFolderRecursive(
     totalSize, 
     totalDurationMs, 
     filesWithDuration,
+    deliveredFiles,
     subfolders: collectSubfolders ? subfolderInfos : undefined
   };
 }
@@ -251,7 +258,7 @@ export async function POST(request: NextRequest) {
     const parentChain = await getParentChain(drive, folderId, driveId);
 
     // Scan folder recursively (collect subfolders for top-level scan)
-    const { totalFiles, totalSize, totalDurationMs, filesWithDuration, subfolders } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId, true);
+    const { totalFiles, totalSize, totalDurationMs, filesWithDuration, deliveredFiles, subfolders } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId, true, 0);
 
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);
     // Use real duration if available, otherwise estimate
@@ -276,6 +283,11 @@ export async function POST(request: NextRequest) {
 
     // Save to Firestore
     const db = getAdminDb();
+    
+    // Get previous sync data for delta calculation
+    const previousDoc = await db.collection('dataSources').doc(folderId).get();
+    const previousData = previousDoc.exists ? previousDoc.data() : null;
+    
     const sourceData = {
       folderId,
       name: sourceName || 'Google Drive',
@@ -288,14 +300,30 @@ export async function POST(request: NextRequest) {
       durationSource,
       filesWithDuration,
       totalDurationMs,
+      deliveredCount: deliveredFiles,  // Add delivered count
       parentChain,  // Array of parent folder IDs
       driveId: driveId || null,  // The shared drive ID if applicable
       subfolders: subfolders || [],  // Array of subfolder info
+      previousSync: previousData ? {
+        videoCount: previousData.videoCount || 0,
+        totalHours: previousData.totalHours || 0,
+        totalSizeGB: previousData.totalSizeGB || 0,
+        syncedAt: previousData.lastSync || null,
+      } : null,
       lastSync: new Date(),
       syncedBy: userId,
     };
 
     await db.collection('dataSources').doc(folderId).set(sourceData, { merge: true });
+    
+    // Save sync history entry
+    await db.collection('dataSources').doc(folderId).collection('syncHistory').add({
+      timestamp: new Date(),
+      videoCount: totalFiles,
+      totalHours: Math.round(totalHours * 100) / 100,
+      totalSizeGB: Math.round(totalSizeGB * 100) / 100,
+      filesWithDuration,
+    });
 
     return NextResponse.json({ success: true, ...sourceData });
   } catch (error: any) {
@@ -326,6 +354,7 @@ export async function GET(request: NextRequest) {
         parentChain?: string[];
         driveId?: string | null;
         subfolders?: SubfolderInfo[];
+        deliveredCount?: number;
         durationSource?: string;
         filesWithDuration?: number;
         lastSync?: any;
