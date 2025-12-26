@@ -1413,7 +1413,7 @@ export default function DataIntelligencePage() {
       color: 'blue',
       value: collectedHoursData.value,
       isEstimated: collectedHoursData.isEstimated,
-      formatValue: (v: number) => v.toFixed(1),
+      formatValue: (v: number) => v.toFixed(2),
     },
     {
       key: 'collectedStorageGB' as const,
@@ -1443,7 +1443,7 @@ export default function DataIntelligencePage() {
       color: 'green',
       value: deliveredTotals.deliveredHours,
       isEstimated: false, // Calculated from actual data, not estimated
-      formatValue: (v: number) => v.toFixed(1),
+      formatValue: (v: number) => v.toFixed(2),
       isEditable: false,
     },
     {
@@ -1529,7 +1529,7 @@ export default function DataIntelligencePage() {
                   </span>
                   )}
                 <span className="text-sm text-green-500 dark:text-green-400">
-                  ({data?.deduplicatedTotals?.totalDelivered?.toLocaleString() || 0} delivered)
+                  ({deliveredTotals?.deliveredVideos?.toLocaleString() || 0} delivered)
                 </span>
           </div>
             </div>
@@ -1557,11 +1557,11 @@ export default function DataIntelligencePage() {
                     />
                   ) : (
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                      {aggregatedData.hours.toFixed(1)}
+                      {aggregatedData.hours.toFixed(2)}
                   </span>
                   )}
                 <span className="text-sm text-green-500 dark:text-green-400">
-                  ({data?.deduplicatedTotals?.deliveredHours?.toFixed(1) || 0} delivered)
+                  ({deliveredTotals?.deliveredHours?.toFixed(2) || 0} delivered)
                 </span>
               </div>
             </div>
@@ -1596,7 +1596,7 @@ export default function DataIntelligencePage() {
                   </span>
                   )}
                 <span className="text-sm text-green-500 dark:text-green-400">
-                  ({data?.deduplicatedTotals?.deliveredSizeGB?.toFixed(0) || 0} GB delivered)
+                  ({deliveredTotals?.deliveredStorageGB?.toFixed(0) || 0} GB delivered)
                 </span>
               </div>
             </div>
@@ -2236,9 +2236,9 @@ export default function DataIntelligencePage() {
                   </div>
                 </div>
                 
-                {/* Delivered column */}
+                {/* Processed column */}
                 <div className="space-y-2">
-                  <div className="text-xs text-green-500 dark:text-green-400 uppercase tracking-wide">Delivered</div>
+                  <div className="text-xs text-green-500 dark:text-green-400 uppercase tracking-wide">Processed</div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredCount || 0}</div>
@@ -2310,7 +2310,7 @@ export default function DataIntelligencePage() {
                         onClick={() => toggleSort('deliveredCount')}
                         className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors w-24 justify-end"
                       >
-                        Delivered {subfolderSort.field === 'deliveredCount' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
+                        Processed {subfolderSort.field === 'deliveredCount' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
                       </button>
                       <button 
                         onClick={() => toggleSort('totalHours')}
