@@ -51,6 +51,8 @@ interface SubfolderInfo {
   totalSizeGB: number;
   totalHours: number;
   deliveredCount: number;  // Videos in "Processed" folders
+  deliveredHours: number;    // Hours in "Processed" folders
+  deliveredSizeGB: number;   // Size in "Processed" folders
   children?: SubfolderInfo[];  // Nested subfolders (up to 3 levels)
 }
 
