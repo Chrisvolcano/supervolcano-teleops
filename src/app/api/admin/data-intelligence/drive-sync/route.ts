@@ -68,6 +68,8 @@ async function scanFolderRecursive(
   totalDurationMs: number; 
   filesWithDuration: number;
   deliveredFiles: number;  // Add delivered tracking
+  deliveredSize: number;      // Add delivered size
+  deliveredDurationMs: number; // Add delivered duration
   subfolders?: SubfolderInfo[];
 }> {
   let totalFiles = 0;
@@ -75,6 +77,8 @@ async function scanFolderRecursive(
   let totalDurationMs = 0;
   let filesWithDuration = 0;
   let deliveredFiles = 0;
+  let deliveredSize = 0;
+  let deliveredDurationMs = 0;
 
   // Query parameters for shared drive support
   const listParams: any = {
@@ -149,11 +153,16 @@ async function scanFolderRecursive(
       totalDurationMs += sub.totalDurationMs;
       filesWithDuration += sub.filesWithDuration;
       
-      // Track delivered files
+      // Track delivered metrics
       if (isProcessedFolder) {
         deliveredFiles += sub.totalFiles;
+        deliveredSize += sub.totalSize;
+        deliveredDurationMs += sub.totalDurationMs;
       }
-      deliveredFiles += sub.deliveredFiles;  // Add nested delivered counts
+      // Also add nested delivered counts
+      deliveredFiles += sub.deliveredFiles;
+      deliveredSize += sub.deliveredSize;
+      deliveredDurationMs += sub.deliveredDurationMs;
       
       // Collect subfolder info if requested
       if (collectSubfolders) {
@@ -193,6 +202,8 @@ async function scanFolderRecursive(
     totalDurationMs, 
     filesWithDuration,
     deliveredFiles,
+    deliveredSize,
+    deliveredDurationMs,
     subfolders: collectSubfolders ? subfolderInfos : undefined
   };
 }
@@ -258,7 +269,7 @@ export async function POST(request: NextRequest) {
     const parentChain = await getParentChain(drive, folderId, driveId);
 
     // Scan folder recursively (collect subfolders for top-level scan)
-    const { totalFiles, totalSize, totalDurationMs, filesWithDuration, deliveredFiles, subfolders } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId, true, 0);
+    const { totalFiles, totalSize, totalDurationMs, filesWithDuration, deliveredFiles, deliveredSize, deliveredDurationMs, subfolders } = await scanFolderRecursive(drive, folderId, videoMimeTypes, driveId, true, 0);
 
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);
     // Use real duration if available, otherwise estimate
@@ -301,6 +312,8 @@ export async function POST(request: NextRequest) {
       filesWithDuration,
       totalDurationMs,
       deliveredCount: deliveredFiles,  // Add delivered count
+      deliveredHours: Math.round((deliveredDurationMs / (1000 * 60 * 60)) * 100) / 100,
+      deliveredSizeGB: Math.round((deliveredSize / (1024 * 1024 * 1024)) * 100) / 100,
       parentChain,  // Array of parent folder IDs
       driveId: driveId || null,  // The shared drive ID if applicable
       subfolders: subfolders || [],  // Array of subfolder info

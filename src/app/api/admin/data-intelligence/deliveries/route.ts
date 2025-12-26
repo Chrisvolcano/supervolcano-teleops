@@ -24,9 +24,13 @@ export async function POST(request: NextRequest) {
     requireRole(claims, ['superadmin', 'admin']);
 
     const body = await request.json();
-    const { date, videoCount, sizeGB, hours, description, partnerId, partnerName } = body;
+    const { date, deliveryDate: deliveryDateInput, videoCount, totalSizeGB, sizeGB, totalHours, hours, description, partnerId, partnerName, sourceFolders } = body;
 
-    if (typeof videoCount !== 'number' || typeof sizeGB !== 'number') {
+    // Support both sizeGB and totalSizeGB, hours and totalHours
+    const finalSizeGB = totalSizeGB !== undefined ? totalSizeGB : sizeGB;
+    const finalHours = totalHours !== undefined ? totalHours : hours;
+
+    if (typeof videoCount !== 'number' || typeof finalSizeGB !== 'number') {
       return NextResponse.json({ error: 'Invalid videoCount or sizeGB' }, { status: 400 });
     }
 
@@ -36,10 +40,24 @@ export async function POST(request: NextRequest) {
 
     const adminDb = getAdminDb();
     
-    // Parse date - use provided date or default to today
+    // Get partner name if not provided
+    let finalPartnerName = partnerName;
+    if (partnerId && !finalPartnerName) {
+      try {
+        const partnerDoc = await adminDb.collection('organizations').doc(partnerId).get();
+        if (partnerDoc.exists) {
+          finalPartnerName = partnerDoc.data()?.name || null;
+        }
+      } catch (err) {
+        console.error('Failed to fetch partner name:', err);
+      }
+    }
+    
+    // Parse date - use deliveryDate or date field, or default to today
     let deliveryDate: Timestamp;
-    if (date && typeof date === 'string') {
-      const parsedDate = new Date(date);
+    const dateInput = deliveryDateInput || date;
+    if (dateInput && typeof dateInput === 'string') {
+      const parsedDate = new Date(dateInput);
       if (isNaN(parsedDate.getTime())) {
         deliveryDate = Timestamp.now(); // Fallback to now if invalid
       } else {
@@ -50,21 +68,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate hours if not provided
-    const deliveryHours = hours !== undefined && hours !== null 
-      ? parseFloat(hours.toString())
-      : sizeGB / 15; // Auto-calculate from sizeGB
+    const deliveryHours = finalHours !== undefined && finalHours !== null 
+      ? parseFloat(finalHours.toString())
+      : finalSizeGB / 15; // Auto-calculate from sizeGB
+
+    // Get user ID from token
+    const decodedToken = await getAdminAuth().verifyIdToken(token);
+    const userId = decodedToken.uid;
 
     // Add delivery entry to dataDeliveries collection
     const deliveryRef = adminDb.collection('dataDeliveries').doc();
     await deliveryRef.set({
       videoCount,
-      sizeGB,
+      sizeGB: finalSizeGB,
       hours: deliveryHours,
       description: description.trim(),
       partnerId: partnerId || null,
-      partnerName: partnerName || null,
+      partnerName: finalPartnerName || null,
       date: deliveryDate, // Use provided date as Timestamp
+      sourceFolders: sourceFolders || [], // Array of folder references
       createdAt: FieldValue.serverTimestamp(),
+      createdBy: userId,
     });
 
     // Increment videosDelivered in settings/dataIntelligence

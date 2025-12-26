@@ -102,6 +102,8 @@ export async function GET(request: NextRequest) {
         parentChain: data.parentChain || null,
         subfolders: data.subfolders || [],
         deliveredCount: data.deliveredCount || 0,
+        deliveredHours: data.deliveredHours || 0,
+        deliveredSizeGB: data.deliveredSizeGB || 0,
         previousSync: data.previousSync || null,
 
         // Actual values (always include for reference)

@@ -65,6 +65,7 @@ interface SubfolderInfo {
   totalHours: number;
   deliveredCount: number;
   children?: SubfolderInfo[];
+  parentName?: string; // Added for selection context
 }
 
 interface DataSource {
@@ -76,6 +77,8 @@ interface DataSource {
   isRoot?: boolean;
   subfolders?: SubfolderInfo[];
   deliveredCount?: number;
+  deliveredHours?: number;
+  deliveredSizeGB?: number;
   previousSync?: {
     videoCount: number;
     totalHours: number;
@@ -334,6 +337,11 @@ export default function DataIntelligencePage() {
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [expandedSubfolders, setExpandedSubfolders] = useState<Set<string>>(new Set());
   const [collectionHistory, setCollectionHistory] = useState<Array<{ date: string; videos: number; hours: number; sizeGB: number }>>([]);
+  const [selectedFolders, setSelectedFolders] = useState<Map<string, SubfolderInfo>>(new Map());
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [deliveryPartner, setDeliveryPartner] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [deliveryDescription, setDeliveryDescription] = useState('');
   
   const toggleSubfolderExpand = (subfolderId: string) => {
     setExpandedSubfolders(prev => {
@@ -345,6 +353,31 @@ export default function DataIntelligencePage() {
       }
       return next;
     });
+  };
+
+  const toggleFolderSelection = (folder: SubfolderInfo, parentName: string) => {
+    setSelectedFolders(prev => {
+      const next = new Map(prev);
+      const key = folder.id;
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.set(key, { ...folder, parentName }); // Include parent for context
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedFolders(new Map());
+
+  const getSelectionTotals = () => {
+    let videos = 0, hours = 0, sizeGB = 0;
+    selectedFolders.forEach(folder => {
+      videos += folder.videoCount;
+      hours += folder.totalHours;
+      sizeGB += folder.totalSizeGB;
+    });
+    return { videos, hours: Math.round(hours * 10) / 10, sizeGB: Math.round(sizeGB * 10) / 10 };
   };
   
   type SortField = 'name' | 'videoCount' | 'deliveredCount' | 'totalHours' | 'totalSizeGB';
@@ -1231,6 +1264,62 @@ export default function DataIntelligencePage() {
       addToast('error', 'Delete failed', error instanceof Error ? error.message : 'Unknown error');
     }
   };
+
+  const handleCreateDelivery = async () => {
+    if (!deliveryPartner || !deliveryDate) return;
+    
+    const totals = getSelectionTotals();
+    const folderNames = Array.from(selectedFolders.values())
+      .map(f => `${f.parentName} / ${f.name}`)
+      .join(', ');
+    
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+
+      const response = await fetch('/api/admin/data-intelligence/deliveries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          partnerId: deliveryPartner,
+          videoCount: totals.videos,
+          totalHours: totals.hours,
+          totalSizeGB: totals.sizeGB,
+          deliveryDate: new Date(deliveryDate).toISOString(),
+          description: deliveryDescription || folderNames || 'Delivery from selected folders',
+          sourceFolders: Array.from(selectedFolders.values()).map(f => ({
+            id: f.id,
+            name: f.name,
+            parentName: f.parentName,
+            videoCount: f.videoCount,
+            totalHours: f.totalHours,
+            totalSizeGB: f.totalSizeGB,
+          })),
+        }),
+      });
+      
+      if (response.ok) {
+        addToast('success', 'Delivery logged', `${totals.videos} videos added to delivery log`);
+        setShowDeliveryModal(false);
+        setDeliveryPartner('');
+        setDeliveryDate(new Date().toISOString().split('T')[0]);
+        setDeliveryDescription('');
+        clearSelection();
+        // Refresh deliveries data
+        await loadData();
+        await loadCollectionHistory();
+      } else {
+        const error = await response.json();
+        addToast('error', 'Failed to log delivery', error.message || error.error || 'Could not create delivery entry');
+      }
+    } catch (error) {
+      console.error('Failed to create delivery:', error);
+      addToast('error', 'Failed to log delivery', 'Network error');
+    }
+  };
   
   if (loading) {
     return <SkeletonDashboard />;
@@ -1421,108 +1510,102 @@ export default function DataIntelligencePage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Collected</h2>
               </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {/* Videos Card */}
             <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
                   <Film className="w-5 h-5 text-blue-500" />
                 </div>
-                <div className="flex-1">
-                  {demoMode ? (
-                    <input
-                      type="number"
-                      value={editableHoldings.collectedVideos}
-                      onChange={(e) => setEditableHoldings(prev => ({
-                        ...prev,
-                        collectedVideos: parseInt(e.target.value) || 0,
-                      }))}
-                      onBlur={() => handleSaveHoldings()}
-                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {aggregatedData.videos.toLocaleString()}
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Videos</p>
-                </div>
-          </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Videos</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                {demoMode ? (
+                  <input
+                    type="number"
+                    value={editableHoldings.collectedVideos}
+                    onChange={(e) => setEditableHoldings(prev => ({
+                      ...prev,
+                      collectedVideos: parseInt(e.target.value) || 0,
+                    }))}
+                    onBlur={() => handleSaveHoldings()}
+                    className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                  />
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {aggregatedData.videos.toLocaleString()}
+                  </span>
+                )}
+                <span className="text-sm text-green-500 dark:text-green-400">
+                  ({data?.deduplicatedTotals?.deliveredVideos?.toLocaleString() || 0} delivered)
+                </span>
+              </div>
             </div>
             
             {/* Hours Card */}
             <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-green-500" />
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Clock className="w-5 h-5 text-purple-500" />
                 </div>
-                <div className="flex-1">
-                  {demoMode ? (
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={editableHoldings.collectedHours}
-                      onChange={(e) => setEditableHoldings(prev => ({
-                        ...prev,
-                        collectedHours: parseFloat(e.target.value) || 0,
-                      }))}
-                      onBlur={() => handleSaveHoldings()}
-                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {aggregatedData.hours.toFixed(1)}
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Hours</p>
-                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Hours</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                {demoMode ? (
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editableHoldings.collectedHours}
+                    onChange={(e) => setEditableHoldings(prev => ({
+                      ...prev,
+                      collectedHours: parseFloat(e.target.value) || 0,
+                    }))}
+                    onBlur={() => handleSaveHoldings()}
+                    className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                  />
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {aggregatedData.hours.toFixed(1)}
+                  </span>
+                )}
+                <span className="text-sm text-green-500 dark:text-green-400">
+                  ({data?.deduplicatedTotals?.deliveredHours?.toFixed(1) || 0} delivered)
+                </span>
               </div>
             </div>
             
             {/* Storage Card */}
             <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <HardDrive className="w-5 h-5 text-purple-500" />
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-orange-500/20 rounded-lg">
+                  <HardDrive className="w-5 h-5 text-orange-500" />
                 </div>
-                <div className="flex-1">
-                  {demoMode ? (
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={editableHoldings.collectedStorageGB}
-                      onChange={(e) => setEditableHoldings(prev => ({
-                        ...prev,
-                        collectedStorageGB: parseFloat(e.target.value) || 0,
-                      }))}
-                      onBlur={() => handleSaveHoldings()}
-                      className="w-full text-2xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {aggregatedData.storageGB >= 1000 
-                        ? `${(aggregatedData.storageGB / 1000).toFixed(2)} TB`
-                        : `${aggregatedData.storageGB.toFixed(1)} GB`
-                      }
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Storage</p>
-                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Storage</span>
               </div>
-            </div>
-            
-            {/* Delivered Card */}
-            <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold text-green-500 dark:text-green-400">
-                    {data?.deduplicatedTotals?.totalDelivered || 0}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Delivered</p>
-                </div>
+              <div className="flex items-baseline gap-2">
+                {demoMode ? (
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editableHoldings.collectedStorageGB}
+                    onChange={(e) => setEditableHoldings(prev => ({
+                      ...prev,
+                      collectedStorageGB: parseFloat(e.target.value) || 0,
+                    }))}
+                    onBlur={() => handleSaveHoldings()}
+                    className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
+                  />
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {aggregatedData.storageGB >= 1000 
+                      ? `${(aggregatedData.storageGB / 1000).toFixed(2)} TB`
+                      : `${aggregatedData.storageGB.toFixed(1)} GB`
+                    }
+                  </span>
+                )}
+                <span className="text-sm text-green-500 dark:text-green-400">
+                  ({data?.deduplicatedTotals?.deliveredSizeGB?.toFixed(0) || 0} GB delivered)
+                </span>
               </div>
             </div>
           </div>
@@ -2141,112 +2224,43 @@ export default function DataIntelligencePage() {
             </div>
               </div>
               
-              <div className="grid grid-cols-4 gap-4">
-                {/* Videos */}
-                <div 
-                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
-                  onClick={() => {
-                    if (demoMode) {
-                      setEditingSource(source.id);
-                      setEditDisplayValues({
-                        displayVideos: source.display.videoCount,
-                        displayHours: source.display.totalHours,
-                        displayStorageGB: source.display.totalSizeGB,
-                      });
-                    }
-                  }}
-                >
-                  {demoMode && editingSource === source.id ? (
-                    <input
-                      type="number"
-                      value={editDisplayValues?.displayVideos ?? source.display.videoCount}
-                      onChange={(e) => setEditDisplayValues(prev => ({
-                        ...prev!,
-                        displayVideos: parseInt(e.target.value) || 0,
-                      }))}
-                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
-                      {demoMode ? source.display.videoCount : source.actual.videoCount}
-                      {demoMode && (
-                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      )}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Videos</p>
+              <div className="grid grid-cols-2 gap-6 mt-4">
+                {/* Collected column */}
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Collected</div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.videoCount}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Videos</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalHours?.toFixed(1) || 0}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalSizeGB?.toFixed(0) || 0}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">GB</div>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Hours */}
-                <div 
-                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
-                  onClick={() => {
-                    if (demoMode) {
-                      setEditingSource(source.id);
-                      setEditDisplayValues({
-                        displayVideos: source.display.videoCount,
-                        displayHours: source.display.totalHours,
-                        displayStorageGB: source.display.totalSizeGB,
-                      });
-                    }
-                  }}
-                >
-                  {demoMode && editingSource === source.id ? (
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={editDisplayValues?.displayHours ?? source.display.totalHours}
-                      onChange={(e) => setEditDisplayValues(prev => ({
-                        ...prev!,
-                        displayHours: parseFloat(e.target.value) || 0,
-                      }))}
-                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
-                      {(demoMode ? source.display.totalHours : source.actual.totalHours).toFixed(1)}
-                      {demoMode && (
-                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      )}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Hours</p>
-                </div>
-                
-                {/* Storage */}
-                <div 
-                  className={`text-center relative ${demoMode ? 'cursor-pointer group' : ''}`}
-                  onClick={() => {
-                    if (demoMode) {
-                      setEditingSource(source.id);
-                      setEditDisplayValues({
-                        displayVideos: source.display.videoCount,
-                        displayHours: source.display.totalHours,
-                        displayStorageGB: source.display.totalSizeGB,
-                      });
-                    }
-                  }}
-                >
-                  {demoMode && editingSource === source.id ? (
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={editDisplayValues?.displayStorageGB ?? source.display.totalSizeGB}
-                      onChange={(e) => setEditDisplayValues(prev => ({
-                        ...prev!,
-                        displayStorageGB: parseFloat(e.target.value) || 0,
-                      }))}
-                      className="w-full text-center text-xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                    />
-                  ) : (
-                    <p className="text-xl font-bold text-gray-900 dark:text-white relative">
-                      {(demoMode ? source.display.totalSizeGB : source.actual.totalSizeGB).toFixed(1)}
-                      {demoMode && (
-                        <Edit2 className="absolute -right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      )}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">GB</p>
+                {/* Delivered column */}
+                <div className="space-y-2">
+                  <div className="text-xs text-green-500 dark:text-green-400 uppercase tracking-wide">Delivered</div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredCount || 0}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Videos</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredHours?.toFixed(1) || 0}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredSizeGB?.toFixed(0) || 0}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">GB</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -2328,6 +2342,13 @@ export default function DataIntelligencePage() {
                         {/* Subfolder row */}
                         <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors">
                           <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedFolders.has(subfolder.id)}
+                              onChange={() => toggleFolderSelection(subfolder, source.name)}
+                              className="w-4 h-4 rounded border-gray-600 dark:border-gray-600 bg-white dark:bg-gray-800 text-orange-500 focus:ring-orange-500 focus:ring-offset-gray-900"
+                              onClick={(e) => e.stopPropagation()}
+                            />
                             {subfolder.children && subfolder.children.length > 0 ? (
                               <button
                                 onClick={() => toggleSubfolderExpand(subfolder.id)}
@@ -2377,6 +2398,13 @@ export default function DataIntelligencePage() {
                                   }`}
                                 >
                                   <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedFolders.has(child.id)}
+                                      onChange={() => toggleFolderSelection(child, `${source.name} / ${subfolder.name}`)}
+                                      className="w-4 h-4 rounded border-gray-600 dark:border-gray-600 bg-white dark:bg-gray-800 text-orange-500 focus:ring-orange-500 focus:ring-offset-gray-900"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
                                     <div className="w-4" />
                                     {isProcessed ? (
                                       <CheckCircle className="w-4 h-4 text-green-500" />
@@ -2498,6 +2526,146 @@ export default function DataIntelligencePage() {
           </div>
         )}
       </div>
+
+      {/* Selection action bar - shows when folders selected */}
+      {selectedFolders.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-900 border border-gray-700 dark:border-gray-800 rounded-xl shadow-2xl px-6 py-4 flex items-center gap-6 z-50">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-400">
+              {selectedFolders.size} folder{selectedFolders.size > 1 ? 's' : ''} selected
+            </span>
+            <div className="h-4 w-px bg-gray-700 dark:bg-gray-800" />
+            <span className="text-sm">
+              <span className="text-white font-medium">{getSelectionTotals().videos}</span>
+              <span className="text-gray-500"> videos</span>
+            </span>
+            <span className="text-sm">
+              <span className="text-white font-medium">{getSelectionTotals().hours}</span>
+              <span className="text-gray-500"> hrs</span>
+            </span>
+            <span className="text-sm">
+              <span className="text-white font-medium">{getSelectionTotals().sizeGB}</span>
+              <span className="text-gray-500"> GB</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={clearSelection}
+              className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setShowDeliveryModal(true)}
+              className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Package className="w-4 h-4" />
+              Add to Delivery Log
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Delivery Log Modal */}
+      {showDeliveryModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowDeliveryModal(false)}>
+          <div className="bg-gray-900 dark:bg-gray-800 border border-gray-800 dark:border-gray-700 rounded-xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-800 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Add to Delivery Log</h3>
+            </div>
+            
+            <div className="px-6 py-4 space-y-4">
+              {/* Selected folders summary */}
+              <div className="bg-gray-800/50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-2">Selected Folders</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {Array.from(selectedFolders.values()).map(folder => (
+                    <div key={folder.id} className="text-sm text-gray-300 flex justify-between">
+                      <span>{folder.parentName} / {folder.name}</span>
+                      <span className="text-gray-500">{folder.videoCount} videos</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Auto-populated totals */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-white">{getSelectionTotals().videos}</div>
+                  <div className="text-xs text-gray-500">Videos</div>
+                </div>
+                <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-white">{getSelectionTotals().hours}</div>
+                  <div className="text-xs text-gray-500">Hours</div>
+                </div>
+                <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-white">{getSelectionTotals().sizeGB}</div>
+                  <div className="text-xs text-gray-500">GB</div>
+                </div>
+              </div>
+              
+              {/* Partner selection */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Partner</label>
+                <select
+                  value={deliveryPartner}
+                  onChange={(e) => setDeliveryPartner(e.target.value)}
+                  className="w-full bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                >
+                  <option value="">Select partner...</option>
+                  {partners.map(partner => (
+                    <option key={partner.id} value={partner.id}>{partner.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Delivery date */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Delivery Date</label>
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg px-3 py-2 text-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              
+              {/* Optional description */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Description (optional)</label>
+                <input
+                  type="text"
+                  value={deliveryDescription}
+                  onChange={(e) => setDeliveryDescription(e.target.value)}
+                  placeholder="e.g., Airbnb Cleaning | Individual Contributors"
+                  className="w-full bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-800 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeliveryModal(false);
+                  setDeliveryPartner('');
+                  setDeliveryDate(new Date().toISOString().split('T')[0]);
+                  setDeliveryDescription('');
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDelivery}
+                disabled={!deliveryPartner || !deliveryDate}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors"
+              >
+                Create Entry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drive Folder Picker Modal */}
       <DriveFolderPicker
