@@ -64,10 +64,12 @@ interface SubfolderInfo {
   totalSizeGB: number;
   totalHours: number;
   deliveredCount: number;
+  deliveredHours?: number;
+  deliveredSizeGB?: number;
   children?: SubfolderInfo[];
   parentName?: string; // Added for selection context
 }
-
+  
 interface DataSource {
   id: string;
     name: string;
@@ -338,7 +340,6 @@ export default function DataIntelligencePage() {
   const [editingSourceName, setEditingSourceName] = useState('');
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [expandedSubfolders, setExpandedSubfolders] = useState<Set<string>>(new Set());
-  const [collectionHistory, setCollectionHistory] = useState<Array<{ date: string; videos: number; hours: number; sizeGB: number }>>([]);
   const [selectedFolders, setSelectedFolders] = useState<Map<string, SubfolderInfo>>(new Map());
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryPartner, setDeliveryPartner] = useState('');
@@ -832,24 +833,6 @@ export default function DataIntelligencePage() {
     }
   };
 
-  const loadCollectionHistory = async () => {
-    try {
-      const token = await getIdToken();
-      if (!token) return;
-      
-      const response = await fetch('/api/admin/data-intelligence/collection-history', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCollectionHistory(data.history || []);
-      }
-    } catch (error) {
-      console.error('Failed to load collection history:', error);
-    }
-  };
-
   async function loadDriveSources() {
     try {
       const token = await getIdToken();
@@ -914,7 +897,6 @@ export default function DataIntelligencePage() {
           return [...prev, sourceData];
         });
         await loadData();
-        await loadCollectionHistory();
         addToast('success', 'Drive synced', `Found ${responseData.videoCount} videos (${responseData.totalSizeGB.toFixed(1)} GB)`);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -1222,7 +1204,6 @@ export default function DataIntelligencePage() {
 
       if (response.ok) {
         await loadData();
-        await loadCollectionHistory();
         setShowAddDelivery(false);
         setNewDelivery({ 
           date: new Date().toISOString().split('T')[0], 
@@ -1312,7 +1293,6 @@ export default function DataIntelligencePage() {
         clearSelection();
         // Refresh deliveries data
         await loadData();
-        await loadCollectionHistory();
       } else {
         const error = await response.json();
         addToast('error', 'Failed to log delivery', error.message || error.error || 'Could not create delivery entry');
@@ -1440,7 +1420,6 @@ export default function DataIntelligencePage() {
             setIsRefreshing(true);
             await loadData();
             await loadDriveSources();
-            await loadCollectionHistory();
             setIsRefreshing(false);
             addToast('success', 'Data refreshed', 'All data has been updated');
           }}
@@ -1452,54 +1431,6 @@ export default function DataIntelligencePage() {
         </button>
         </div>
                 </div>
-      
-      {/* Collection Growth Graph */}
-      {collectionHistory.length > 0 && (
-        <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-              <Database className="h-5 w-5 text-orange-500" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Collection Growth</h2>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={collectionHistory}>
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#9ca3af"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  tickFormatter={(val) => {
-                    const date = new Date(val);
-                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  }}
-                />
-                <YAxis 
-                  stroke="#9ca3af"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1f2937', 
-                    border: 'none', 
-                    borderRadius: '8px',
-                    color: '#f3f4f6'
-                  }}
-                  labelFormatter={(val) => new Date(val).toLocaleDateString()}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="videos" 
-                  stroke="#f97316" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Videos"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
       
       {/* Data Holdings Section */}
       <div className="space-y-6">
@@ -1522,26 +1453,26 @@ export default function DataIntelligencePage() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">Videos</span>
               </div>
               <div className="flex items-baseline gap-2">
-                {demoMode ? (
-                  <input
-                    type="number"
-                    value={editableHoldings.collectedVideos}
-                    onChange={(e) => setEditableHoldings(prev => ({
-                      ...prev,
-                      collectedVideos: parseInt(e.target.value) || 0,
-                    }))}
-                    onBlur={() => handleSaveHoldings()}
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      value={editableHoldings.collectedVideos}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedVideos: parseInt(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
                     className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                  />
-                ) : (
+                    />
+                  ) : (
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {aggregatedData.videos.toLocaleString()}
+                      {aggregatedData.videos.toLocaleString()}
                   </span>
-                )}
+                  )}
                 <span className="text-sm text-green-500 dark:text-green-400">
                   ({data?.deduplicatedTotals?.totalDelivered?.toLocaleString() || 0} delivered)
                 </span>
-              </div>
+          </div>
             </div>
             
             {/* Hours Card */}
@@ -1553,23 +1484,23 @@ export default function DataIntelligencePage() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">Hours</span>
               </div>
               <div className="flex items-baseline gap-2">
-                {demoMode ? (
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={editableHoldings.collectedHours}
-                    onChange={(e) => setEditableHoldings(prev => ({
-                      ...prev,
-                      collectedHours: parseFloat(e.target.value) || 0,
-                    }))}
-                    onBlur={() => handleSaveHoldings()}
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editableHoldings.collectedHours}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedHours: parseFloat(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
                     className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                  />
-                ) : (
+                    />
+                  ) : (
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {aggregatedData.hours.toFixed(1)}
+                      {aggregatedData.hours.toFixed(1)}
                   </span>
-                )}
+                  )}
                 <span className="text-sm text-green-500 dark:text-green-400">
                   ({data?.deduplicatedTotals?.deliveredHours?.toFixed(1) || 0} delivered)
                 </span>
@@ -1585,26 +1516,26 @@ export default function DataIntelligencePage() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">Storage</span>
               </div>
               <div className="flex items-baseline gap-2">
-                {demoMode ? (
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={editableHoldings.collectedStorageGB}
-                    onChange={(e) => setEditableHoldings(prev => ({
-                      ...prev,
-                      collectedStorageGB: parseFloat(e.target.value) || 0,
-                    }))}
-                    onBlur={() => handleSaveHoldings()}
+                  {demoMode ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editableHoldings.collectedStorageGB}
+                      onChange={(e) => setEditableHoldings(prev => ({
+                        ...prev,
+                        collectedStorageGB: parseFloat(e.target.value) || 0,
+                      }))}
+                      onBlur={() => handleSaveHoldings()}
                     className="text-3xl font-bold bg-transparent border-b border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-[#3a3a3a]"
-                  />
-                ) : (
+                    />
+                  ) : (
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {aggregatedData.storageGB >= 1000 
-                      ? `${(aggregatedData.storageGB / 1000).toFixed(2)} TB`
-                      : `${aggregatedData.storageGB.toFixed(1)} GB`
-                    }
+                      {aggregatedData.storageGB >= 1000 
+                        ? `${(aggregatedData.storageGB / 1000).toFixed(2)} TB`
+                        : `${aggregatedData.storageGB.toFixed(1)} GB`
+                      }
                   </span>
-                )}
+                  )}
                 <span className="text-sm text-green-500 dark:text-green-400">
                   ({data?.deduplicatedTotals?.deliveredSizeGB?.toFixed(0) || 0} GB delivered)
                 </span>
@@ -2134,8 +2065,8 @@ export default function DataIntelligencePage() {
             </div>
                   ) : (
                     <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">{source.name}</span>
                         {hasSubfolders && (
                           <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1f1f1f] px-2 py-0.5 rounded-full">
                             {source.subfolders!.length} subfolders
@@ -2144,15 +2075,15 @@ export default function DataIntelligencePage() {
                         {source.isRoot === false && (
                           <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(included in parent)</span>
                         )}
-                        <button 
-                          onClick={() => { 
-                            setEditingSourceId(source.id); 
-                            setEditingSourceName(source.name); 
-                          }}
-                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-opacity"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
+                      <button 
+                        onClick={() => { 
+                          setEditingSourceId(source.id); 
+                          setEditingSourceName(source.name); 
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-opacity"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
                       </div>
                       {(() => {
                         if (!source.previousSync) return null;
@@ -2230,11 +2161,11 @@ export default function DataIntelligencePage() {
                 {/* Collected column */}
                 <div className="space-y-2">
                   <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Collected</div>
-                  <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                     <div>
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.videoCount}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Videos</div>
-                    </div>
+                </div>
                     <div>
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalHours?.toFixed(1) || 0}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
@@ -2378,11 +2309,23 @@ export default function DataIntelligencePage() {
                             <span className="w-24 text-right text-green-500 dark:text-green-400">
                               {subfolder.deliveredCount || 0} <span className="text-green-700 dark:text-green-600">delivered</span>
                             </span>
-                            <span className="w-20 text-right text-gray-600 dark:text-gray-400">
-                              {subfolder.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
+                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
+                              {subfolder.totalHours.toFixed(1)}
+                              {subfolder.deliveredHours && subfolder.deliveredHours > 0 && (
+                                <span className="text-green-500 dark:text-green-400 text-xs ml-1">
+                                  ({subfolder.deliveredHours.toFixed(1)} del)
+                                </span>
+                              )}
+                              <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
                             </span>
-                            <span className="w-20 text-right text-gray-600 dark:text-gray-400">
-                              {subfolder.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
+                            <span className="w-24 text-right text-gray-600 dark:text-gray-400">
+                              {subfolder.totalSizeGB.toFixed(1)}
+                              {subfolder.deliveredSizeGB && subfolder.deliveredSizeGB > 0 && (
+                                <span className="text-green-500 dark:text-green-400 text-xs ml-1">
+                                  ({subfolder.deliveredSizeGB.toFixed(1)} del)
+                                </span>
+                              )}
+                              <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
                             </span>
                           </div>
                         </div>
@@ -2428,20 +2371,32 @@ export default function DataIntelligencePage() {
                                         <span className="text-gray-500 dark:text-gray-600">-</span>
                                       )}
                                     </span>
-                                    <span className="w-20 text-right text-gray-500 dark:text-gray-500">
-                                      {child.totalHours.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">hrs</span>
+                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
+                                      {child.totalHours.toFixed(1)}
+                                      {child.deliveredHours && child.deliveredHours > 0 && (
+                                        <span className="text-green-500 dark:text-green-400 text-xs ml-1">
+                                          ({child.deliveredHours.toFixed(1)} del)
+                                        </span>
+                                      )}
+                                      <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
                                     </span>
-                                    <span className="w-20 text-right text-gray-500 dark:text-gray-500">
-                                      {child.totalSizeGB.toFixed(1)} <span className="text-gray-400 dark:text-gray-600">GB</span>
+                                    <span className="w-24 text-right text-gray-500 dark:text-gray-500">
+                                      {child.totalSizeGB.toFixed(1)}
+                                      {child.deliveredSizeGB && child.deliveredSizeGB > 0 && (
+                                        <span className="text-green-500 dark:text-green-400 text-xs ml-1">
+                                          ({child.deliveredSizeGB.toFixed(1)} del)
+                                        </span>
+                                      )}
+                                      <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
                                     </span>
                                   </div>
                                 </div>
                               );
                             })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                </div>
+              )}
+          </div>
+          ))}
                   </div>
                   
                   {/* Empty subfolders note */}

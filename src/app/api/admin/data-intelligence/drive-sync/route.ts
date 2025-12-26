@@ -184,13 +184,23 @@ async function scanFolderRecursive(
           subTotalHours = (sub.totalDurationMs + estimatedMissingMs) / (1000 * 60 * 60);
         }
         
+        // Calculate delivered hours and size for this subfolder
+        const subDeliveredHours = isProcessedFolder 
+          ? Math.round((sub.totalDurationMs / (1000 * 60 * 60)) * 100) / 100 
+          : Math.round(((sub.deliveredDurationMs || 0) / (1000 * 60 * 60)) * 100) / 100;
+        const subDeliveredSizeGB = isProcessedFolder
+          ? Math.round((sub.totalSize / (1024 * 1024 * 1024)) * 100) / 100
+          : Math.round(((sub.deliveredSize || 0) / (1024 * 1024 * 1024)) * 100) / 100;
+        
         subfolderInfos.push({
           id: subfolder.id!,
           name: subfolder.name || 'Unknown',
           videoCount: sub.totalFiles,
           totalSizeGB: Math.round(subTotalSizeGB * 100) / 100,
           totalHours: Math.round(subTotalHours * 100) / 100,
-          deliveredCount: isProcessedFolder ? sub.totalFiles : sub.deliveredFiles,
+          deliveredCount: isProcessedFolder ? sub.totalFiles : (sub.deliveredFiles || 0),
+          deliveredHours: subDeliveredHours,
+          deliveredSizeGB: subDeliveredSizeGB,
           children: sub.subfolders,  // Include nested children
         });
       }
