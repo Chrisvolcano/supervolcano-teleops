@@ -2166,11 +2166,11 @@ export default function DataIntelligencePage() {
                       <div className="text-xs text-gray-500 dark:text-gray-400">Videos</div>
                 </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalHours?.toFixed(1) || 0}</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalHours?.toFixed(2) || 0}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalSizeGB?.toFixed(0) || 0}</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{source.totalSizeGB?.toFixed(2) || 0}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">GB</div>
                     </div>
                   </div>
@@ -2185,11 +2185,11 @@ export default function DataIntelligencePage() {
                       <div className="text-xs text-gray-500 dark:text-gray-400">Videos</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredHours?.toFixed(1) || 0}</div>
+                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredHours?.toFixed(2) || 0}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredSizeGB?.toFixed(0) || 0}</div>
+                      <div className="text-2xl font-bold text-green-500 dark:text-green-400">{source.deliveredSizeGB?.toFixed(2) || 0}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">GB</div>
                     </div>
                   </div>
@@ -2322,9 +2322,9 @@ export default function DataIntelligencePage() {
                             <span className="w-28 text-right text-gray-400 dark:text-gray-400 whitespace-nowrap">
                               {subfolder.totalHours > 0 ? (
                                 <>
-                                  {subfolder.totalHours.toFixed(1)}
+                                  {subfolder.totalHours.toFixed(2)}
                                   {subfolder.deliveredHours && subfolder.deliveredHours > 0 && (
-                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredHours.toFixed(1)}</span>
+                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredHours.toFixed(2)}</span>
                                   )}
                                   <span className="text-gray-600 dark:text-gray-600 ml-1">hrs</span>
                                 </>
@@ -2336,9 +2336,9 @@ export default function DataIntelligencePage() {
                             <span className="w-28 text-right text-gray-400 dark:text-gray-400 whitespace-nowrap">
                               {subfolder.totalSizeGB > 0 ? (
                                 <>
-                                  {subfolder.totalSizeGB.toFixed(1)}
+                                  {subfolder.totalSizeGB.toFixed(2)}
                                   {subfolder.deliveredSizeGB && subfolder.deliveredSizeGB > 0 && (
-                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredSizeGB.toFixed(1)}</span>
+                                    <span className="text-green-500 dark:text-green-400"> / {subfolder.deliveredSizeGB.toFixed(2)}</span>
                                   )}
                                   <span className="text-gray-600 dark:text-gray-600 ml-1">GB</span>
                                 </>
@@ -2400,9 +2400,9 @@ export default function DataIntelligencePage() {
                                     <span className="w-28 text-right text-gray-500 dark:text-gray-500 whitespace-nowrap">
                                       {child.totalHours > 0 ? (
                                         <>
-                                          {child.totalHours.toFixed(1)}
+                                          {child.totalHours.toFixed(2)}
                                           {child.deliveredHours && child.deliveredHours > 0 && (
-                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredHours.toFixed(1)}</span>
+                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredHours.toFixed(2)}</span>
                                           )}
                                           <span className="text-gray-400 dark:text-gray-600 ml-1">hrs</span>
                                         </>
@@ -2414,9 +2414,9 @@ export default function DataIntelligencePage() {
                                     <span className="w-28 text-right text-gray-500 dark:text-gray-500 whitespace-nowrap">
                                       {child.totalSizeGB > 0 ? (
                                         <>
-                                          {child.totalSizeGB.toFixed(1)}
+                                          {child.totalSizeGB.toFixed(2)}
                                           {child.deliveredSizeGB && child.deliveredSizeGB > 0 && (
-                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredSizeGB.toFixed(1)}</span>
+                                            <span className="text-green-500 dark:text-green-400"> / {child.deliveredSizeGB.toFixed(2)}</span>
                                           )}
                                           <span className="text-gray-400 dark:text-gray-600 ml-1">GB</span>
                                         </>
