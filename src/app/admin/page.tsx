@@ -774,6 +774,7 @@ export default function DataIntelligencePage() {
     loadData();
     loadPartners();
     loadDriveSources();
+    loadCollectionHistory();
     // Trigger mount animation after a brief delay
     setTimeout(() => setIsMounted(true), 100);
   }, []);
@@ -793,6 +794,24 @@ export default function DataIntelligencePage() {
       }
     } catch (error) {
       console.error('Failed to load partners:', error);
+    }
+  };
+
+  const loadCollectionHistory = async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      
+      const response = await fetch('/api/admin/data-intelligence/collection-history', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCollectionHistory(data.history || []);
+      }
+    } catch (error) {
+      console.error('Failed to load collection history:', error);
     }
   };
 
