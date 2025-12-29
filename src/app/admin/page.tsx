@@ -866,7 +866,6 @@ export default function DataIntelligencePage() {
     loadData();
     loadPartners();
     loadDriveSources();
-    fetchDeliveredFolderIds();
     // Trigger mount animation after a brief delay
     setTimeout(() => setIsMounted(true), 100);
   }, []);
@@ -1160,43 +1159,34 @@ export default function DataIntelligencePage() {
     }
   };
 
-  // Fetch delivered folder IDs to detect duplicates
-  const fetchDeliveredFolderIds = async () => {
-    try {
-      const token = await getIdToken();
-      if (!token) return;
-      
-      const response = await fetch('/api/admin/data-intelligence/deliveries', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const folderMap = new Map<string, { partnerName: string; partnerId: string; deliveryDate: string }[]>();
-        const folderIds = new Set<string>();
-        
-        data.deliveries?.forEach((delivery: any) => {
-          delivery.sourceFolders?.forEach((folder: any) => {
-            folderIds.add(folder.id);
-            const existing = folderMap.get(folder.id) || [];
-            // Check if this partner isn't already in the list for this folder
-            if (!existing.some(e => e.partnerId === delivery.partnerId)) {
-              existing.push({
-                partnerName: delivery.partnerName || 'Unknown',
-                partnerId: delivery.partnerId,
-                deliveryDate: delivery.date || delivery.deliveryDate || '',
-              });
-            }
-            folderMap.set(folder.id, existing);
-          });
-        });
-        
-        setDeliveredFolderMap(folderMap);
-        setDeliveredFolderIds(folderIds);
-      }
-    } catch (error) {
-      console.error('Failed to fetch delivered folder IDs:', error);
+  // Build deliveredFolderMap from data.deliveries
+  useEffect(() => {
+    if (!data?.deliveries) {
+      setDeliveredFolderMap(new Map());
+      setDeliveredFolderIds(new Set());
+      return;
     }
-  };
+    
+    const folderMap = new Map<string, { partnerName: string; partnerId: string; deliveryDate: string }[]>();
+    
+    data.deliveries.forEach((delivery: any) => {
+      delivery.sourceFolders?.forEach((folder: any) => {
+        const existing = folderMap.get(folder.id) || [];
+        // Check if this partner isn't already in the list for this folder
+        if (!existing.some(e => e.partnerId === delivery.partnerId)) {
+          existing.push({
+            partnerName: delivery.partnerName,
+            partnerId: delivery.partnerId,
+            deliveryDate: delivery.date || delivery.deliveryDate,
+          });
+        }
+        folderMap.set(folder.id, existing);
+      });
+    });
+    
+    setDeliveredFolderMap(folderMap);
+    setDeliveredFolderIds(new Set(folderMap.keys()));
+  }, [data?.deliveries]);
 
   const handleEditStat = (statKey: keyof DataHoldings) => {
     if (!data) return;
@@ -1419,7 +1409,6 @@ export default function DataIntelligencePage() {
         clearSelection();
         // Refresh deliveries data
         await loadData();
-        await fetchDeliveredFolderIds();
       } else {
         const error = await response.json();
         addToast('error', 'Failed to log delivery', error.message || error.error || 'Could not create delivery entry');
