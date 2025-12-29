@@ -347,6 +347,7 @@ export default function DataIntelligencePage() {
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryDescription, setDeliveryDescription] = useState('');
   const [deliveredFolderIds, setDeliveredFolderIds] = useState<Set<string>>(new Set());
+  const [deliveredFolderMap, setDeliveredFolderMap] = useState<Map<string, { partnerName: string; partnerId: string; deliveryDate: string }[]>>(new Map());
   
   const toggleSubfolderExpand = (subfolderId: string) => {
     setExpandedSubfolders(prev => {
@@ -760,6 +761,59 @@ export default function DataIntelligencePage() {
     };
   }, [data, comparisonPeriod]);
 
+  // Partner badge component
+  const PartnerBadge = ({ partnerName }: { partnerName: string }) => {
+    // Color based on partner
+    const getPartnerColor = (name: string) => {
+      const colors: Record<string, string> = {
+        'Figure AI': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+        '1X': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+        'default': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      };
+      return colors[name] || colors['default'];
+    };
+    
+    return (
+      <span className={`px-1.5 py-0.5 text-xs rounded border ${getPartnerColor(partnerName)}`}>
+        {partnerName}
+      </span>
+    );
+  };
+
+  // Calculate pending delivery folders (processed folders not in delivery log)
+  const pendingDeliveryFolders = useMemo(() => {
+    if (!data?.sources) return [];
+    
+    const pending: SubfolderInfo[] = [];
+    
+    data.sources.filter(s => s.type === 'drive').forEach(source => {
+      // Check subfolders (level 2)
+      source.subfolders?.forEach(subfolder => {
+        // Check if this subfolder is a processed folder and not logged
+        if (subfolder.name.toLowerCase().includes('processed') && !deliveredFolderMap.has(subfolder.id)) {
+          pending.push({ ...subfolder, parentName: source.name });
+        }
+        
+        // Check children (level 3)
+        subfolder.children?.forEach(child => {
+          if (child.name.toLowerCase().includes('processed') && !deliveredFolderMap.has(child.id)) {
+            pending.push({ ...child, parentName: `${source.name} / ${subfolder.name}` });
+          }
+        });
+      });
+    });
+    
+    return pending;
+  }, [data?.sources, deliveredFolderMap]);
+
+  const pendingTotals = useMemo(() => {
+    return pendingDeliveryFolders.reduce((acc, f) => ({
+      videos: acc.videos + (f.videoCount || 0),
+      hours: acc.hours + (f.totalHours || 0),
+      sizeGB: acc.sizeGB + (f.totalSizeGB || 0),
+    }), { videos: 0, hours: 0, sizeGB: 0 });
+  }, [pendingDeliveryFolders]);
+
   // Create sparkline data from deliveries
   const sparklineData = useMemo(() => {
     if (!data || !data.deliveries || data.deliveries.length < 2) {
@@ -1117,12 +1171,26 @@ export default function DataIntelligencePage() {
       });
       if (response.ok) {
         const data = await response.json();
+        const folderMap = new Map<string, { partnerName: string; partnerId: string; deliveryDate: string }[]>();
         const folderIds = new Set<string>();
+        
         data.deliveries?.forEach((delivery: any) => {
           delivery.sourceFolders?.forEach((folder: any) => {
             folderIds.add(folder.id);
+            const existing = folderMap.get(folder.id) || [];
+            // Check if this partner isn't already in the list for this folder
+            if (!existing.some(e => e.partnerId === delivery.partnerId)) {
+              existing.push({
+                partnerName: delivery.partnerName || 'Unknown',
+                partnerId: delivery.partnerId,
+                deliveryDate: delivery.date || delivery.deliveryDate || '',
+              });
+            }
+            folderMap.set(folder.id, existing);
           });
         });
+        
+        setDeliveredFolderMap(folderMap);
         setDeliveredFolderIds(folderIds);
       }
     } catch (error) {
@@ -1617,7 +1685,7 @@ export default function DataIntelligencePage() {
               <Send className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Delivered to Partners</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">From delivery log entries</p>
             </div>
           </div>
@@ -1699,6 +1767,56 @@ export default function DataIntelligencePage() {
         })}
           </div>
       </div>
+      
+      {/* Pending Delivery Alert */}
+      {pendingDeliveryFolders.length > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-yellow-500/20 rounded-xl p-3">
+                <AlertTriangle className="h-6 w-6 text-yellow-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-yellow-500">
+                  {pendingDeliveryFolders.length} Processed Folder{pendingDeliveryFolders.length > 1 ? 's' : ''} Not Logged
+                </h3>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  {pendingTotals.videos} videos • {pendingTotals.hours.toFixed(1)} hrs • {pendingTotals.sizeGB.toFixed(1)} GB ready to assign to a partner
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                // Auto-select all pending folders
+                const newSelection = new Map(selectedFolders);
+                pendingDeliveryFolders.forEach(f => {
+                  newSelection.set(f.id, f);
+                });
+                setSelectedFolders(newSelection);
+                // Scroll to data sources
+                document.getElementById('data-sources')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition-colors"
+            >
+              Review & Log
+            </button>
+          </div>
+          
+          {/* Preview list */}
+          <div className="mt-4 max-h-32 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {pendingDeliveryFolders.slice(0, 6).map(f => (
+                <div key={f.id} className="text-gray-400 dark:text-gray-500 truncate">
+                  {f.parentName} / {f.name}
+                </div>
+              ))}
+              {pendingDeliveryFolders.length > 6 && (
+                <div className="text-gray-500 dark:text-gray-600">+ {pendingDeliveryFolders.length - 6} more</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Delivery Trend Chart */}
       <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#1f1f1f] rounded-2xl p-6 shadow-sm dark:shadow-none hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-none dark:hover:border-[#2a2a2a] transition-all duration-200">
@@ -2027,7 +2145,7 @@ export default function DataIntelligencePage() {
           </div>
           </div>
               
-        <div className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
+        <div id="data-sources" className="divide-y divide-gray-100 dark:divide-[#1f1f1f]">
           {/* Portal Uploads - always show */}
           {data && (() => {
             const portalSource = data.sources.find(s => s.name === 'Portal Uploads');
@@ -2077,6 +2195,7 @@ export default function DataIntelligencePage() {
             return (
             <div
               key={source.id}
+              id={source.id === data?.sources?.filter(s => s.type === 'drive')[0]?.id ? 'data-sources' : undefined}
               className="bg-white dark:bg-[#141414] p-4"
             >
               <div className="flex items-center justify-between mb-3 group">
@@ -2332,7 +2451,7 @@ export default function DataIntelligencePage() {
                       >
                         Size {subfolderSort.field === 'totalSizeGB' && (subfolderSort.order === 'asc' ? '↑' : '↓')}
                       </button>
-                    </div>
+          </div>
                   </div>
                   
                   {/* Subfolder rows */}
@@ -2365,9 +2484,16 @@ export default function DataIntelligencePage() {
                             )}
                             <Folder className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                             <span className="text-sm text-gray-700 dark:text-gray-300">{subfolder.name}</span>
-                            {deliveredFolderIds.has(subfolder.id) && (
-                              <span className="ml-2 px-1.5 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
-                                in log
+                            {deliveredFolderMap.has(subfolder.id) && (
+                              <div className="flex items-center gap-1 ml-2">
+                                {deliveredFolderMap.get(subfolder.id)?.map((delivery, idx) => (
+                                  <PartnerBadge key={idx} partnerName={delivery.partnerName} />
+                                ))}
+                              </div>
+                            )}
+                            {subfolder.name.toLowerCase().includes('processed') && !deliveredFolderMap.has(subfolder.id) && (
+                              <span className="ml-2 px-1.5 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded border border-yellow-500/30">
+                                not logged
                               </span>
                             )}
                             {subfolder.children && subfolder.children.length > 0 && (
@@ -2449,9 +2575,16 @@ export default function DataIntelligencePage() {
                                       <Folder className="w-4 h-4 text-gray-500 dark:text-gray-600" />
                                     )}
                                     <span className="text-sm text-gray-600 dark:text-gray-400">{child.name}</span>
-                                    {deliveredFolderIds.has(child.id) && (
-                                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
-                                        in log
+                                    {deliveredFolderMap.has(child.id) && (
+                                      <div className="flex items-center gap-1 ml-2">
+                                        {deliveredFolderMap.get(child.id)?.map((delivery, idx) => (
+                                          <PartnerBadge key={idx} partnerName={delivery.partnerName} />
+                                        ))}
+                                      </div>
+                                    )}
+                                    {isProcessed && !deliveredFolderMap.has(child.id) && (
+                                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded border border-yellow-500/30">
+                                        not logged
                                       </span>
                                     )}
                                   </div>
