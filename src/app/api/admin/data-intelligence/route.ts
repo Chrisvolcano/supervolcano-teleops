@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
         status: data.status || 'completed',
         description: data.description || data.notes || '',
         notes: data.notes || null,
+        sourceFolders: data.sourceFolders || [],
       };
     });
 
