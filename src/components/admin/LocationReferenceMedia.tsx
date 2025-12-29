@@ -237,8 +237,8 @@ export default function LocationReferenceMedia({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Reference Media</h3>
-          <p className="text-sm text-gray-500">Photos and videos showing location-specific knowledge</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reference Media</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Photos and videos showing location-specific knowledge</p>
         </div>
         <button
           onClick={() => {
@@ -255,10 +255,10 @@ export default function LocationReferenceMedia({
 
       {/* Media Grid */}
       {referenceMedia.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <Film className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-600 mb-1">No reference media yet</p>
-          <p className="text-sm text-gray-400 mb-4">Add photos and videos to help robots understand this location</p>
+        <div className="text-center py-12 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+          <Film className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 mb-1">No reference media yet</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Add photos and videos to help robots understand this location</p>
           <button
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -276,18 +276,18 @@ export default function LocationReferenceMedia({
             return (
               <div
                 key={item.id}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2a2a2a] rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => setSelectedMedia(item)}
               >
                 {/* Thumbnail */}
-                <div className="aspect-video bg-gray-100 flex items-center justify-center relative">
+                <div className="aspect-video bg-gray-100 dark:bg-[#1a1a1a] flex items-center justify-center relative">
                   {item.type === 'video' ? (
                     <>
                       {item.thumbnailUrl ? (
                         <img src={item.thumbnailUrl} alt={item.description} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <Video className="w-12 h-12 text-gray-400" />
+                        <div className="w-full h-full bg-gray-200 dark:bg-[#1a1a1a] flex items-center justify-center">
+                          <Video className="w-12 h-12 text-gray-400 dark:text-gray-600" />
                         </div>
                       )}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -303,24 +303,24 @@ export default function LocationReferenceMedia({
 
                 {/* Content */}
                 <div className="p-4 space-y-2">
-                  <h4 className="font-medium text-gray-900 truncate">{item.description}</h4>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <h4 className="font-medium text-gray-900 dark:text-white truncate">{item.description}</h4>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <TypeIcon className="w-4 h-4" />
                     <span>{typeInfo.label}</span>
                   </div>
                   {item.roomName && (
-                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                       <MapPin className="w-3 h-3" />
                       <span>{item.roomName}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 pt-2 border-t">
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-[#2a2a2a]">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEdit(item);
                       }}
-                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center justify-center gap-1"
+                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-[#1a1a1a] flex items-center justify-center gap-1"
                     >
                       <Edit2 className="w-3 h-3" />
                       Edit
@@ -330,7 +330,7 @@ export default function LocationReferenceMedia({
                         e.stopPropagation();
                         handleDelete(item.id);
                       }}
-                      className="flex-1 px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded hover:bg-red-50 flex items-center justify-center gap-1"
+                      className="flex-1 px-3 py-1.5 text-sm border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center justify-center gap-1"
                     >
                       <Trash2 className="w-3 h-3" />
                       Delete
