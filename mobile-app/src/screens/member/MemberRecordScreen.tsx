@@ -34,6 +34,9 @@ import * as Haptics from 'expo-haptics';
 import Mascot from '../../components/member/Mascot';
 import { MilestoneCelebration } from '../../components/MilestoneCelebration';
 import { useMilestones } from '../../hooks/useMilestones';
+import CameraModeToggle, { CameraMode } from '../../components/external-camera/CameraModeToggle';
+import ExternalCameraPanel from '../../components/external-camera/ExternalCameraPanel';
+import { useExternalCameraDiagnostics } from '../../hooks/useExternalCameraDiagnostics';
 
 type NavigationProp = NativeStackNavigationProp<MemberStackParamList>;
 
@@ -55,6 +58,9 @@ export default function MemberRecordScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<Camera>(null);
+  const [cameraMode, setCameraMode] = useState<CameraMode>('native');
+  const externalCamera = useExternalCameraDiagnostics();
+  const isExternalMode = cameraMode === 'external';
 
   // Permissions
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
@@ -189,6 +195,13 @@ export default function MemberRecordScreen() {
 
   // Handle record button press
   const handleRecordPress = () => {
+    if (isExternalMode) {
+      Alert.alert(
+        'External Camera',
+        'Connect a USB camera and complete the checks to start recording.'
+      );
+      return;
+    }
     if (isRecording) {
       stopRecording();
     } else {
@@ -219,8 +232,28 @@ export default function MemberRecordScreen() {
     }
   };
 
+  const handleCameraModeChange = async (mode: CameraMode) => {
+    if (mode === cameraMode) {
+      return;
+    }
+    if (isRecording) {
+      await stopRecording(false);
+    }
+    setCameraMode(mode);
+  };
+
   // Get status message
   const getStatusMessage = (): string => {
+    if (isExternalMode) {
+      if (externalCamera.usbPermissionStatus !== 'granted') {
+        return 'Enable USB permission to continue';
+      }
+      if (externalCamera.connectionStatus !== 'connected') {
+        return 'Connect USB camera to continue';
+      }
+      return 'External camera ready';
+    }
+
     if (isRecording) {
       return 'Recording...';
     }
@@ -294,20 +327,34 @@ export default function MemberRecordScreen() {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* Full-screen camera */}
-      <Camera
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        video={true}
-        audio={true}
-        zoom={0.5}
-      />
+      {isExternalMode ? (
+        <ExternalCameraPanel
+          usbPermissionStatus={externalCamera.usbPermissionStatus}
+          connectionStatus={externalCamera.connectionStatus}
+          onOpenSettings={externalCamera.openSettings}
+          style={{
+            paddingTop: insets.top + 120,
+            paddingBottom: insets.bottom + 160,
+          }}
+        />
+      ) : (
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          video={true}
+          audio={true}
+          zoom={0.5}
+        />
+      )}
 
       {/* Mascot witness - bottom left */}
-      <View style={styles.mascotWitness}>
-        <Mascot size={44} />
-      </View>
+      {!isExternalMode && (
+        <View style={styles.mascotWitness}>
+          <Mascot size={44} />
+        </View>
+      )}
 
       {/* Top header with progress */}
       <View style={[styles.topContainer, { top: insets.top + 10 }]}>
@@ -341,10 +388,18 @@ export default function MemberRecordScreen() {
             </Animated.View>
           )}
         </HeaderPill>
+        {externalCamera.isSupported && (
+          <View style={styles.modeToggleContainer}>
+            <CameraModeToggle
+              value={cameraMode}
+              onChange={handleCameraModeChange}
+            />
+          </View>
+        )}
       </View>
 
       {/* Milestone celebration overlay */}
-      {currentMilestone && (
+      {!isExternalMode && currentMilestone && (
         <MilestoneCelebration
           milestone={currentMilestone}
           totalHours={totalHoursUploaded + (elapsedSeconds / 3600)}
@@ -369,7 +424,10 @@ export default function MemberRecordScreen() {
         {/* Record/Stop button */}
         <TouchableOpacity
           onPress={handleRecordPress}
-          style={styles.recordButtonOuter}
+          style={[
+            styles.recordButtonOuter,
+            isExternalMode && styles.recordButtonDisabled,
+          ]}
           activeOpacity={0.8}
         >
           <View
@@ -453,6 +511,10 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 10,
+  },
+  modeToggleContainer: {
+    marginTop: 10,
+    alignItems: 'center',
   },
   headerPill: {
     flexDirection: 'row',
@@ -563,6 +625,9 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  recordButtonDisabled: {
+    opacity: 0.45,
+  },
   recordButtonInner: {
     width: 68,
     height: 68,
@@ -633,5 +698,3 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 });
-
-

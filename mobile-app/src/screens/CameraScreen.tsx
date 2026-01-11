@@ -34,7 +34,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UploadQueueService } from '@/services/upload-queue.service';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
 import { Toast } from '@/components/Toast';
+import CameraModeToggle, { CameraMode } from '@/components/external-camera/CameraModeToggle';
+import ExternalCameraPanel from '@/components/external-camera/ExternalCameraPanel';
 import { useToast } from '@/hooks/useToast';
+import { useExternalCameraDiagnostics } from '@/hooks/useExternalCameraDiagnostics';
 import * as Haptics from 'expo-haptics';
 
 const SEGMENT_DURATION = 300; // 5 minutes in seconds
@@ -53,6 +56,9 @@ export default function CameraScreen({ route, navigation }: any) {
 
   // Lens selection state - default to ultra-wide
   const [selectedLens, setSelectedLens] = useState<LensType>('ultra-wide');
+  const [cameraMode, setCameraMode] = useState<CameraMode>('native');
+  const externalCamera = useExternalCameraDiagnostics();
+  const isExternalMode = cameraMode === 'external';
 
   // Get a device that supports all physical lenses for smooth switching
   const device = useCameraDevice('back', {
@@ -322,6 +328,13 @@ export default function CameraScreen({ route, navigation }: any) {
 
   // Handle record button press
   const handleRecordPress = () => {
+    if (isExternalMode) {
+      Alert.alert(
+        'External Camera',
+        'Connect a USB camera and complete the checks to start recording.'
+      );
+      return;
+    }
     if (isSessionActive) {
       stopSession();
     } else {
@@ -360,8 +373,28 @@ export default function CameraScreen({ route, navigation }: any) {
     }
   };
 
+  const handleCameraModeChange = async (mode: CameraMode) => {
+    if (mode === cameraMode) {
+      return;
+    }
+    if (isSessionActive) {
+      await stopSession();
+    }
+    setCameraMode(mode);
+  };
+
   // Get status message
   const getStatusMessage = (): string => {
+    if (isExternalMode) {
+      if (externalCamera.usbPermissionStatus !== 'granted') {
+        return 'Enable USB permission to continue';
+      }
+      if (externalCamera.connectionStatus !== 'connected') {
+        return 'Connect USB camera to continue';
+      }
+      return 'External camera ready';
+    }
+
     if (isSessionActive) {
       if (segmentsRecorded === 0) {
         return 'Recording...';
@@ -534,15 +567,27 @@ export default function CameraScreen({ route, navigation }: any) {
       />
 
       {/* Full-screen camera */}
-      <Camera
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        video={true}
-        audio={true}
-        zoom={currentZoom}
-      />
+      {isExternalMode ? (
+        <ExternalCameraPanel
+          usbPermissionStatus={externalCamera.usbPermissionStatus}
+          connectionStatus={externalCamera.connectionStatus}
+          onOpenSettings={externalCamera.openSettings}
+          style={{
+            paddingTop: insets.top + 120,
+            paddingBottom: insets.bottom + 160,
+          }}
+        />
+      ) : (
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          video={true}
+          audio={true}
+          zoom={currentZoom}
+        />
+      )}
 
       {/* Top floating header */}
       <View style={[styles.topContainer, { top: insets.top + 10 }]}>
@@ -585,36 +630,46 @@ export default function CameraScreen({ route, navigation }: any) {
             </View>
           )}
         </HeaderPill>
+        {externalCamera.isSupported && (
+          <View style={styles.modeToggleContainer}>
+            <CameraModeToggle
+              value={cameraMode}
+              onChange={handleCameraModeChange}
+            />
+          </View>
+        )}
       </View>
 
       {/* Bottom floating controls */}
       <View style={[styles.bottomContainer, { bottom: insets.bottom + 30 }]}>
         {/* Lens selector */}
-        <View style={styles.lensSelector}>
-          {(['ultra-wide', 'wide', 'telephoto'] as LensType[]).map((lens) => (
-            <TouchableOpacity
-              key={lens}
-              onPress={() => handleLensChange(lens)}
-              style={[
-                styles.lensButton,
-                selectedLens === lens && styles.lensButtonActive,
-                !availableLenses[lens] && styles.lensButtonDisabled,
-              ]}
-              activeOpacity={0.7}
-              disabled={!availableLenses[lens]}
-            >
-              <Text
+        {!isExternalMode && (
+          <View style={styles.lensSelector}>
+            {(['ultra-wide', 'wide', 'telephoto'] as LensType[]).map((lens) => (
+              <TouchableOpacity
+                key={lens}
+                onPress={() => handleLensChange(lens)}
                 style={[
-                  styles.lensText,
-                  selectedLens === lens && styles.lensTextActive,
-                  !availableLenses[lens] && styles.lensTextDisabled,
+                  styles.lensButton,
+                  selectedLens === lens && styles.lensButtonActive,
+                  !availableLenses[lens] && styles.lensButtonDisabled,
                 ]}
+                activeOpacity={0.7}
+                disabled={!availableLenses[lens]}
               >
-                {getLensDisplayText(lens)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.lensText,
+                    selectedLens === lens && styles.lensTextActive,
+                    !availableLenses[lens] && styles.lensTextDisabled,
+                  ]}
+                >
+                  {getLensDisplayText(lens)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Timer display */}
         {isSessionActive && (
@@ -626,7 +681,10 @@ export default function CameraScreen({ route, navigation }: any) {
         {/* Record button */}
         <TouchableOpacity
           onPress={handleRecordPress}
-          style={styles.recordButtonOuter}
+          style={[
+            styles.recordButtonOuter,
+            isExternalMode && styles.recordButtonDisabled,
+          ]}
           activeOpacity={0.8}
         >
           <View
@@ -729,6 +787,10 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 10,
+  },
+  modeToggleContainer: {
+    marginTop: 10,
+    alignItems: 'center',
   },
   headerPill: {
     flexDirection: 'row',
@@ -879,6 +941,9 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
+  },
+  recordButtonDisabled: {
+    opacity: 0.45,
   },
   recordButtonInner: {
     width: 68,
