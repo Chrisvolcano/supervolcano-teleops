@@ -6,6 +6,8 @@ node_modules/
 out/
 dist/
 
+mobile-app/.idea
+
 # environment & secrets
 .env*
 *.env
