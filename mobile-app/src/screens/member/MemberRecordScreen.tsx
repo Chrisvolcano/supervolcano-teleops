@@ -65,6 +65,12 @@ export default function MemberRecordScreen() {
   // Permissions
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
+  const cameraPermissionStatus =
+    hasCameraPermission === null
+      ? 'unknown'
+      : hasCameraPermission
+      ? 'granted'
+      : 'denied';
 
   // Camera device - prefer ultra-wide for cleaning (captures more)
   const device = useCameraDevice('back', {
@@ -142,6 +148,13 @@ export default function MemberRecordScreen() {
     }
   }, [isRecording]);
 
+  useEffect(() => {
+    if (!externalCamera.isSupported || !isExternalMode) {
+      return;
+    }
+    externalCamera.refresh();
+  }, [externalCamera.isSupported, externalCamera.refresh, isExternalMode]);
+
   // Animate progress bar
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -198,7 +211,7 @@ export default function MemberRecordScreen() {
     if (isExternalMode) {
       Alert.alert(
         'External Camera',
-        'Connect a USB camera and complete the checks to start recording.'
+        'Connect an external camera and complete the checks to start recording.'
       );
       return;
     }
@@ -245,11 +258,11 @@ export default function MemberRecordScreen() {
   // Get status message
   const getStatusMessage = (): string => {
     if (isExternalMode) {
-      if (externalCamera.usbPermissionStatus !== 'granted') {
-        return 'Enable USB permission to continue';
+      if (externalCamera.connectionStatus === 'disconnected') {
+        return 'Connect external camera to continue';
       }
-      if (externalCamera.connectionStatus !== 'connected') {
-        return 'Connect USB camera to continue';
+      if (externalCamera.connectionStatus === 'unknown') {
+        return 'Checking external camera...';
       }
       return 'External camera ready';
     }
@@ -329,7 +342,7 @@ export default function MemberRecordScreen() {
       {/* Full-screen camera */}
       {isExternalMode ? (
         <ExternalCameraPanel
-          usbPermissionStatus={externalCamera.usbPermissionStatus}
+          cameraPermissionStatus={cameraPermissionStatus}
           connectionStatus={externalCamera.connectionStatus}
           onOpenSettings={externalCamera.openSettings}
           style={{

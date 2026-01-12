@@ -8,13 +8,12 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type {
-  ExternalCameraConnectionStatus,
-  UsbPermissionStatus,
-} from '../../hooks/useExternalCameraDiagnostics';
+import type { ExternalCameraConnectionStatus } from '../../hooks/useExternalCameraDiagnostics';
+
+type CameraPermissionStatus = 'unknown' | 'granted' | 'denied';
 
 type ExternalCameraPanelProps = {
-  usbPermissionStatus: UsbPermissionStatus;
+  cameraPermissionStatus: CameraPermissionStatus;
   connectionStatus: ExternalCameraConnectionStatus;
   onOpenSettings?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -77,21 +76,29 @@ const TestRow = ({
 };
 
 export default function ExternalCameraPanel({
-  usbPermissionStatus,
+  cameraPermissionStatus,
   connectionStatus,
   onOpenSettings,
   style,
   preview,
 }: ExternalCameraPanelProps) {
   const permissionStatus: TestStatus =
-    usbPermissionStatus === 'granted'
+    cameraPermissionStatus === 'granted'
       ? 'pass'
-      : usbPermissionStatus === 'denied'
+      : cameraPermissionStatus === 'denied'
       ? 'fail'
       : 'pending';
 
   const permissionLabel =
-    usbPermissionStatus === 'granted' ? 'Granted' : 'Permission needed';
+    cameraPermissionStatus === 'granted'
+      ? 'Granted'
+      : cameraPermissionStatus === 'denied'
+      ? 'Not granted'
+      : 'Checking';
+  const permissionHelper =
+    cameraPermissionStatus === 'denied'
+      ? 'Allow camera access in settings.'
+      : undefined;
 
   const connectionTestStatus: TestStatus =
     connectionStatus === 'connected'
@@ -101,9 +108,18 @@ export default function ExternalCameraPanel({
       : 'pending';
 
   const connectionLabel =
-    connectionStatus === 'connected' ? 'Connected' : 'Not detected';
+    connectionStatus === 'connected'
+      ? 'Connected'
+      : connectionStatus === 'disconnected'
+      ? 'Not detected'
+      : 'Checking';
+  const connectionHelper =
+    connectionStatus === 'connected'
+      ? undefined
+      : 'Connect an external camera to continue.';
 
-  const showSettingsAction = usbPermissionStatus !== 'granted' && onOpenSettings;
+  const showSettingsAction =
+    cameraPermissionStatus === 'denied' && onOpenSettings;
 
   return (
     <View style={[styles.container, style]}>
@@ -120,18 +136,18 @@ export default function ExternalCameraPanel({
       <View style={styles.testsCard}>
         <Text style={styles.testsTitle}>External camera checks</Text>
         <TestRow
-          title="USB camera permission"
+          title="Camera permission"
           status={permissionStatus}
           statusLabel={permissionLabel}
-          helperText="Allow USB access in settings."
+          helperText={permissionHelper}
           actionLabel={showSettingsAction ? 'Open settings' : undefined}
           onAction={showSettingsAction ? onOpenSettings : undefined}
         />
         <TestRow
-          title="Camera connection"
+          title="External camera detected"
           status={connectionTestStatus}
           statusLabel={connectionLabel}
-          helperText="Plug in a USB camera to continue."
+          helperText={connectionHelper}
         />
       </View>
     </View>

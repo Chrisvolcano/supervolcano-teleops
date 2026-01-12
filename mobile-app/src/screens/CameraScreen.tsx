@@ -59,6 +59,12 @@ export default function CameraScreen({ route, navigation }: any) {
   const [cameraMode, setCameraMode] = useState<CameraMode>('native');
   const externalCamera = useExternalCameraDiagnostics();
   const isExternalMode = cameraMode === 'external';
+  const cameraPermissionStatus =
+    hasCameraPermission === null
+      ? 'unknown'
+      : hasCameraPermission
+      ? 'granted'
+      : 'denied';
 
   // Get a device that supports all physical lenses for smooth switching
   const device = useCameraDevice('back', {
@@ -161,6 +167,13 @@ export default function CameraScreen({ route, navigation }: any) {
       pulseAnim.setValue(1);
     }
   }, [isRecording]);
+
+  useEffect(() => {
+    if (!externalCamera.isSupported || !isExternalMode) {
+      return;
+    }
+    externalCamera.refresh();
+  }, [externalCamera.isSupported, externalCamera.refresh, isExternalMode]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -331,7 +344,7 @@ export default function CameraScreen({ route, navigation }: any) {
     if (isExternalMode) {
       Alert.alert(
         'External Camera',
-        'Connect a USB camera and complete the checks to start recording.'
+        'Connect an external camera and complete the checks to start recording.'
       );
       return;
     }
@@ -386,11 +399,11 @@ export default function CameraScreen({ route, navigation }: any) {
   // Get status message
   const getStatusMessage = (): string => {
     if (isExternalMode) {
-      if (externalCamera.usbPermissionStatus !== 'granted') {
-        return 'Enable USB permission to continue';
+      if (externalCamera.connectionStatus === 'disconnected') {
+        return 'Connect external camera to continue';
       }
-      if (externalCamera.connectionStatus !== 'connected') {
-        return 'Connect USB camera to continue';
+      if (externalCamera.connectionStatus === 'unknown') {
+        return 'Checking external camera...';
       }
       return 'External camera ready';
     }
@@ -569,7 +582,7 @@ export default function CameraScreen({ route, navigation }: any) {
       {/* Full-screen camera */}
       {isExternalMode ? (
         <ExternalCameraPanel
-          usbPermissionStatus={externalCamera.usbPermissionStatus}
+          cameraPermissionStatus={cameraPermissionStatus}
           connectionStatus={externalCamera.connectionStatus}
           onOpenSettings={externalCamera.openSettings}
           style={{
