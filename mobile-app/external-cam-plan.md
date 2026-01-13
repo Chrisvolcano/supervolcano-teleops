@@ -50,6 +50,7 @@ with a React Native UI toggle between built-in and external cameras.
 
 ### ExternalCameraView
 - Wrap `PreviewView` in a React Native view manager.
+- Make sure the Preview will be able to fill the screen edge to edge
 - Use `match_parent` layout and `PreviewView.ScaleType.FILL_CENTER` by default.
 - Update `targetRotation` from `PreviewView.display.rotation`.
 
@@ -75,6 +76,7 @@ with a React Native UI toggle between built-in and external cameras.
 - Set `PreviewView.ScaleType` to `FILL_CENTER` (edge-to-edge) or `FIT_CENTER`
   (letterbox) per UX preference.
 - Re-bind use cases on orientation changes and `onLayout` events.
+- Make sure preview works on both landscape and portrait mode.
 
 ## Permissions
 - Required: `CAMERA` and `android.hardware.usb.host`.
